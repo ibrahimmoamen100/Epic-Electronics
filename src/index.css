@@ -1,0 +1,212 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 235 54% 37%; /* #2c3192 */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 160 84% 39%; /* #10B981 - emerald-500 */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 43 96% 56%; /* #F59E0B - amber-500 */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 235 54% 37%; /* #2c3192 */
+    --radius: 0.75rem;
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 240 10% 3.9%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 240 5.9% 90%;
+    --sidebar-ring: 235 54% 37%; /* #2c3192 */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground max-w-full overflow-x-hidden mr-0;
+    font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html {
+    @apply overflow-x-hidden mr-0;
+    scroll-behavior: smooth;
+  }
+
+  /* Fix for modal and dropdown shifting layout */
+  body.with-modal-open {
+    @apply pr-0 overflow-y-hidden;
+    width: 100% !important;
+    position: fixed;
+    top: 0;
+    height: 100%;
+  }
+}
+
+.product-card {
+  @apply relative overflow-hidden rounded-lg transition-all duration-300 hover:shadow-lg;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.product-card-overlay {
+  @apply absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity duration-300;
+  will-change: opacity;
+}
+
+.product-card:hover .product-card-overlay {
+  @apply opacity-100;
+}
+
+.product-image {
+  @apply aspect-[3/4] w-full object-cover transition-transform duration-300;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.product-card:hover .product-image {
+  @apply scale-105;
+}
+
+/* RTL support */
+html[dir="rtl"] .product-card,
+html[dir="rtl"] .input,
+html[dir="rtl"] .button {
+  @apply text-right;
+}
+
+/* Fix scrolling issues */
+.container {
+  @apply mx-auto max-w-[1400px] px-4 md:px-6;
+  contain: content;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .container {
+    @apply px-3;
+  }
+}
+
+/* Improved cart page for mobile */
+@media (max-width: 640px) {
+  .cart-container {
+    @apply flex flex-col gap-4;
+  }
+
+  .cart-item {
+    @apply flex-col;
+  }
+
+  .cart-summary {
+    @apply w-full p-3;
+  }
+}
+
+/* Color circle styles */
+.color-circle {
+  @apply inline-block w-4 h-4 rounded-full border border-gray-300 mr-2;
+  will-change: transform;
+}
+
+/* Fix modal and dropdown content */
+.SelectContent,
+.dialog-content,
+.drawer-content {
+  @apply bg-white z-50;
+  will-change: transform, opacity;
+}
+
+/* Fix to prevent content shift when modal opens */
+[data-state="open"] {
+  @apply z-50;
+}
+
+/* Fix for layout shift caused by scrollbar disappearing */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Prevent layout shift when modal opens */
+.fixed-width-container {
+  width: 100vw;
+  position: relative;
+  overflow-x: hidden;
+  contain: content;
+}
+
+#root {
+  width: 100%;
+  contain: content;
+}
+
+html body[data-scroll-locked]:not([data-scroll-no-lock]) {
+  min-width: 100%;
+  margin-right: 0 !important;
+  overflow: inherit !important;
+}
+
+/* Performance optimizations */
+img {
+  content-visibility: auto;
+}
+
+.lazy-load {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Optimize animations */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Analytics Charts */
+.grid-cols-24 {
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+}
+
+.analytics-chart-bar {
+  transition: height 0.3s ease-in-out;
+}
+
+.analytics-chart-bar:hover {
+  opacity: 0.8;
+}
+
+/* Real-time indicator */
+.real-time-indicator {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
