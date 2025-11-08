@@ -51,6 +51,15 @@ class Analytics {
   private sessionId: string;
   private sessionStartTime: Date;
   private currentPageStartTime: Date;
+  private lastTrackedPath: string | null = null;
+  private lastTrackTimestamp: number = 0;
+  private trackCooldownMs: number = 10000; // 10 seconds between tracked pageviews for same path
+  private writesEnabled: boolean = true; // disable writes after permission errors
+  private sessionWriteCount: number = 0;
+  private sessionWriteLimit: number = 100; // max writes per session to avoid bursts
+  private perPathCounts: Map<string, number> = new Map();
+  private perPathLimit: number = 10; // max writes per path per session
+  private debugEnabled: boolean = false; // set true to enable debug logs
 
   // Helper function to sanitize page paths for Firestore document IDs
   private sanitizePagePath(page: string): string {
@@ -127,6 +136,19 @@ class Analytics {
     return 'Other';
   }
 
+  // Normalize path used for deduplication: remove query string and hash, ensure leading slash
+  private normalizePath(path: string): string {
+    try {
+      let p = path.split('#')[0].split('?')[0];
+      if (!p.startsWith('/')) p = '/' + p;
+      // Remove trailing slash unless root
+      if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+      return p;
+    } catch (error) {
+      return path;
+    }
+  }
+
   private async initializeSession() {
     const sessionData: VisitorSession = {
       id: this.sessionId,
@@ -148,6 +170,31 @@ class Analytics {
   async trackPageView(page: string): Promise<void> {
     if (!page || typeof page !== 'string') {
       console.warn('Invalid page path provided to trackPageView:', page);
+      return;
+    }
+
+    // Normalize path: remove trailing slash, ignore query/hash for counting
+    const normalized = this.normalizePath(page);
+
+    const nowTs = Date.now();
+    if (this.debugEnabled) console.debug('Analytics.trackPageView called', { page, normalized, nowTs });
+
+    // Basic guards: don't spam same path repeatedly in a tight loop
+    if (this.lastTrackedPath === normalized && (nowTs - this.lastTrackTimestamp) < this.trackCooldownMs) {
+      if (this.debugEnabled) console.debug('Analytics: skipping trackPageView due to cooldown', { normalized, since: nowTs - this.lastTrackTimestamp });
+      return;
+    }
+
+    // Prevent excessive writes per session
+    if (this.sessionWriteCount >= this.sessionWriteLimit) {
+      // Optionally, disable writes after limit is reached
+      this.writesEnabled = false;
+      return;
+    }
+
+    if (!this.writesEnabled) {
+      // Writes have been disabled due to previous permission issues
+      if (this.debugEnabled) console.debug('Analytics: writesDisabled, skipping track for', normalized);
       return;
     }
 
@@ -178,9 +225,19 @@ class Analytics {
     }
 
     try {
-      // Save page view
-      await setDoc(doc(db, 'page_views', pageView.id), pageView);
-      
+      // per-path count guard
+      const pathCount = this.perPathCounts.get(normalized) || 0;
+      if (pathCount >= this.perPathLimit) {
+        if (this.debugEnabled) console.debug('Analytics: per-path limit reached, skipping', { normalized, pathCount, perPathLimit: this.perPathLimit });
+        return;
+      }
+      const now = new Date();
+      const timeOnPage = this.currentPageStartTime 
+        ? now.getTime() - this.currentPageStartTime.getTime() 
+        : 0;
+  // Save page view
+  await setDoc(doc(db, 'page_views', pageView.id), pageView);
+
       // Update session
       const sessionRef = doc(db, 'visitor_sessions', this.sessionId);
       await setDoc(sessionRef, {
@@ -205,11 +262,24 @@ class Analytics {
         page,
       }, { merge: true });
 
-    } catch (error) {
+  // Count successful write
+  this.sessionWriteCount += 1;
+  this.perPathCounts.set(normalized, pathCount + 1);
+  this.lastTrackedPath = normalized;
+  this.lastTrackTimestamp = nowTs;
+  if (this.debugEnabled) console.debug('Analytics: tracked page view', { normalized, sessionWriteCount: this.sessionWriteCount, perPath: this.perPathCounts.get(normalized) });
+
+    } catch (error: any) {
       console.error('Error tracking page view:', error);
+      // If error looks like permission-denied or similar, disable further writes
+      const msg = (error && (error.message || error.code || '')).toString().toLowerCase();
+      if (msg.includes('permission') || msg.includes('permission-denied') || msg.includes('not allowed') || msg.includes('not-authorized')) {
+        console.warn('Analytics: disabling writes due to permission error');
+        this.writesEnabled = false;
+      }
     }
 
-    this.currentPageStartTime = now;
+    this.currentPageStartTime = new Date();
   }
 
   async endSession(): Promise<void> {
@@ -403,27 +473,55 @@ class Analytics {
 // Create singleton instance
 export const analytics = new Analytics();
 
-// Auto-track page views
+// Auto-track page views using History API hooks (avoid MutationObserver which
+// can fire frequently and cause duplicate tracking while staying on the same
+// page). This also provides more deterministic detection of SPA navigations.
 if (typeof window !== 'undefined') {
   // Track initial page view
   analytics.trackPageView(window.location.pathname);
 
-  // Track navigation changes
-  let currentPath = window.location.pathname;
-  const observer = new MutationObserver(() => {
-    if (window.location.pathname !== currentPath) {
-      analytics.trackPageView(window.location.pathname);
-      currentPath = window.location.pathname;
-    }
-  });
+  // Wrap history methods to dispatch a custom event we can listen to
+  (function(history) {
+    const pushState = history.pushState;
+    const replaceState = history.replaceState;
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
+    history.pushState = function(...args: any[]) {
+      const result = pushState.apply(this, args as any);
+      window.dispatchEvent(new Event('locationchange'));
+      return result;
+    } as any;
+
+    history.replaceState = function(...args: any[]) {
+      const result = replaceState.apply(this, args as any);
+      window.dispatchEvent(new Event('locationchange'));
+      return result;
+    } as any;
+  })(window.history);
+
+  // Also listen for popstate which the browser fires on back/forward
+  window.addEventListener('popstate', () => window.dispatchEvent(new Event('locationchange')));
+
+  // Debounced handler to avoid rapid consecutive tracking calls
+  let trackTimeout: number | null = null;
+  const handleLocationChange = () => {
+    if (trackTimeout) {
+      clearTimeout(trackTimeout as any);
+    }
+    trackTimeout = window.setTimeout(() => {
+      try {
+        const path = window.location.pathname;
+        analytics.trackPageView(path);
+      } catch (e) {
+        console.warn('Analytics: trackPageView failed on locationchange', e);
+      }
+      trackTimeout = null;
+    }, 300);
+  };
+
+  window.addEventListener('locationchange', handleLocationChange);
 
   // Track session end
   window.addEventListener('beforeunload', () => {
     analytics.endSession();
   });
-} 
+}

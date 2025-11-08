@@ -90,6 +90,9 @@ export default function Products() {
     let matchesColor = true;
     let matchesSize = true;
     let matchesSupplier = true;
+  let matchesProcessorName = true;
+  let matchesDedicatedGraphicsName = true;
+  let matchesHasDedicatedGraphics = true;
 
     // Exclude archived products
     if (product.isArchived) {
@@ -120,6 +123,18 @@ export default function Products() {
         .some((c) => c.trim() === filters.color);
     }
 
+    if (filters.processorName) {
+      matchesProcessorName = product.processor?.name === filters.processorName;
+    }
+
+    if (filters.dedicatedGraphicsName) {
+      matchesDedicatedGraphicsName = product.dedicatedGraphics?.name === filters.dedicatedGraphicsName;
+    }
+
+    if (filters.hasDedicatedGraphics !== undefined) {
+      matchesHasDedicatedGraphics = !!product.dedicatedGraphics === filters.hasDedicatedGraphics;
+    }
+
     if (filters.size) {
       matchesSize = product.size
         ?.split(",")
@@ -135,6 +150,9 @@ export default function Products() {
       matchesBrand &&
       matchesColor &&
       matchesSize
+      && matchesProcessorName
+      && matchesDedicatedGraphicsName
+      && matchesHasDedicatedGraphics
     );
   });
 

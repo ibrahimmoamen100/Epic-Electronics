@@ -33,6 +33,9 @@ interface AdminFiltersProps {
     category?: string;
     brand?: string;
     supplier?: string;
+    processorName?: string;
+    dedicatedGraphicsName?: string;
+    hasDedicatedGraphics?: boolean;
     isArchived?: boolean;
     archivedStatus?: "all" | "archived" | "active";
     specialOffer?: "all" | "with-offer" | "without-offer";
@@ -55,6 +58,21 @@ export function AdminFilters({
   );
   const brands = Array.from(
     new Set(products.map((p) => p.brand).filter(Boolean))
+  );
+  const processorNames = Array.from(
+    new Set(
+      products
+        .map((p) => p.processor?.name)
+        .filter(Boolean)
+    )
+  );
+
+  const dedicatedGpuNames = Array.from(
+    new Set(
+      products
+        .map((p) => p.dedicatedGraphics?.name)
+        .filter(Boolean)
+    )
   );
   // const suppliers = Array.from(
   //   new Set(products.map((p) => p.wholesaleInfo?.supplierName).filter(Boolean))
@@ -197,6 +215,86 @@ export function AdminFilters({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Processor Name */}
+        <div className="space-y-2 bg-secondary/10 p-4 rounded-lg">
+          <Label className="flex items-center gap-2 text-base">
+            <Package className="h-4 w-4 text-primary" />
+            اسم المعالج
+          </Label>
+          <Select
+            value={filters.processorName || "all"}
+            onValueChange={(value) =>
+              onFilterChange({
+                ...filters,
+                processorName: value === "all" ? undefined : value,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="اختر اسم المعالج" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع المعالجات</SelectItem>
+              {processorNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Dedicated GPU Name */}
+        <div className="space-y-2 bg-secondary/10 p-4 rounded-lg">
+          <Label className="flex items-center gap-2 text-base">
+            <Tag className="h-4 w-4 text-primary" />
+            اسم كرت الشاشة الخارجي
+          </Label>
+          <Select
+            value={filters.dedicatedGraphicsName || "all"}
+            onValueChange={(value) =>
+              onFilterChange({
+                ...filters,
+                dedicatedGraphicsName: value === "all" ? undefined : value,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="اختر اسم الكرت" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع الموديلات</SelectItem>
+              {dedicatedGpuNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Has Dedicated GPU Toggle */}
+        <div className="space-y-2 bg-secondary/10 p-4 rounded-lg">
+          <Label className="flex items-center gap-2 text-base">
+            <Filter className="h-4 w-4 text-primary" />
+            يوجد كرت شاشة خارجي
+          </Label>
+          <div className="flex items-center">
+            <Switch
+              checked={!!filters.hasDedicatedGraphics}
+              onCheckedChange={(checked) =>
+                onFilterChange({
+                  ...filters,
+                  hasDedicatedGraphics: checked ? true : undefined,
+                })
+              }
+            />
+            <Label className="ms-2 text-sm text-muted-foreground">
+              {filters.hasDedicatedGraphics ? "عرض فقط" : "كله"}
+            </Label>
+          </div>
         </div>
 
         {/* Supplier */}

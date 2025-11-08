@@ -96,6 +96,9 @@ export const FilterSchema = z.object({
   minPrice: z.number().optional(),
   maxPrice: z.number().optional(),
   supplier: z.string().optional(),
+  processorName: z.string().optional(),
+  dedicatedGraphicsName: z.string().optional(),
+  hasDedicatedGraphics: z.boolean().optional(),
   sortBy: z
     .enum(["price-asc", "price-desc", "name-asc", "name-desc"])
     .optional(),

@@ -6,14 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { initializeAdmin } from '@/lib/adminAuth';
 
 interface AdminLoginProps {
-  onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  onLogin: (password: string) => Promise<{ success: boolean; error?: string }>;
   loading: boolean;
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, loading: authLoading }) => {
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,28 +28,22 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, loading: authLoading }
 
     try {
       // Basic validation
-      if (!email.trim()) {
-        setError('يرجى إدخال البريد الإلكتروني');
-        setLoading(false);
-        return;
-      }
-
       if (!password.trim()) {
         setError('يرجى إدخال كلمة المرور');
         setLoading(false);
         return;
       }
 
-      if (password.length < 6) {
-        setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      if (password.length < 4) {
+        setError('كلمة المرور يجب أن تكون 4 أحرف على الأقل');
         setLoading(false);
         return;
       }
 
       // Attempt login using the hook's login function
       console.log('🔐 AdminLogin: Calling onLogin...');
-      console.log('🔐 AdminLogin: Login credentials:', { email: email.trim(), passwordLength: password.length });
-      const result = await onLogin(email.trim(), password);
+      console.log('🔐 AdminLogin: Login credentials:', { passwordLength: password.length });
+      const result = await onLogin(password);
       console.log('🔐 AdminLogin: Login result:', result);
       
       if (result.success) {
@@ -58,7 +52,6 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, loading: authLoading }
         console.log('🔐 AdminLogin: Toast shown, component should re-render');
         
         // Clear form after successful login
-        setEmail('');
         setPassword('');
         setError('');
         
@@ -87,6 +80,34 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, loading: authLoading }
     }
   };
 
+  const handleInitializeAdmin = async () => {
+    try {
+      console.log('🔧 Initializing admin configuration...');
+      toast.loading('جاري تهيئة إعدادات الإدارة...', { id: 'init-admin' });
+      
+      const result = await initializeAdmin();
+      
+      if (result.success) {
+        toast.success('تم', {
+          id: 'init-admin',
+          duration: 5000
+        });
+        console.log('✅ Admin configuration initialized successfully');
+      } else {
+        toast.error(`فشل في تهيئة الإعدادات: ${result.error}`, {
+          id: 'init-admin'
+        });
+        console.error('❌ Failed to initialize admin:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error initializing admin:', error);
+      toast.error('حدث خطأ أثناء تهيئة الإعدادات', {
+        id: 'init-admin'
+      });
+    }
+  };
+
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md shadow-xl border-0">
@@ -106,26 +127,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, loading: authLoading }
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                البريد الإلكتروني
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="admin@example.com"
-                disabled={loading}
-                className="h-11"
-                required
-              />
-            </div>
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium text-gray-700">
@@ -179,10 +184,23 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, loading: authLoading }
             </Button>
           </form>
 
-          <div className="text-center">
+          <div className="text-center space-y-3">
             <p className="text-xs text-gray-500">
-              هذا النظام محمي بواسطة Firebase Authentication
+              هذا النظام محمي بواسطة Firebase
             </p>
+            {/* زر التهيئة مخفي - للاستخدام عند نسخ المشروع فقط */}
+            {process.env.NODE_ENV === 'development' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleInitializeAdmin}
+                disabled={loading}
+                className="text-xs"
+              >
+                تهيئة إعدادات الإدارة (للمطورين)
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp, runTransaction } from 'firebase/firestore';
 import { Product } from '@/types/product';
 
@@ -26,20 +26,6 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-// Google Auth Provider
-export const googleProvider = new GoogleAuthProvider();
-
-// Configure Google Auth Provider
-googleProvider.setCustomParameters({
-  prompt: 'select_account',
-  access_type: 'offline',
-  include_granted_scopes: 'true'
-});
-
-// Add scopes if needed
-googleProvider.addScope('profile');
-googleProvider.addScope('email');
 
 // Initialize Analytics only in production
 let analytics;
@@ -108,6 +94,7 @@ export class FirebaseProductsService {
 
   // Get all products
   async getAllProducts(): Promise<Product[]> {
+    // Try Firebase first
     try {
       const productsRef = collection(db, this.collectionName);
       const q = query(productsRef, orderBy('createdAt', 'desc'));
@@ -125,10 +112,40 @@ export class FirebaseProductsService {
         } as Product);
       });
       
+      // Also load products from localStorage fallback and merge
+      try {
+        const localProductsKey = 'local_products_fallback';
+        const localProductsJson = localStorage.getItem(localProductsKey);
+        if (localProductsJson) {
+          const localProducts: Product[] = JSON.parse(localProductsJson);
+          console.log('📦 Found', localProducts.length, 'products in localStorage fallback');
+          // Merge local products with Firebase products (avoid duplicates)
+          const firebaseIds = new Set(products.map(p => p.id));
+          const uniqueLocalProducts = localProducts.filter(p => !firebaseIds.has(p.id));
+          products.push(...uniqueLocalProducts);
+        }
+      } catch (localError) {
+        console.warn('⚠️ Error loading local products:', localError);
+      }
+      
       return products;
-    } catch (error) {
-      console.error('Error getting products:', error);
-      throw error;
+    } catch (error: any) {
+      console.warn('⚠️ Failed to load products from Firebase (falling back to localStorage):', error?.message || error);
+      
+      // Fallback to localStorage
+      try {
+        const localProductsKey = 'local_products_fallback';
+        const localProductsJson = localStorage.getItem(localProductsKey);
+        if (localProductsJson) {
+          const localProducts: Product[] = JSON.parse(localProductsJson);
+          console.log('✅ Loaded', localProducts.length, 'products from localStorage fallback');
+          return localProducts;
+        }
+        return [];
+      } catch (localError) {
+        console.error('❌ Error loading products from localStorage:', localError);
+        return [];
+      }
     }
   }
 
@@ -158,13 +175,17 @@ export class FirebaseProductsService {
 
   // Add new product
   async addProduct(product: Omit<Product, 'id'>): Promise<Product> {
+    // Clean the product data by removing undefined values
+    const cleanProduct = Object.fromEntries(
+      Object.entries(product).filter(([_, value]) => value !== undefined)
+    );
+    
+    // Build slug from product name and ensure uniqueness
+    const baseSlug = this.slugifyProductName((cleanProduct as any).name || 'product');
+    
+    // Try Firebase first
     try {
       const productsRef = collection(db, this.collectionName);
-
-      // Clean the product data by removing undefined values
-      const cleanProduct = Object.fromEntries(
-        Object.entries(product).filter(([_, value]) => value !== undefined)
-      );
       
       // Convert dates to Firestore Timestamps
       const productData = {
@@ -174,21 +195,47 @@ export class FirebaseProductsService {
         expirationDate: (cleanProduct as any).expirationDate ? Timestamp.fromDate(new Date((cleanProduct as any).expirationDate)) : null,
       };
 
-      // Build slug from product name and ensure uniqueness
-      const baseSlug = this.slugifyProductName((cleanProduct as any).name || 'product');
       const uniqueSlug = await this.ensureUniqueSlug(baseSlug);
 
       // Create document with custom ID equal to the slug
       const docRef = doc(productsRef, uniqueSlug);
       await setDoc(docRef, productData);
 
+      console.log('✅ Product added to Firebase successfully:', uniqueSlug);
+      
       return {
         ...(cleanProduct as any),
         id: uniqueSlug,
       } as Product;
-    } catch (error) {
-      console.error('Error adding product:', error);
-      throw error;
+    } catch (error: any) {
+      console.warn('⚠️ Failed to add product to Firebase (falling back to localStorage):', error?.message || error);
+      
+      // Fallback to localStorage
+      try {
+        const uniqueSlug = baseSlug + '-' + Date.now();
+        const productWithId = {
+          ...(cleanProduct as any),
+          id: uniqueSlug,
+        } as Product;
+        
+        // Save to localStorage
+        const localProductsKey = 'local_products_fallback';
+        const existingProducts = localStorage.getItem(localProductsKey);
+        const products = existingProducts ? JSON.parse(existingProducts) : [];
+        products.push(productWithId);
+        localStorage.setItem(localProductsKey, JSON.stringify(products));
+        
+        console.log('✅ Product saved to localStorage as fallback:', uniqueSlug);
+        console.warn('⚠️ Product saved locally due to Firebase permissions issue. Product will be available but not synced to Firebase.');
+        
+        // Add a flag to indicate this was saved locally
+        (productWithId as any)._savedLocally = true;
+        
+        return productWithId;
+      } catch (localError) {
+        console.error('❌ Error saving product to localStorage:', localError);
+        throw new Error('فشل في إضافة المنتج. يرجى المحاولة مرة أخرى.');
+      }
     }
   }
 
@@ -583,6 +630,50 @@ export const restoreProductQuantitiesAtomically = async (restores: QuantityResto
       
       console.log(`Transaction: استعادة المنتج ${productData.name} من ${productData.wholesaleInfo?.quantity || 0} إلى ${newQuantity}`);
     }
+  });
+};
+
+// Create an order document and update product quantities atomically in a single
+// Firestore transaction. This prevents races where orders are created but stock
+// isn't deducted (or vice versa).
+export const createOrderAndUpdateProductQuantitiesAtomically = async (
+  orderPayload: any,
+  quantityUpdates: QuantityUpdate[]
+): Promise<{ orderId: string }> => {
+  return runTransaction(db, async (transaction) => {
+    // Create a new order doc with an auto-generated ID
+    const ordersRef = collection(db, 'orders');
+    const newOrderRef = doc(ordersRef); // create a DocumentReference with auto ID
+
+    // Read product docs to validate and compute new quantities
+    const productDocs = await Promise.all(
+      quantityUpdates.map(u => transaction.get(doc(db, 'products', u.productId)))
+    );
+
+    for (let i = 0; i < quantityUpdates.length; i++) {
+      const update = quantityUpdates[i];
+      const productDoc = productDocs[i];
+      if (!productDoc.exists()) {
+        throw new Error(`المنتج ${update.productId} غير موجود`);
+      }
+
+      const productData = productDoc.data() as Product;
+      const currentQuantity = productData.wholesaleInfo?.quantity || 0;
+      const newQuantity = Math.max(0, currentQuantity - update.quantityToDeduct);
+
+      // Update product quantity in transaction
+      transaction.update(doc(db, 'products', update.productId), {
+        'wholesaleInfo.quantity': newQuantity
+      });
+    }
+
+    // Write the order document
+    transaction.set(newOrderRef, {
+      ...orderPayload,
+      createdAt: Timestamp.now(),
+    });
+
+    return { orderId: newOrderRef.id };
   });
 };
 

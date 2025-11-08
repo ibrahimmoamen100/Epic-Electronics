@@ -1,47 +1,52 @@
-import { initializeAdmin } from '@/lib/adminAuth';
+import { adminAuthService } from '@/lib/adminAuth';
 
-/**
- * Initialize Admin User Script
- * 
- * This script should be run once to set up the admin user in Firebase.
- * Run this in the browser console or create a temporary admin setup page.
- * 
- * Usage:
- * 1. Open browser console on your admin page
- * 2. Run: await initializeAdminUser('admin@yourstore.com', 'securepassword123')
- * 3. Delete this file after successful setup
- */
-
-export const initializeAdminUser = async (email: string, password: string) => {
+// دالة لتهيئة إعدادات الإدارة تلقائياً
+export const initializeAdminOnStartup = async () => {
   try {
-    console.log('Initializing admin user...');
+    console.log('🚀 Initializing admin configuration on startup...');
     
-    if (!email || !password) {
-      throw new Error('Email and password are required');
-    }
-
-    if (password.length < 6) {
-      throw new Error('Password must be at least 6 characters long');
-    }
-
-    const result = await initializeAdmin(email, password);
+    const result = await adminAuthService.initializeAdminConfig();
     
     if (result.success) {
-      console.log('✅ Admin user created successfully!');
-      console.log('Email:', email);
-      console.log('You can now log in with these credentials.');
-      return result;
+      console.log('✅ Admin configuration initialized successfully');
+      if (result.error === 'Admin configuration already exists') {
+        console.log('ℹ️ Admin configuration was already set up');
+      } else {
+        console.log('🆕 New admin configuration created');
+      }
     } else {
-      console.error('❌ Failed to create admin user:', result.error);
-      return result;
+      console.error('❌ Failed to initialize admin configuration:', result.error);
     }
-  } catch (error: any) {
-    console.error('❌ Error initializing admin user:', error);
-    return { success: false, error: error.message };
+    
+    return result;
+  } catch (error) {
+    console.error('❌ Error during admin initialization:', error);
+    return { success: false, error: 'Failed to initialize admin' };
   }
 };
 
-// Example usage (uncomment and modify as needed):
-// await initializeAdminUser('admin@yourstore.com', 'your-secure-password-123');
+// تهيئة الإدارة عند تحميل الملف
+if (typeof window !== 'undefined') {
+  // تهيئة الإدارة بعد تحميل الصفحة
+  setTimeout(() => {
+    initializeAdminOnStartup();
+  }, 1000);
+}
 
-export default initializeAdminUser; 
+// Backwards-compatible helper used by AdminSetup page. The admin flow in this
+// project centralizes initialization in adminAuthService.initializeAdminConfig().
+// AdminSetup expects a function named `initializeAdminUser(email, password)` so
+// we export a small wrapper that delegates to the service. Currently the
+// admin password is managed inside adminAuthService; the passed email/password
+// arguments are accepted for compatibility but the service controls the stored
+// credentials.
+export const initializeAdminUser = async (email?: string, password?: string) => {
+  try {
+    console.log('initializeAdminUser: called with', { emailProvided: !!email, passwordProvided: !!password });
+    const result = await (await import('@/lib/adminAuth')).adminAuthService.initializeAdminConfig();
+    return result;
+  } catch (error: any) {
+    console.error('initializeAdminUser error:', error);
+    return { success: false, error: error?.message || 'Failed to initialize admin' };
+  }
+};

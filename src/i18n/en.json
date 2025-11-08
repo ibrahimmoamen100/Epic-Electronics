@@ -37,6 +37,12 @@
     "clearAll": "Clear All Filters",
     "apply": "Apply Filters",
     "selectCategoryFirst": "Please select a category first"
+    ,
+    "processor": "Processor",
+    "dedicatedGraphics": "Dedicated Graphics",
+    "onlyWithGPU": "Only products with dedicated GPU",
+    "allProcessors": "All Processors",
+    "allGPUs": "All GPUs"
   },
   "product": {
     "addToCart": "Add to Cart",

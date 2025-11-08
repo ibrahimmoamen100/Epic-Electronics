@@ -62,6 +62,7 @@ import { useNavigate } from "react-router-dom";
 import { useRevenue } from "@/hooks/useRevenue";
 import { salesService } from "@/lib/firebase";
 import { formatCurrency } from "@/utils/format";
+import { initializeAdmin, cleanupLocalAdminConfig } from "@/lib/adminAuth";
 
 interface Order {
   id: string;
@@ -94,6 +95,9 @@ const Admin = () => {
     category: undefined as string | undefined,
     brand: undefined as string | undefined,
     supplier: undefined as string | undefined,
+    processorName: undefined as string | undefined,
+    dedicatedGraphicsName: undefined as string | undefined,
+    hasDedicatedGraphics: undefined as boolean | undefined,
     isArchived: false,
     archivedStatus: "active" as "all" | "archived" | "active",
     specialOffer: "all" as "all" | "with-offer" | "without-offer",
@@ -121,6 +125,11 @@ const Admin = () => {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  // Clean up any locally stored admin config on mount for security
+  useEffect(() => {
+    cleanupLocalAdminConfig();
+  }, []);
 
   // Show error toast if there's an error
   useEffect(() => {
@@ -235,6 +244,16 @@ const Admin = () => {
         (filters.specialOffer === "with-offer" && product.specialOffer) ||
         (filters.specialOffer === "without-offer" && !product.specialOffer);
 
+      const matchesProcessorName =
+        !filters.processorName || product.processor?.name === filters.processorName;
+
+      const productDedicatedName = product.dedicatedGraphics?.name || undefined;
+      const matchesDedicatedGraphicsName =
+        !filters.dedicatedGraphicsName || productDedicatedName === filters.dedicatedGraphicsName;
+
+      const matchesHasDedicatedGraphics =
+        filters.hasDedicatedGraphics === undefined || !!product.dedicatedGraphics === filters.hasDedicatedGraphics;
+
       return (
         matchesDate &&
         matchesPrice &&
@@ -242,7 +261,10 @@ const Admin = () => {
         matchesBrand &&
         matchesSupplier &&
         matchesArchiveStatus &&
-        matchesSpecialOffer
+        matchesSpecialOffer &&
+        matchesProcessorName &&
+        matchesDedicatedGraphicsName &&
+        matchesHasDedicatedGraphics
       );
     });
   };
@@ -250,9 +272,9 @@ const Admin = () => {
   const filteredProducts = filterProductsByDate(products);
 
   // Handle login using the hook's login function
-  const handleLogin = useCallback(async (email: string, password: string) => {
-    console.log('🔐 Admin: handleLogin called with email:', email);
-    const result = await login(email, password);
+  const handleLogin = useCallback(async (password: string) => {
+    console.log('🔐 Admin: handleLogin called');
+    const result = await login(password);
     console.log('🔐 Admin: handleLogin result:', result);
     
     if (result.success) {
@@ -314,6 +336,34 @@ const Admin = () => {
   );
 
   // Reset all pages data
+  // دالة لتهيئة إعدادات الإدارة يدوياً
+  const handleInitializeAdmin = useCallback(async () => {
+    try {
+      console.log('🔧 Initializing admin configuration manually...');
+      toast.loading('جاري تهيئة إعدادات الإدارة...', { id: 'init-admin' });
+      
+      const result = await initializeAdmin();
+      
+      if (result.success) {
+        toast.success('تم تهيئة إعدادات الإدارة بنجاح! كلمة المرور: 45086932', {
+          id: 'init-admin',
+          duration: 5000
+        });
+        console.log('✅ Admin configuration initialized successfully');
+      } else {
+        toast.error(`فشل في تهيئة الإعدادات: ${result.error}`, {
+          id: 'init-admin'
+        });
+        console.error('❌ Failed to initialize admin:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error initializing admin:', error);
+      toast.error('حدث خطأ أثناء تهيئة الإعدادات', {
+        id: 'init-admin'
+      });
+    }
+  }, []);
+
   const handleResetAllPages = useCallback(async () => {
     // Show confirmation dialog
     const confirmed = window.confirm(
@@ -408,7 +458,7 @@ const Admin = () => {
   console.log('🔍 authLoading value:', authLoading);
   console.log('🔍 session details:', session ? {
     token: session.token ? 'exists' : 'null',
-    email: session.email,
+    isAuthenticated: session.isAuthenticated,
     expiresAt: session.expiresAt
   } : 'null');
 
@@ -458,8 +508,7 @@ const Admin = () => {
   console.log('✅ Showing admin dashboard (authenticated)');
   console.log('✅ Authentication confirmed:', {
     isAuthenticated,
-    session: session ? 'exists' : 'null',
-    email: session?.email
+    session: session ? 'exists' : 'null'
   });
 
   return (
@@ -523,7 +572,7 @@ const Admin = () => {
                 {session && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <User className="h-4 w-4" />
-                    <span>{session.email}</span>
+                    <span>المسؤول</span>
                   </div>
                 )}
                 <Button

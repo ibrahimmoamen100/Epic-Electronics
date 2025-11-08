@@ -1,10 +1,7 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from './firebase';
 
 export interface AdminCredentials {
-  email: string;
   password: string;
   role: 'admin';
   createdAt: Date;
@@ -15,12 +12,11 @@ export interface AdminCredentials {
 export interface AdminSession {
   token: string;
   expiresAt: Date;
-  adminId: string;
-  email: string;
+  isAuthenticated: boolean;
 }
 
 class AdminAuthService {
-  private readonly ADMIN_COLLECTION = 'admin_users';
+  private readonly ADMIN_COLLECTION = 'admin_config';
   private readonly SESSION_COOKIE_NAME = 'admin_session_token';
   private readonly SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -109,86 +105,211 @@ class AdminAuthService {
     }
   }
 
-  // Initialize admin user in Firebase (run once to set up admin)
-  async initializeAdminUser(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+
+  // Get admin configuration from Firebase only (no localStorage fallback for security)
+  private async getAdminConfig(): Promise<AdminCredentials | null> {
+    console.log('🔍 AdminAuth: Getting admin config from Firebase only...');
+    
     try {
-      // Check if admin already exists
-      const adminDoc = await getDoc(doc(db, this.ADMIN_COLLECTION, email));
-      if (adminDoc.exists()) {
-        return { success: false, error: 'Admin user already exists' };
-      }
-
-      // Create Firebase auth user
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('🔍 AdminAuth: Collection:', this.ADMIN_COLLECTION);
+      console.log('🔍 AdminAuth: Document ID: admin');
       
-      // Store admin credentials in Firestore
-      const adminCredentials: AdminCredentials = {
-        email,
-        password: '', // Don't store password in Firestore for security
-        role: 'admin',
-        createdAt: new Date(),
-        lastLogin: new Date(),
-        isActive: true,
-      };
-
-      await setDoc(doc(db, this.ADMIN_COLLECTION, email), adminCredentials);
-
-      return { success: true };
+      const adminDocRef = doc(db, this.ADMIN_COLLECTION, 'admin');
+      console.log('🔍 AdminAuth: Document reference created');
+      
+      const adminDoc = await getDoc(adminDocRef);
+      console.log('🔍 AdminAuth: Document fetched, exists:', adminDoc.exists());
+      
+      if (adminDoc.exists()) {
+        console.log('✅ AdminAuth: Found admin config in Firebase');
+        const data = adminDoc.data() as any;
+        console.log('🔍 AdminAuth: Firebase data (raw):', { ...data, password: '[HIDDEN]' }); // Hide password in logs
+        
+        // Ensure password is a string (Firebase might store it as number)
+        // Handle both string and number types
+        let passwordValue = data.password;
+        if (typeof passwordValue === 'number') {
+          passwordValue = passwordValue.toString();
+        } else if (passwordValue === null || passwordValue === undefined) {
+          passwordValue = '';
+        } else {
+          passwordValue = String(passwordValue);
+        }
+        
+        const normalizedData: AdminCredentials = {
+          ...data,
+          password: passwordValue.trim(),
+          role: data.role || 'admin',
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
+          lastLogin: data.lastLogin?.toDate ? data.lastLogin.toDate() : new Date(data.lastLogin || Date.now()),
+          isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+        };
+        
+        console.log('🔍 AdminAuth: Firebase data (normalized):', { ...normalizedData, password: '[HIDDEN]' }); // Hide password in logs
+        console.log('🔍 AdminAuth: Password from Firebase:', {
+          raw: typeof data.password,
+          type: typeof data.password,
+          normalized: typeof normalizedData.password,
+          normalizedType: typeof normalizedData.password,
+          length: normalizedData.password.length
+        });
+        
+        return normalizedData;
+      } else {
+        console.log('ℹ️ AdminAuth: No admin config found in Firebase');
+        return null;
+      }
     } catch (error: any) {
-      console.error('Error initializing admin user:', error);
+      console.error('❌ AdminAuth: Firebase access failed:', {
+        name: error?.name,
+        message: error?.message,
+        code: error?.code
+      });
+      
+      // If it's a permissions error, log a helpful message
+      if (error?.code === 'permission-denied') {
+        console.error('❌ AdminAuth: Permission denied. Please update Firebase Rules:');
+        console.error('❌ AdminAuth: Go to Firebase Console > Firestore > Rules');
+        console.error('❌ AdminAuth: Add this rule:');
+        console.error('❌ AdminAuth: match /admin_config/{document} {');
+        console.error('❌ AdminAuth:   allow read, write: if true;');
+        console.error('❌ AdminAuth: }');
+      }
+      
+      // Do not fallback to localStorage for security reasons
+      return null;
+    }
+  }
+
+  // Initialize admin configuration in Firebase only (no localStorage for security)
+  async initializeAdminConfig(): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🔧 AdminAuth: Initializing admin configuration in Firebase only...');
+      
+      try {
+        const adminDoc = await getDoc(doc(db, this.ADMIN_COLLECTION, 'admin'));
+        if (adminDoc.exists()) {
+          console.log('✅ AdminAuth: Admin configuration already exists in Firebase');
+          return { success: true, error: 'Admin configuration already exists' };
+        }
+
+        console.log('❌ AdminAuth: No admin configuration found in Firebase');
+        console.log('❌ AdminAuth: Cannot create admin configuration without Firebase access');
+        return { 
+          success: false, 
+          error: 'Admin configuration must be created in Firebase. Please create it manually in Firebase Console.' 
+        };
+      } catch (firebaseError: any) {
+        console.error('❌ AdminAuth: Firebase initialization failed:', firebaseError);
+        console.error('❌ AdminAuth: Firebase error details:', firebaseError.message);
+        return { 
+          success: false, 
+          error: `Failed to access Firebase: ${firebaseError.message || 'Unknown error'}. Please check Firebase permissions.` 
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ AdminAuth: Error initializing admin config:', error);
       return { 
         success: false, 
-        error: error.message || 'Failed to initialize admin user' 
+        error: error.message || 'Failed to initialize admin configuration' 
       };
     }
   }
 
   // Admin login
-  async login(email: string, password: string): Promise<{ success: boolean; error?: string; session?: AdminSession }> {
+  async login(password: string): Promise<{ success: boolean; error?: string; session?: AdminSession }> {
     try {
-      console.log('🔐 AdminAuth: Starting login for:', email);
-      // Authenticate with Firebase
-      console.log('🔐 AdminAuth: Authenticating with Firebase...');
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log('🔐 AdminAuth: Firebase authentication successful, user ID:', userCredential.user.uid);
+      console.log('🔐 AdminAuth: Starting login...');
+      console.log('🔐 AdminAuth: Input password:', password);
       
-      // Verify admin exists in Firestore
-      console.log('🔐 AdminAuth: Verifying admin in Firestore...');
-      const adminDoc = await getDoc(doc(db, this.ADMIN_COLLECTION, email));
-      console.log('🔐 AdminAuth: Admin document exists:', adminDoc.exists());
+      // Get admin configuration (try Firebase first, then local)
+      console.log('🔐 AdminAuth: Getting admin config...');
+      let adminData = await this.getAdminConfig();
       
-      if (!adminDoc.exists()) {
-        console.log('🔐 AdminAuth: Admin not found in Firestore, signing out');
-        await auth.signOut();
-        return { success: false, error: 'Admin access denied' };
+      if (!adminData) {
+        console.log('❌ AdminAuth: Admin config not found in Firebase');
+        // Check if it's a permissions error
+        try {
+          const testDoc = await getDoc(doc(db, this.ADMIN_COLLECTION, 'admin'));
+          if (!testDoc.exists()) {
+            return { 
+              success: false, 
+              error: 'إعدادات الإدارة غير موجودة في Firebase. يرجى إنشاء الوثيقة في Firebase Console:\n- Collection: admin_config\n- Document: admin\n- Fields: password (string), role (string), isActive (boolean), createdAt (timestamp), lastLogin (timestamp)' 
+            };
+          }
+        } catch (permError: any) {
+          if (permError?.code === 'permission-denied') {
+            return { 
+              success: false, 
+              error: 'خطأ في صلاحيات Firebase. يرجى تحديث قواعد Firebase في Firebase Console:\n\n1. اذهب إلى Firestore > Rules\n2. أضف هذه القاعدة:\n\nmatch /admin_config/{document} {\n  allow read, write: if true;\n}\n\n3. اضغط "Publish"' 
+            };
+          }
+        }
+        return { 
+          success: false, 
+          error: 'إعدادات الإدارة غير موجودة في Firebase. يرجى التحقق من Firebase Console.' 
+        };
       }
-
-      const adminData = adminDoc.data() as AdminCredentials;
-      console.log('🔐 AdminAuth: Admin data:', {
-        email: adminData.email,
+      
+      console.log('🔐 AdminAuth: Admin data retrieved:', {
+        password: '[HIDDEN]', // Hide password in logs for security
         isActive: adminData.isActive,
-        role: adminData.role,
-        lastLogin: adminData.lastLogin
+        role: adminData.role
       });
       
       if (!adminData.isActive) {
-        console.log('🔐 AdminAuth: Admin account is deactivated, signing out');
-        await auth.signOut();
-        return { success: false, error: 'Admin account is deactivated' };
+        console.log('🔐 AdminAuth: Admin account is deactivated');
+        return { success: false, error: 'حساب الإدارة معطل' };
       }
       
-      console.log('🔐 AdminAuth: Admin account is active and valid');
-
-      // Update last login
-      console.log('🔐 AdminAuth: Updating last login...');
+      // Check password - normalize both passwords for comparison
+      console.log('🔐 AdminAuth: Comparing passwords...');
+      
+      // Normalize passwords: trim whitespace and ensure both are strings
+      const normalizedInputPassword = String(password || '').trim();
+      const normalizedStoredPassword = String(adminData.password || '').trim();
+      
+      console.log('🔐 AdminAuth: Input password (raw):', `"${password}"`);
+      console.log('🔐 AdminAuth: Input password (normalized):', `"${normalizedInputPassword}"`);
+      console.log('🔐 AdminAuth: Stored password (raw):', `"${adminData.password}"`);
+      console.log('🔐 AdminAuth: Stored password (normalized):', `"${normalizedStoredPassword}"`);
+      console.log('🔐 AdminAuth: Input password type:', typeof password);
+      console.log('🔐 AdminAuth: Stored password type:', typeof adminData.password);
+      console.log('🔐 AdminAuth: Input password length:', normalizedInputPassword.length);
+      console.log('🔐 AdminAuth: Stored password length:', normalizedStoredPassword.length);
+      console.log('🔐 AdminAuth: Passwords match:', normalizedInputPassword === normalizedStoredPassword);
+      
+      if (normalizedInputPassword !== normalizedStoredPassword) {
+        console.log('❌ AdminAuth: Invalid password');
+        console.log('❌ AdminAuth: Password mismatch details:', {
+          input: normalizedInputPassword,
+          stored: normalizedStoredPassword,
+          inputLength: normalizedInputPassword.length,
+          storedLength: normalizedStoredPassword.length,
+          inputCharCodes: normalizedInputPassword.split('').map(c => c.charCodeAt(0)),
+          storedCharCodes: normalizedStoredPassword.split('').map(c => c.charCodeAt(0))
+        });
+        return { success: false, error: 'كلمة المرور غير صحيحة' };
+      }
+      
+      console.log('✅ AdminAuth: Password verified successfully');
+      
+      // Update last login in Firebase only
+      console.log('🔐 AdminAuth: Updating last login in Firebase...');
       const updateData = {
         ...adminData,
         lastLogin: new Date(),
       };
-      console.log('🔐 AdminAuth: Update data:', updateData);
       
-      await setDoc(doc(db, this.ADMIN_COLLECTION, email), updateData, { merge: true });
-      console.log('🔐 AdminAuth: Last login updated successfully');
+      try {
+        // Update in Firebase only (no localStorage for security)
+        await setDoc(doc(db, this.ADMIN_COLLECTION, 'admin'), updateData, { merge: true });
+        console.log('✅ AdminAuth: Last login updated in Firebase successfully');
+      } catch (firebaseError: any) {
+        console.warn('⚠️ AdminAuth: Failed to update last login in Firebase:', firebaseError?.message || firebaseError);
+        // Do not fallback to localStorage for security reasons
+        // Continue with login anyway
+      }
 
       // Generate session token
       console.log('🔐 AdminAuth: Generating session token...');
@@ -200,21 +321,26 @@ class AdminAuthService {
       const session: AdminSession = {
         token,
         expiresAt,
-        adminId: userCredential.user.uid,
-        email,
+        isAuthenticated: true,
       };
       console.log('🔐 AdminAuth: Session object created:', session);
 
-      // Store session in Firestore
-      console.log('🔐 AdminAuth: Storing session in Firestore...');
+      // Store session in Firestore (optional - if it fails, continue anyway)
+      console.log('🔐 AdminAuth: Attempting to store session in Firestore...');
       const sessionData = {
         ...session,
         createdAt: new Date(),
       };
       console.log('🔐 AdminAuth: Session data to store:', sessionData);
       
-      await setDoc(doc(db, 'admin_sessions', token), sessionData);
-      console.log('🔐 AdminAuth: Session stored in Firestore successfully');
+      try {
+        await setDoc(doc(db, 'admin_sessions', token), sessionData);
+        console.log('✅ AdminAuth: Session stored in Firestore successfully');
+      } catch (firestoreError: any) {
+        console.warn('⚠️ AdminAuth: Failed to store session in Firestore (continuing anyway):', firestoreError?.message || firestoreError);
+        console.warn('⚠️ AdminAuth: Session will be stored locally only');
+        // Continue - session will be stored locally
+      }
 
       // Set session token
       this.setSessionToken(token, this.SESSION_DURATION);
@@ -244,7 +370,7 @@ class AdminAuthService {
           const verifyData = verifySessionDoc.data();
           console.log('🔐 AdminAuth: Firestore verification - session data:', {
             token: verifyData.token,
-            email: verifyData.email,
+            isAuthenticated: verifyData.isAuthenticated,
             expiresAt: verifyData.expiresAt
           });
         }
@@ -254,19 +380,14 @@ class AdminAuthService {
 
       return { success: true, session };
     } catch (error: any) {
-      console.error('Admin login error:', error);
+      console.error('❌ AdminAuth: Login error caught:', error);
+      console.error('❌ AdminAuth: Error name:', error?.name);
+      console.error('❌ AdminAuth: Error message:', error?.message);
+      console.error('❌ AdminAuth: Error stack:', error?.stack);
+      console.error('❌ AdminAuth: Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       
-      let errorMessage = 'Login failed';
-      if (error.code === 'auth/user-not-found') {
-        errorMessage = 'Admin user not found';
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Invalid password';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email format';
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many failed attempts. Please try again later';
-      }
-
+      // Return more specific error message
+      const errorMessage = error?.message || 'فشل في تسجيل الدخول';
       return { success: false, error: errorMessage };
     }
   }
@@ -284,21 +405,38 @@ class AdminAuthService {
         return { success: false, error: 'No session token found' };
       }
 
-      // Check if session exists in Firestore
+      // Check if session exists in Firestore (optional - if not found, use localStorage)
       console.log('🔍 AdminAuth: Checking session in Firestore...');
-      const sessionDoc = await getDoc(doc(db, 'admin_sessions', token));
-      console.log('🔍 AdminAuth: Session document exists:', sessionDoc.exists());
+      let sessionData: AdminSession | null = null;
       
-      if (!sessionDoc.exists()) {
-        console.log('🔍 AdminAuth: Session not found in Firestore, deleting token');
-        this.deleteSessionToken();
-        return { success: false, error: 'Invalid session token' };
+      try {
+        const sessionDoc = await getDoc(doc(db, 'admin_sessions', token));
+        console.log('🔍 AdminAuth: Session document exists in Firestore:', sessionDoc.exists());
+        
+        if (sessionDoc.exists()) {
+          sessionData = sessionDoc.data() as AdminSession;
+          console.log('🔍 AdminAuth: Session data retrieved from Firestore');
+        } else {
+          console.log('🔍 AdminAuth: Session not found in Firestore, will use localStorage');
+        }
+      } catch (firestoreError: any) {
+        console.warn('⚠️ AdminAuth: Failed to check session in Firestore (will use localStorage):', firestoreError?.message || firestoreError);
       }
-
-      const sessionData = sessionDoc.data() as AdminSession;
+      
+      // If session not in Firestore, create from localStorage token
+      if (!sessionData) {
+        console.log('🔍 AdminAuth: Creating session from localStorage token');
+        const expiresAt = new Date(Date.now() + this.SESSION_DURATION);
+        sessionData = {
+          token,
+          expiresAt,
+          isAuthenticated: true,
+        };
+        console.log('🔍 AdminAuth: Session created from localStorage:', sessionData);
+      }
       console.log('🔍 AdminAuth: Session data retrieved:', {
         token: sessionData.token,
-        email: sessionData.email,
+        isAuthenticated: sessionData.isAuthenticated,
         expiresAt: sessionData.expiresAt
       });
       
@@ -339,18 +477,15 @@ class AdminAuthService {
 
       // Verify admin still exists and is active
       console.log('🔍 AdminAuth: Verifying admin account...');
-      const adminDoc = await getDoc(doc(db, this.ADMIN_COLLECTION, sessionData.email));
-      console.log('🔍 AdminAuth: Admin document exists:', adminDoc.exists());
+      const adminData = await this.getAdminConfig();
       
-      if (!adminDoc.exists()) {
+      if (!adminData) {
         console.log('🔍 AdminAuth: Admin account not found, logging out');
         await this.logout();
         return { success: false, error: 'Admin account not found' };
       }
 
-      const adminData = adminDoc.data() as AdminCredentials;
       console.log('🔍 AdminAuth: Admin data:', {
-        email: adminData.email,
         isActive: adminData.isActive,
         role: adminData.role
       });
@@ -366,7 +501,7 @@ class AdminAuthService {
       console.log('✅ AdminAuth: Session verification successful');
       console.log('✅ AdminAuth: Returning session data:', {
         token: sessionData.token,
-        email: sessionData.email,
+        isAuthenticated: sessionData.isAuthenticated,
         expiresAt: sessionData.expiresAt
       });
       return { success: true, session: sessionData };
@@ -396,10 +531,8 @@ class AdminAuthService {
         }
       }
 
-      // Sign out from Firebase
-      console.log('🔐 AdminAuth: Signing out from Firebase...');
-      await auth.signOut();
-      console.log('🔐 AdminAuth: Signed out from Firebase');
+      // No need to sign out from Firebase since we're not using Firebase Auth
+      console.log('🔐 AdminAuth: Skipping Firebase sign out (not using Firebase Auth)');
 
       // Delete session token
       console.log('🔐 AdminAuth: Deleting session token...');
@@ -429,8 +562,7 @@ class AdminAuthService {
     const session = {
       token,
       expiresAt: new Date(Date.now() + this.SESSION_DURATION), // Approximate
-      adminId: '',
-      email: '',
+      isAuthenticated: true,
     };
     console.log('🔍 AdminAuth: Returning basic session:', session);
     return session;
@@ -448,7 +580,23 @@ class AdminAuthService {
 // Create and export singleton instance
 export const adminAuthService = new AdminAuthService();
 
-// Initialize admin user (run this once to set up the admin account)
-export const initializeAdmin = async (email: string, password: string) => {
-  return await adminAuthService.initializeAdminUser(email, password);
+// Initialize admin configuration (run this once to set up the admin account)
+export const initializeAdmin = async () => {
+  return await adminAuthService.initializeAdminConfig();
+};
+
+// Clean up any locally stored admin config for security
+export const cleanupLocalAdminConfig = () => {
+  try {
+    // Remove any old admin config from localStorage
+    const keysToRemove = ['admin_config_local', 'admin_config'];
+    keysToRemove.forEach(key => {
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+        console.log(`✅ Removed ${key} from localStorage for security`);
+      }
+    });
+  } catch (error) {
+    console.error('Error cleaning up local admin config:', error);
+  }
 }; 

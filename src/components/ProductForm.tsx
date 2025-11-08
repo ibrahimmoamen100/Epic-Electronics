@@ -136,20 +136,32 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
     processor: {
       name: "",
       cacheMemory: "",
+      cacheMemorySelect: "", // For select value
+      customCacheMemory: "", // For custom value
       baseClockSpeed: "",
       maxTurboSpeed: "",
       cores: "",
       threads: "",
       integratedGraphics: "",
+      integratedGraphicsSelect: "", // For select value
+      customIntegratedGraphics: "", // For custom value
     },
     dedicatedGraphics: {
       hasDedicatedGraphics: false,
+      // nameSelect holds the select value ('custom' or one of the options).
+      // customName holds the actual typed name when nameSelect === 'custom'.
+      nameSelect: "",
+      customName: "",
       name: "",
       manufacturer: "",
       vram: "",
+      vramSelect: "", // For select value
+      customVram: "", // For custom value
       memoryType: "",
       memorySpeed: "",
       memoryBusWidth: "",
+      memoryBusWidthSelect: "", // For select value
+      customMemoryBusWidth: "", // For custom value
       baseClock: "",
       boostClock: "",
       powerConsumption: "",
@@ -389,23 +401,34 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       // Process processor data
       const processedProcessor = showProcessorInfo && formData.processor ? {
         name: formData.processor.name || undefined,
-        cacheMemory: formData.processor.cacheMemory || undefined,
+        cacheMemory: formData.processor.cacheMemorySelect === 'custom'
+          ? (formData.processor.customCacheMemory || undefined)
+          : (formData.processor.cacheMemorySelect || undefined),
         baseClockSpeed: formData.processor.baseClockSpeed ? Number(formData.processor.baseClockSpeed) : undefined,
         maxTurboSpeed: formData.processor.maxTurboSpeed ? Number(formData.processor.maxTurboSpeed) : undefined,
         cores: formData.processor.cores ? Number(formData.processor.cores) : undefined,
         threads: formData.processor.threads ? Number(formData.processor.threads) : undefined,
-        integratedGraphics: formData.processor.integratedGraphics || undefined,
+        integratedGraphics: formData.processor.integratedGraphicsSelect === 'custom'
+          ? (formData.processor.customIntegratedGraphics || undefined)
+          : (formData.processor.integratedGraphicsSelect || undefined),
       } : undefined;
 
       // Process dedicated graphics data
       const processedDedicatedGraphics = showDedicatedGraphicsInfo && formData.dedicatedGraphics ? {
         hasDedicatedGraphics: formData.dedicatedGraphics.hasDedicatedGraphics || false,
-        name: formData.dedicatedGraphics.name || undefined,
+        // If the user selected a custom model, use customName; otherwise use the selected name
+        name: formData.dedicatedGraphics.nameSelect === 'custom'
+          ? (formData.dedicatedGraphics.customName || undefined)
+          : (formData.dedicatedGraphics.nameSelect || formData.dedicatedGraphics.name || undefined),
         manufacturer: formData.dedicatedGraphics.manufacturer || undefined,
-        vram: formData.dedicatedGraphics.vram ? Number(formData.dedicatedGraphics.vram) : undefined,
+        vram: formData.dedicatedGraphics.vramSelect === 'custom'
+          ? (formData.dedicatedGraphics.customVram ? Number(formData.dedicatedGraphics.customVram) : undefined)
+          : (formData.dedicatedGraphics.vramSelect ? Number(formData.dedicatedGraphics.vramSelect) : undefined),
         memoryType: formData.dedicatedGraphics.memoryType || undefined,
         memorySpeed: formData.dedicatedGraphics.memorySpeed ? Number(formData.dedicatedGraphics.memorySpeed) : undefined,
-        memoryBusWidth: formData.dedicatedGraphics.memoryBusWidth ? Number(formData.dedicatedGraphics.memoryBusWidth) : undefined,
+        memoryBusWidth: formData.dedicatedGraphics.memoryBusWidthSelect === 'custom'
+          ? (formData.dedicatedGraphics.customMemoryBusWidth ? Number(formData.dedicatedGraphics.customMemoryBusWidth) : undefined)
+          : (formData.dedicatedGraphics.memoryBusWidthSelect ? Number(formData.dedicatedGraphics.memoryBusWidthSelect) : undefined),
         baseClock: formData.dedicatedGraphics.baseClock ? Number(formData.dedicatedGraphics.baseClock) : undefined,
         boostClock: formData.dedicatedGraphics.boostClock ? Number(formData.dedicatedGraphics.boostClock) : undefined,
         powerConsumption: formData.dedicatedGraphics.powerConsumption ? Number(formData.dedicatedGraphics.powerConsumption) : undefined,
@@ -464,6 +487,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       setShowWholesaleInfo(false);
       setShowProcessorInfo(false);
       setShowDedicatedGraphicsInfo(false);
+      
+      // Success message (will be shown regardless of Firebase/localStorage)
       toast.success("تمت إضافة المنتج بنجاح");
     } catch (error) {
       console.error("خطأ في إضافة المنتج:", error);
@@ -494,6 +519,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
         <div>
           <label className="text-sm font-medium">الاسم *</label>
           <Input
+            id="product-name"
+            name="name"
             required
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -535,6 +562,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
           ) : (
             <div className="space-y-2">
               <Input
+                id="custom-brand"
+                name="brand"
                 required
                 value={customBrand}
                 onChange={(e) => setCustomBrand(e.target.value)}
@@ -557,6 +586,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
         <div>
           <label className="text-sm font-medium">السعر *</label>
           <Input
+            id="product-price"
+            name="price"
             required
             type="number"
             min="0"
@@ -660,6 +691,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
               <div className="space-y-2">
                 <Input
                   required
+                  id="custom-subcategory"
+                  name="subcategory"
                   value={customSubcategory}
                   onChange={(e) => setCustomSubcategory(e.target.value)}
                   placeholder="أدخل اسم تصنيف فرعي جديد"
@@ -984,6 +1017,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
           <div className="flex gap-2">
             <Input
               type="url"
+              id="image-url"
+              name="imageUrl"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="أدخل رابط الصورة"
@@ -1129,6 +1164,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             <div>
               <label className="text-sm font-medium">اسم البائع *</label>
               <Input
+                id="wholesale-supplier-name"
+                name="wholesaleSupplierName"
                 value={formData.wholesaleInfo.supplierName}
                 onChange={(e) =>
                   setFormData({
@@ -1144,6 +1181,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             <div>
               <label className="text-sm font-medium">رقم هاتف البائع *</label>
               <Input
+                id="wholesale-supplier-phone"
+                name="wholesaleSupplierPhone"
                 value={formData.wholesaleInfo.supplierPhone}
                 onChange={(e) =>
                   setFormData({
@@ -1549,13 +1588,15 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             <div>
               <label className="text-sm font-medium">ذاكرة التخزين المؤقت</label>
               <Select
-                value={formData.processor.cacheMemory}
+                value={formData.processor.cacheMemorySelect}
                 onValueChange={(value) =>
                   setFormData({
                     ...formData,
                     processor: {
                       ...formData.processor,
-                      cacheMemory: value,
+                      cacheMemorySelect: value,
+                      // Clear custom value when switching away from custom
+                      customCacheMemory: value === 'custom' ? formData.processor.customCacheMemory : '',
                     },
                   })
                 }
@@ -1572,16 +1613,17 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                   <SelectItem value="custom">قيمة مخصصة</SelectItem>
                 </SelectContent>
               </Select>
-              {formData.processor.cacheMemory === "custom" && (
+              {formData.processor.cacheMemorySelect === "custom" && (
                 <Input
                   className="mt-2"
                   placeholder="أدخل القيمة المخصصة"
+                  value={formData.processor.customCacheMemory}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
                       processor: {
                         ...formData.processor,
-                        cacheMemory: e.target.value,
+                        customCacheMemory: e.target.value,
                       },
                     })
                   }
@@ -1674,13 +1716,15 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             <div className="sm:col-span-2">
               <label className="text-sm font-medium">كرت الشاشة الداخلي</label>
               <Select
-                value={formData.processor.integratedGraphics}
+                value={formData.processor.integratedGraphicsSelect}
                 onValueChange={(value) =>
                   setFormData({
                     ...formData,
                     processor: {
                       ...formData.processor,
-                      integratedGraphics: value,
+                      integratedGraphicsSelect: value,
+                      // Clear custom value when switching away from custom
+                      customIntegratedGraphics: value === 'custom' ? formData.processor.customIntegratedGraphics : '',
                     },
                   })
                 }
@@ -1697,16 +1741,17 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                   <SelectItem value="custom">قيمة مخصصة</SelectItem>
                 </SelectContent>
               </Select>
-              {formData.processor.integratedGraphics === "custom" && (
+              {formData.processor.integratedGraphicsSelect === "custom" && (
                 <Input
                   className="mt-2"
                   placeholder="أدخل كرت الشاشة المخصص"
+                  value={formData.processor.customIntegratedGraphics}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
                       processor: {
                         ...formData.processor,
-                        integratedGraphics: e.target.value,
+                        customIntegratedGraphics: e.target.value,
                       },
                     })
                   }
@@ -1730,6 +1775,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                   ...formData,
                   dedicatedGraphics: {
                     hasDedicatedGraphics: false,
+                    nameSelect: "",
+                    customName: "",
                     name: "",
                     manufacturer: "",
                     vram: "",
@@ -1749,6 +1796,8 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                   ...formData,
                   dedicatedGraphics: {
                     hasDedicatedGraphics: false,
+                    nameSelect: "",
+                    customName: "",
                     name: "",
                     manufacturer: "",
                     vram: "",
@@ -1798,17 +1847,19 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                 <div>
                   <label className="text-sm font-medium">اسم/موديل كرت الشاشة *</label>
                   <Select
-                    value={formData.dedicatedGraphics.name}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        dedicatedGraphics: {
-                          ...formData.dedicatedGraphics,
-                          name: value,
-                        },
-                      })
-                    }
-                  >
+                      value={formData.dedicatedGraphics.nameSelect}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          dedicatedGraphics: {
+                            ...formData.dedicatedGraphics,
+                            nameSelect: value,
+                            // if switching away from custom, clear customName
+                            customName: value === 'custom' ? formData.dedicatedGraphics.customName : '',
+                          },
+                        })
+                      }
+                    >
                     <SelectTrigger>
                       <SelectValue placeholder="اختر كرت الشاشة" />
                     </SelectTrigger>
@@ -1821,16 +1872,17 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       <SelectItem value="custom">موديل مخصص</SelectItem>
                     </SelectContent>
                   </Select>
-                  {formData.dedicatedGraphics.name === "custom" && (
+                  {formData.dedicatedGraphics.nameSelect === "custom" && (
                     <Input
                       className="mt-2"
                       placeholder="أدخل اسم كرت الشاشة المخصص"
+                      value={formData.dedicatedGraphics.customName}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
                           dedicatedGraphics: {
                             ...formData.dedicatedGraphics,
-                            name: e.target.value,
+                            customName: e.target.value,
                           },
                         })
                       }
@@ -1883,13 +1935,15 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                 <div>
                   <label className="text-sm font-medium">ذاكرة كرت الشاشة (GB)</label>
                   <Select
-                    value={formData.dedicatedGraphics.vram}
+                    value={formData.dedicatedGraphics.vramSelect}
                     onValueChange={(value) =>
                       setFormData({
                         ...formData,
                         dedicatedGraphics: {
                           ...formData.dedicatedGraphics,
-                          vram: value,
+                          vramSelect: value,
+                          // Clear custom value when switching away from custom
+                          customVram: value === 'custom' ? formData.dedicatedGraphics.customVram : '',
                         },
                       })
                     }
@@ -1906,19 +1960,20 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       <SelectItem value="custom">قيمة مخصصة</SelectItem>
                     </SelectContent>
                   </Select>
-                  {formData.dedicatedGraphics.vram === "custom" && (
+                  {formData.dedicatedGraphics.vramSelect === "custom" && (
                     <Input
                       className="mt-2"
                       type="number"
                       min="1"
                       max="128"
                       placeholder="أدخل حجم الذاكرة (GB)"
+                      value={formData.dedicatedGraphics.customVram}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
                           dedicatedGraphics: {
                             ...formData.dedicatedGraphics,
-                            vram: e.target.value,
+                            customVram: e.target.value,
                           },
                         })
                       }
@@ -1976,13 +2031,15 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                 <div>
                   <label className="text-sm font-medium">عرض ناقل الذاكرة (bit)</label>
                   <Select
-                    value={formData.dedicatedGraphics.memoryBusWidth}
+                    value={formData.dedicatedGraphics.memoryBusWidthSelect}
                     onValueChange={(value) =>
                       setFormData({
                         ...formData,
                         dedicatedGraphics: {
                           ...formData.dedicatedGraphics,
-                          memoryBusWidth: value,
+                          memoryBusWidthSelect: value,
+                          // Clear custom value when switching away from custom
+                          customMemoryBusWidth: value === 'custom' ? formData.dedicatedGraphics.customMemoryBusWidth : '',
                         },
                       })
                     }
@@ -1999,19 +2056,20 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       <SelectItem value="custom">قيمة مخصصة</SelectItem>
                     </SelectContent>
                   </Select>
-                  {formData.dedicatedGraphics.memoryBusWidth === "custom" && (
+                  {formData.dedicatedGraphics.memoryBusWidthSelect === "custom" && (
                     <Input
                       className="mt-2"
                       type="number"
                       min="64"
                       max="1024"
                       placeholder="أدخل عرض الناقل (bit)"
+                      value={formData.dedicatedGraphics.customMemoryBusWidth}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
                           dedicatedGraphics: {
                             ...formData.dedicatedGraphics,
-                            memoryBusWidth: e.target.value,
+                            customMemoryBusWidth: e.target.value,
                           },
                         })
                       }

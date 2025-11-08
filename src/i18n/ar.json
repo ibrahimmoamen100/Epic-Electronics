@@ -37,6 +37,12 @@
     "clearAll": "مسح جميع التصفية",
     "apply": "تطبيق التصفية",
     "selectCategoryFirst": "الرجاء اختيار الفئة أولاً"
+    ,
+    "processor": "المعالج",
+    "dedicatedGraphics": "كرت شاشة خارجي",
+    "onlyWithGPU": "عرض المنتجات التي تحتوي على كرت شاشة خارجي فقط",
+    "allProcessors": "جميع المعالجات",
+    "allGPUs": "جميع كروت الشاشة"
   },
   "product": {
     "addToCart": "أضف إلى السلة",

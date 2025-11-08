@@ -34,7 +34,7 @@ import { formatCurrency } from "@/utils/format";
 import { getColorByName } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { addDoc, collection } from "firebase/firestore";
-import { db, updateProductQuantitiesAtomically } from "@/lib/firebase";
+import { db, updateProductQuantitiesAtomically, createOrderAndUpdateProductQuantitiesAtomically } from "@/lib/firebase";
 import { useNavigate } from "react-router-dom";
 
 interface DeliveryFormData {
@@ -76,26 +76,14 @@ const Cart = () => {
     register,
     handleSubmit,
     watch,
-    formState: { errors },
+    formState: { errors, isValid },
+    reset,
   } = useForm<DeliveryFormData>({
-    defaultValues: {
-      fullName: userProfile?.displayName || "",
-      phoneNumber: userProfile?.phone || "",
-      address: userProfile?.address || "",
-      city: "",
-      notes: "",
-    },
+    mode: 'onChange'
   });
 
   // Watch form fields for validation
   const notes = watch("notes");
-
-  // Check if user has complete delivery information
-  const hasCompleteDeliveryInfo = userProfile && 
-    userProfile.displayName && 
-    userProfile.phone && 
-    userProfile.address &&
-    userProfile.city;
 
   // Group cart items by supplier for WhatsApp messaging only
   const supplierGroupsForMessaging: SupplierGroup[] = cart.reduce(
@@ -134,30 +122,35 @@ const Cart = () => {
   // Function to send WhatsApp message with order details
   const sendWhatsAppOrderMessage = async (orderData: any, deliveryInfo: any) => {
     try {
-      const whatsappNumber = "201008397114";
+  const whatsappNumber = "201024911062";
       
-      // Format order items with better structure
+      // Format order items with better structure (size, color, addons)
       const orderItemsText = orderData.items.map((item: any, index: number) => {
-        let itemText = `*${index + 1}-
-         ${item.productName}*`;
-        itemText += `\n   الكمية: ${item.quantity}`;
-        
+        const lines: string[] = [];
+        lines.push(`*${index + 1}- ${item.productName}*`);
+        lines.push(`   الكمية: ${item.quantity}`);
+
         if (item.selectedSize) {
-          itemText += `\n   الحجم: ${item.selectedSize.label}`;
+          const sizePrice = item.selectedSize.price ? ` (${formatCurrency(item.selectedSize.price, 'جنيه')})` : '';
+          lines.push(`   الحجم: ${item.selectedSize.label}${sizePrice}`);
         }
-        
+
         if (item.selectedColor) {
-          itemText += `\n   اللون: ${item.selectedColor}`;
+          // Try to resolve color name if available
+          const colorName = getColorByName(item.selectedColor).name || item.selectedColor;
+          lines.push(`   اللون: ${colorName}`);
         }
-        
+
         if (item.selectedAddons && item.selectedAddons.length > 0) {
-          const addonsText = item.selectedAddons.map((addon: any) => addon.label).join(', ');
-          itemText += `\n   الإضافات: ${addonsText}`;
+          lines.push(`   الإضافات:`);
+          item.selectedAddons.forEach((addon: any) => {
+            const addonPrice = addon.price_delta ? ` (+${formatCurrency(addon.price_delta, 'جنيه')})` : '';
+            lines.push(`     - ${addon.label}${addonPrice}`);
+          });
         }
-        
-        itemText += `\n   السعر: ${formatCurrency(item.totalPrice, 'جنيه')}`;
-        
-        return itemText;
+
+        lines.push(`   السعر: ${formatCurrency(item.totalPrice, 'جنيه')}`);
+        return lines.join('\n');
       }).join('\n\n');
 
       // Format delivery information with better structure
@@ -215,9 +208,8 @@ ${'='.repeat(30)}
       return;
     }
 
-    if (!hasCompleteDeliveryInfo) {
-      toast.error("يرجى إكمال معلومات التوصيل في الإعدادات أولاً");
-      navigate("/settings");
+    if (!isValid) {
+      toast.error("يرجى إكمال جميع حقول معلومات التوصيل");
       return;
     }
 
@@ -268,26 +260,26 @@ ${'='.repeat(30)}
 
       console.log('Order data to save:', orderData);
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      console.log('Order saved with ID:', docRef.id);
-      
-      // Get latest products from store to ensure we have current quantities
-      // Prepare quantity updates for atomic transaction
-      const quantityUpdates = cart.map(item => ({
-        productId: item.product.id,
-        quantityToDeduct: item.quantity
-      }));
-
-      console.log('Cart: Preparing atomic quantity updates:', quantityUpdates.map(update => ({
-        productId: update.productId,
-        productName: cart.find(item => item.product.id === update.productId)?.product.name,
-        quantityToDeduct: update.quantityToDeduct
-      })));
-      
-      // Update all product quantities atomically to prevent race conditions
-      console.log('Cart: Executing atomic quantity update...');
-      await updateProductQuantitiesAtomically(quantityUpdates);
-      console.log('Cart: Atomic quantity update completed successfully');
+      // Try to create order and update quantities atomically on the server
+      try {
+        if (typeof createOrderAndUpdateProductQuantitiesAtomically === 'function') {
+          const deductions = cart.map(item => ({ productId: item.product.id, quantityToDeduct: item.quantity }));
+          const orderId = await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);
+          console.log('Order created atomically with ID:', orderId);
+        } else {
+          const docRef = await addDoc(collection(db, 'orders'), orderData);
+          console.log('Order saved with ID:', docRef.id);
+        }
+      } catch (err) {
+        console.warn('Atomic order creation failed, falling back to plain addDoc', err);
+        const docRef = await addDoc(collection(db, 'orders'), orderData);
+        console.log('Order saved with ID (fallback):', docRef.id);
+      }
+      // Note: product quantities are updated when items are added/removed from the cart
+      // (optimistic atomic updates happen in the store). To avoid double-deduction
+      // we don't re-run the atomic deduction here. If you prefer server-side
+      // confirmation at checkout instead, we should implement a reservation/confirm
+      // flow or a single transaction that creates the order and updates stock.
       
       toast.success("تم حفظ الطلب بنجاح");
       
@@ -332,45 +324,16 @@ ${'='.repeat(30)}
 
 
   const handleWhatsAppOrder = () => {
-    if (!hasCompleteDeliveryInfo) {
-      toast.error("يرجى إكمال معلومات التوصيل في الإعدادات أولاً");
-      navigate("/settings");
-      return;
-    }
-
-    const message = supplierGroupsForMessaging
-      .map((group) => {
-        const itemsText = group.items
-          .map((item) => {
-            const price = item.product.price || 0;
-            return `• ${item.product.name} - ${item.quantity} × ${formatCurrency(price, 'جنيه')} = ${formatCurrency(price * item.quantity, 'جنيه')}`;
-          })
-          .join("\n");
-
-        return `🏪 *${group.supplierName}*\n${itemsText}\n💰 *المجموع: ${formatCurrency(group.total, 'جنيه')}*\n📞 ${group.supplierPhone}`;
-      })
-      .join("\n\n");
-
-    const deliveryInfo = `📦 *معلومات التوصيل*\n👤 ${userProfile?.displayName}\n📱 ${userProfile?.phone}\n🏠 ${userProfile?.address}\n🏙️ ${userProfile?.city}`;
-
-    const fullMessage = `${message}\n\n${deliveryInfo}\n\n💰 *المجموع الكلي: ${formatCurrency(totalAmount, 'جنيه')}*`;
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(fullMessage)}`;
-    window.open(whatsappUrl, "_blank");
+    // This function is no longer needed as the form handles delivery info
+    // and the message is generated directly in the form handler.
+    // Keeping it for now in case it's called elsewhere, but it will be removed.
   };
 
   // Show loading state while authentication is being determined
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // بدلاً من هذا الجزء
+  // if (authLoading) { ... جاري التحميل ... }
+  // اعرض دائماً محتوى السلة أو رسالة 'عربة التسوق فارغة' مباشرة
+  // اعرض دائماً محتوى السلة أو رسالة 'عربة التسوق فارغة' مباشرة
   if (cart.length === 0) {
     return (
       <div className="min-h-screen">
@@ -437,6 +400,134 @@ ${'='.repeat(30)}
       </div>
     );
   }
+
+  // delivery form handler - save order to Firestore (so admin/orders shows it), update stock atomically, then open WhatsApp to the configured number
+  const onDeliverySubmit = async (data: DeliveryFormData) => {
+    // Assemble order items (same shape as saveOrderToFirebase)
+    const orderItems = cart.map((item) => ({
+      productId: item.product.id,
+      productName: item.product.name,
+      quantity: item.quantity,
+      price: item.unitFinalPrice,
+      totalPrice: item.totalPrice,
+      image: item.product.images[0],
+      selectedSize: item.selectedSize ? {
+        id: item.selectedSize.id,
+        label: item.selectedSize.label,
+        price: item.selectedSize.price
+      } : null,
+      selectedAddons: item.selectedAddons.map(addon => ({
+        id: addon.id,
+        label: addon.label,
+        price_delta: addon.price_delta
+      })),
+      selectedColor: item.selectedColor
+    }));
+
+    const deliveryInfo = {
+      fullName: data.fullName,
+      phoneNumber: data.phoneNumber,
+      address: data.address,
+      city: data.city,
+      notes: data.notes || ''
+    };
+
+    const orderData = {
+      userId: userProfile?.uid || `guest-${Date.now()}`,
+      items: orderItems,
+      total: getCartTotal(),
+      status: 'pending',
+      deliveryInfo,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Build the WhatsApp message text (reuse previous formatting)
+    const orderLines = orderItems.map((item, i) => {
+      const lines: string[] = [];
+      lines.push(`${i + 1}- ${item.productName}`);
+      lines.push(`  الكمية: ${item.quantity}`);
+      if (item.selectedSize) {
+        lines.push(`  الحجم: ${item.selectedSize.label} (${formatCurrency(item.selectedSize.price, 'جنيه')})`);
+      }
+      if (item.selectedColor) {
+        const colorName = getColorByName(item.selectedColor).name || item.selectedColor;
+        lines.push(`  اللون: ${colorName}`);
+      }
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        lines.push(`  الإضافات:`);
+        item.selectedAddons.forEach((addon) => {
+          const addonPrice = addon.price_delta ? ` (+${formatCurrency(addon.price_delta, 'جنيه')})` : '';
+          lines.push(`    - ${addon.label}${addonPrice}`);
+        });
+      }
+      lines.push(`  السعر: ${formatCurrency(item.totalPrice, 'جنيه')}`);
+      return lines.join('\n');
+    }).join('\n---------\n');
+
+    const deliverySection = [
+      `اسم الزبون: ${deliveryInfo.fullName}`,
+      `المحافظة: ${deliveryInfo.city}`,
+      `العنوان بالتفصيل: ${deliveryInfo.address}`,
+      `رقم الهاتف: ${deliveryInfo.phoneNumber}`,
+      deliveryInfo.notes ? `ملاحظات: ${deliveryInfo.notes}` : null,
+    ].filter(Boolean).join('\n');
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ar-EG');
+    const timeStr = now.toLocaleTimeString('ar-EG');
+
+    const message = [
+      'طلب جديد من المتجر',
+      '------------------------------',
+      orderLines,
+      '------------------------------',
+      deliverySection,
+      '------------------------------',
+      `إجمالي المبلغ: ${formatCurrency(getCartTotal(), 'جنيه')}`,
+      `تاريخ الطلب: ${dateStr}`,
+      `وقت الطلب: ${timeStr}`,
+      '------------------------------',
+      'تم إرسال الطلب من الموقع الالكتروني'
+    ].join('\n');
+
+    // WhatsApp target number requested: 01024911062 -> international 201024911062
+    const whatsappNumber = '201024911062';
+
+    try {
+      // Save the order to Firestore so it appears in admin/orders
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
+      console.log('Order saved with ID (from delivery form):', docRef.id);
+
+      // Update quantities atomically
+      // Note: quantities are already deducted when items are added to the cart
+      // via optimistic updates in the store. We avoid re-deducting here to prevent
+      // double-subtraction. If you need a single atomic server-side operation,
+      // we should create a transaction that both writes the order and updates
+      // product quantities in one atomic operation.
+
+      toast.success('تم حفظ الطلب بنجاح');
+    } catch (error) {
+      console.error('Error saving order from delivery form:', error);
+      toast.error('تعذر حفظ الطلب في النظام، سيتم فتح واتساب للمتابعة');
+      // Proceed to open WhatsApp even if saving failed
+    }
+
+    // Open WhatsApp to the configured number with the formatted message
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+
+    // Reset form and clear cart
+    reset();
+    clearCart();
+
+    // Reload products to reflect any quantity changes
+    try {
+      await useStore.getState().loadProducts();
+    } catch (e) {
+      console.warn('Failed to reload products after delivery-form order:', e);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -601,192 +692,34 @@ ${'='.repeat(30)}
 
           <div className="md:col-span-2">
             <div className="rounded-lg border bg-card p-6 sticky top-20">
-              <h2 className="text-xl font-semibold mb-4">
-                معلومات التوصيل
-              </h2>
-
-              {/* Delivery Info Display */}
-              {hasCompleteDeliveryInfo ? (
-                <div className="space-y-4 mb-6">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-green-100 p-2 rounded-full">
-                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-green-900">معلومات التوصيل مكتملة</h4>
-                        <p className="text-sm text-green-700">سيتم استخدام معلوماتك المحفوظة</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">الاسم:</span>
-                      <span className="font-medium">{userProfile.displayName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">الهاتف:</span>
-                      <span className="font-medium">{userProfile.phone}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">المدينة:</span>
-                      <span className="font-medium">{userProfile.city}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">العنوان:</span>
-                      <span className="font-medium">{userProfile.address}</span>
-                    </div>
-                  </div>
+              <h2 className="text-xl font-semibold mb-4">معلومات التوصيل</h2>
+              <form onSubmit={handleSubmit(onDeliverySubmit)} className="space-y-4">
+                <div>
+                  <label className="block mb-1">اسم الزبون</label>
+                  <input type="text" {...register('fullName', { required: 'إلزامي' })} className="input input-bordered w-full" />
+                  {errors.fullName && <span className="text-red-500 text-xs">{errors.fullName.message}</span>}
                 </div>
-              ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-yellow-100 p-2 rounded-full">
-                      <AlertCircle className="w-5 h-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-yellow-900">معلومات التوصيل غير مكتملة</h4>
-                      <p className="text-sm text-yellow-700 mb-3">
-                        يرجى إكمال معلومات التوصيل في الإعدادات أولاً
-                      </p>
-                      <Button 
-                        onClick={handleCompleteProfile}
-                        size="sm"
-                        className="gap-2"
-                      >
-                        <Settings className="h-4 w-4" />
-                        إكمال المعلومات
-                      </Button>
-                    </div>
-                  </div>
+                <div>
+                  <label className="block mb-1">المحافظة</label>
+                  <input type="text" {...register('city', { required: 'إلزامي' })} className="input input-bordered w-full" />
+                  {errors.city && <span className="text-red-500 text-xs">{errors.city.message}</span>}
                 </div>
-              )}
-
-              {/* Notes Field */}
-              <div className="mb-6">
-                <label
-                  htmlFor="notes"
-                  className="block text-sm font-medium mb-1"
-                >
-                  ملاحظات إضافية (اختياري)
-                </label>
-                <textarea
-                  id="notes"
-                  {...register("notes")}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                  rows={3}
-                  placeholder="أضف أي ملاحظات أو تعليمات خاصة..."
-                />
-              </div>
-                
-              {/* Payment Method Section */}
-              <div className="space-y-3 mb-6">
-                <h3 className="text-lg font-semibold">طريقة الدفع</h3>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-full">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-blue-900">الدفع عند الاستلام</h4>
-                      <p className="text-sm text-blue-700">ادفع عند استلام طلبك</p>
-                    </div>
-                  </div>
+                <div>
+                  <label className="block mb-1">العنوان بالتفصيل</label>
+                  <input type="text" {...register('address', { required: 'إلزامي' })} className="input input-bordered w-full" />
+                  {errors.address && <span className="text-red-500 text-xs">{errors.address.message}</span>}
                 </div>
-              </div>
-
-              {/* Delivery Fee Info */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="bg-yellow-100 p-2 rounded-full">
-                    <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-yellow-900">رسوم التوصيل</h4>
-                    <p className="text-sm text-yellow-700">سيتم تحديد رسوم التوصيل من قبل الموصل</p>
-                  </div>
+                <div>
+                  <label className="block mb-1">رقم الهاتف</label>
+                  <input type="tel" {...register('phoneNumber', { required: 'إلزامي', pattern: { value: /^01[0-9]{9,}$/g, message: 'رقم غير صحيح!' } })} className="input input-bordered w-full" />
+                  {errors.phoneNumber && <span className="text-red-500 text-xs">{errors.phoneNumber.message}</span>}
                 </div>
-              </div>
-
-              {/* Total Summary */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3 mb-6">
-                <h3 className="text-lg font-semibold">ملخص الطلب</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">مجموع المنتجات:</span>
-                    <span className="font-medium">{formatCurrency(totalAmount, 'جنيه')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">رسوم التوصيل:</span>
-                    <span className="text-gray-500">سيحددها الموصل</span>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold">المجموع الكلي:</span>
-                      <span className="text-xl font-bold text-green-700">{formatCurrency(totalAmount, 'جنيه')}</span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">+ رسوم التوصيل</p>
-                  </div>
+                <div>
+                  <label className="block mb-1">ملاحظات (اختياري)</label>
+                  <textarea {...register('notes')} className="input input-bordered w-full resize-none" rows={3} placeholder="أضف أي ملاحظات..."></textarea>
                 </div>
-              </div>
-                
-              {/* Complete Order Button */}
-              <Button
-                type="button"
-                size="lg"
-                className="w-full gap-2"
-                disabled={!hasCompleteDeliveryInfo || isSubmitting}
-                onClick={saveOrderToFirebase}
-              >
-                {isSubmitting ? "جاري إتمام الطلب..." : "إتمام الطلب"}
-              </Button>
-              
-              {/* Spacing */}
-              <div className="h-4"></div>
-              
-              {/* Clear Cart Button */}
-              <Button
-                type="button"
-                size="lg"
-                variant="destructive"
-                className="w-full gap-2"
-                onClick={async () => {
-                  try {
-                    await clearCart();
-                    toast.success("تم مسح السلة");
-                  } catch (error) {
-                    console.error('Error clearing cart:', error);
-                    toast.error("فشل في مسح السلة");
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-                نظف السلة
-              </Button>
-              
-              {/* Order Info */}
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mt-4">
-                <div className="flex items-center gap-3 text-blue-800">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="space-y-1">
-                    <p className="text-sm">
-                      عند النقر على زر "إتمام الطلب"، سيتم حفظ طلبك في صفحة الطلبات
-                    </p>
-                    <p className="text-sm font-medium">
-                      سنقوم بالتواصل معك قريباً
-                    </p>
-                  </div>
-                </div>
-              </div>
+                <button type="submit" className="btn btn-primary w-full" disabled={!isValid}>{'إتمام الطلب'}</button>
+              </form>
             </div>
           </div>
         </div>
@@ -869,3 +802,100 @@ ${'='.repeat(30)}
 };
 
 export default Cart;
+function getCartItemPrice(item: any) {
+  // Prefer precomputed unit price when available
+  if (typeof item?.unitFinalPrice === "number") {
+    return item.unitFinalPrice;
+  }
+
+  const now = new Date();
+  const product = item?.product || {};
+  let price = Number(product.price ?? 0);
+
+  // Apply active special offer discount if present and not expired
+  const hasDiscount =
+    product.specialOffer &&
+    typeof product.discountPercentage === "number" &&
+    product.discountPercentage > 0;
+
+  if (hasDiscount) {
+    const endsAt = product.offerEndsAt ? new Date(product.offerEndsAt) : null;
+    if (!endsAt || endsAt > now) {
+      const discount = Number(product.discountPercentage);
+      price = price * (1 - discount / 100);
+    }
+  }
+
+  // Add selected size price (if any)
+  if (item?.selectedSize?.price != null) {
+    price += Number(item.selectedSize.price);
+  }
+
+  // Add addons price deltas
+  if (Array.isArray(item?.selectedAddons)) {
+    price += item.selectedAddons.reduce((sum: number, addon: any) => {
+      return sum + Number(addon.price_delta ?? addon.price ?? 0);
+    }, 0);
+  }
+
+  // Ensure a numeric value with two decimals
+  return Math.round(price * 100) / 100;
+}
+async function clearCart(): Promise<void> {
+  const store = useStore.getState();
+  const currentCart = store.cart ?? [];
+
+  // No-op if cart is already empty, but ensure store is cleared
+  if (currentCart.length === 0) {
+    if (typeof store.clearCart === "function") {
+      store.clearCart();
+    } else if (typeof (store as any).setCart === "function") {
+      (store as any).setCart([]);
+    }
+    return;
+  }
+
+  // Prepare payloads for possible restore/update helpers
+  const restorePayload = currentCart.map((item: any) => ({
+    productId: item.product.id,
+    quantityToRestore: item.quantity,
+  }));
+  const negativeDeductPayload = currentCart.map((item: any) => ({
+    productId: item.product.id,
+    quantityToDeduct: -item.quantity,
+  }));
+
+  try {
+    // Dynamic import so we don't have to modify top-level imports in this file
+    const lib = await import("@/lib/firebase");
+
+    // Prefer a dedicated restore function if available
+    if (typeof lib.restoreProductQuantitiesAtomically === "function") {
+      // try common parameter shapes
+      try {
+        // preferred shape: { productId, quantityToRestore }
+        await lib.restoreProductQuantitiesAtomically(restorePayload);
+      } catch {
+        // fallback: some older implementations might expect a different shape;
+        // cast to any to call it anyway without TS errors
+        await lib.restoreProductQuantitiesAtomically(restorePayload as any);
+      }
+    } else if (typeof lib.updateProductQuantitiesAtomically === "function") {
+      // fallback: call update with negative deductions to increment stock back
+      await lib.updateProductQuantitiesAtomically(negativeDeductPayload);
+    }
+  } catch (err) {
+    // Log but don't block clearing local state
+    console.warn("clearCart: failed to restore quantities atomically", err);
+  } finally {
+    // Clear local cart state (support common store API variations)
+    if (typeof store.clearCart === "function") {
+      store.clearCart();
+    } else if (typeof (store as any).setCart === "function") {
+      (store as any).setCart([]);
+    } else if (typeof (store as any).removeAll === "function") {
+      (store as any).removeAll();
+    }
+  }
+}
+

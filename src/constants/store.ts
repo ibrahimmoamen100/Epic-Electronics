@@ -11,14 +11,14 @@ export const STORE_CONFIG = {
     primary: "/logo1.png",
     secondary: "/logo2.png",
     favicon: "/logo1.png",
-    text: "Storee", // نص اللوجو الذي يظهر في Navbar
+    text: "مول الاسناوي", // نص اللوجو الذي يظهر في Navbar
   },
   
   // معلومات الاتصال
   contact: {
-    phone: "01008397114",
-    formattedPhone: "201008397114",
-    whatsapp: "201008397114",
+    phone: "01024911062",
+    formattedPhone: "201024911062",
+    whatsapp: "201024911062",
     email: "elaraby_ahamed@yahoo.com",
     address: "  مكرم عبيد، مول زون، الدور الرابع، محل العربي كمبيوتر",
     city: "القاهرة",
@@ -45,8 +45,8 @@ export const STORE_CONFIG = {
   // معلومات صاحب المتجر
   owner: {
     name: "العربي  ",
-    phone: "01008397114",
-    whatsapp: "01008397114",
+    phone: "01024911062",
+    whatsapp: "01024911062",
     email: "elaraby_ahamed@yahoo.com",
     title: "صاحب المتجر",
 
@@ -57,14 +57,14 @@ export const STORE_CONFIG = {
     salesManager: {
       name: "Ibrahim",
       image: "/ibrahim.png",
-      phone: "01008397114",
+      phone: "01024911062",
       title: "مدير المبيعات",
       bio: "مسؤول عن إدارة المبيعات وتطوير استراتيجيات التسويق",
     },
     deliveryManager: {
       name: "Ahmed",
       image: "/def.png",
-      phone: "01008397114",
+      phone: "01024911062",
       title: "مسؤول التوصيل",
       bio: "مسؤول عن توصيل الطلبات وضمان وصولها في الوقت المحدد",
     },
@@ -74,34 +74,15 @@ export const STORE_CONFIG = {
   locations: [
     {
       id: "branch1",
-      name: "فرع مكرم عبيد - مول زون",
-      address: "مكرم عبيد، مول زون، الدور الرابع، محل العربي كمبيوتر",
-      phone: "01008397114",
-      hours: "1:00 ظهراً - 11:00 مساءً",
+      name: "   مول الاسناوي  ",
+      address: " مول الاسناوي شركه الحمد بجوار محطه مترو عزبه النخل الشرقيه المرج       ",
+      phone: "01024911062",
+      hours: "11:00 ظهراً - 10:00 مساءً",
       coordinates: { lat: 30.0444, lng: 31.2357 },
       googleMapsUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3454.18919669154!2d31.3483051!3d30.0508615!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14583fb69e051025%3A0x342d1b763093297a!2z2KfZhNi52KjZh9in2YrZhtmK2Kkg2YTZhNij2KzZh9iy2Kkg2KfZhNmF2KfZhNi52YbYqSDZhNmE2KfYqNmK2YjZhNmK2Kk!5e0!3m2!1sar!2seg!4v1694196350000!5m2!1sar!2seg",
       isMain: true,
     },
-    {
-      id: "branch2",
-      name: "فرع مول البستان",
-      address: "مول البستان، الدور الثاني، محل العربي كمبيوتر",
-      phone: "0105008586",
-      hours: "1:00 ظهراً - 11:00 مساءً",
-      coordinates: { lat: 30.0444, lng: 31.2357 },
-      googleMapsUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3453.123456789!2d31.2357!3d30.0444!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x145840c775c807a7%3A0x4e6b07f8bc12ffe6!2z2YXYsdmD2LIg2KfZhNio2LPYqtin2YYg2YTZhNij2KzZh9iy2Kkg2KfZhNil2YTZg9iq2LHZiNmG2YrYqQ!5e1!3m2!1sar!2seg!4v1748959826497!5m2!1sar!2seg",
-      isMain: false,
-    },
-    {
-      id: "branch3",
-      name: "فرع مكرم عبيد - مول تكنولوجي",
-      address: "مكرم عبيد، مول تكنولوجي، الدور الرابع، محل العربي كمبيوتر",
-      phone: "01115007595",
-      hours: "1:00 ظهراً - 11:00 مساءً",
-      coordinates: { lat: 30.0444, lng: 31.2357 },
-      googleMapsUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3454.18919669154!2d31.3483051!3d30.0508615!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14583fb69e051025%3A0x342d1b763093297a!2z2KfZhNi52KjZh9in2YrZhtmK2Kkg2YTZhNij2KzZh9iy2Kkg2KfZhNmF2KfZhNi52YbYqSDZhNmE2KfYqNmK2YjZhNmK2Kk!5e0!3m2!1sar!2seg!4v1694196350000!5m2!1sar!2seg",
-      isMain: false,
-    },
+
   ],
   
   // ألوان المشروع

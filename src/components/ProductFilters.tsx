@@ -145,6 +145,16 @@ export function ProductFilters() {
     ) as string[];
   }, [products, filters.category, filters.subcategory]);
 
+  // Processor names derived from products
+  const processorNames = useMemo(() => {
+    return Array.from(new Set(products.map(p => p.processor?.name).filter(Boolean) as string[]));
+  }, [products]);
+
+  // Dedicated GPU names derived from products
+  const gpuNames = useMemo(() => {
+    return Array.from(new Set(products.map(p => p.dedicatedGraphics?.name).filter(Boolean) as string[]));
+  }, [products]);
+
   const colors = useMemo(() => {
     return Array.from(
       new Set(
@@ -399,6 +409,66 @@ export function ProductFilters() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* Processor Filter */}
+        <AccordionItem value="processor">
+          <AccordionTrigger className="text-sm font-medium">{t("filters.processor")}</AccordionTrigger>
+          <AccordionContent>
+            <RadioGroup
+              value={filters.processorName || "all"}
+              onValueChange={(value) => setFilters({ ...filters, processorName: value === "all" ? undefined : value })}
+              className="space-y-2 pt-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="all" id="all-processors" />
+                <Label htmlFor="all-processors">{t("filters.allProcessors")}</Label>
+              </div>
+              {processorNames.map((name) => (
+                <div key={name} className="flex items-center space-x-2">
+                  <RadioGroupItem value={name} id={name} />
+                  <Label htmlFor={name}>{name}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Dedicated GPU Filter */}
+        <AccordionItem value="gpu">
+          <AccordionTrigger className="text-sm font-medium">{t("filters.dedicatedGraphics")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-2 pt-2">
+              <RadioGroup
+                value={filters.dedicatedGraphicsName || "all"}
+                onValueChange={(value) => setFilters({ ...filters, dedicatedGraphicsName: value === "all" ? undefined : value })}
+                className="space-y-2 pt-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value={"all"} id={"all-gpus"} />
+                  <Label htmlFor={"all-gpus"}>{t("filters.allGPUs")}</Label>
+                </div>
+                {gpuNames.map((name) => (
+                  <div key={name} className="flex items-center space-x-2">
+                    <RadioGroupItem value={name} id={`gpu-${name}`} />
+                    <Label htmlFor={`gpu-${name}`}>{name}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+
+              <div className="flex items-center mt-2">
+                <Label htmlFor="has-gpu">{t("filters.onlyWithGPU")}</Label>
+                <div className="ml-auto">
+                  <input
+                    id="has-gpu"
+                    type="checkbox"
+                    checked={!!filters.hasDedicatedGraphics}
+                    onChange={(e) => setFilters({ ...filters, hasDedicatedGraphics: e.target.checked ? true : undefined })}
+                  />
+                </div>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
         {/* Color Filter */}
         {/* <AccordionItem value="color">
           <AccordionTrigger className="text-sm font-medium">
@@ -533,6 +603,9 @@ export function ProductFilters() {
             minPrice: undefined,
             maxPrice: undefined,
             supplier: undefined,
+            processorName: undefined,
+            dedicatedGraphicsName: undefined,
+            hasDedicatedGraphics: undefined,
           });
           // Navigate back to products page to clear URL parameters
           navigate('/products');

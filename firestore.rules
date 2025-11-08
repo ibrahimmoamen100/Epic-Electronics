@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access to admin_config collection
+    match /admin_config/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to admin_sessions collection
+    match /admin_sessions/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to products collection
+    match /products/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to cashier-sales collection
+    match /cashier-sales/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to orders collection
+    match /orders/{document} {
+      allow read, write: if true;
+    }
+    
+    // Deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
