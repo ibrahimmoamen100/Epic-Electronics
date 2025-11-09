@@ -16,11 +16,11 @@ export const STORE_CONFIG = {
   
   // معلومات الاتصال
   contact: {
-    phone: "01024911062",
+    phone: "01025423389",
     formattedPhone: "201024911062",
     whatsapp: "201024911062",
     email: "elaraby_ahamed@yahoo.com",
-    address: "  مكرم عبيد، مول زون، الدور الرابع، محل العربي كمبيوتر",
+    address: "  مكرم عبيد، مول زون، الدور الرابع، محل الحمد كمبيوتر",
     city: "القاهرة",
     country: "مصر",
   },
@@ -44,9 +44,9 @@ export const STORE_CONFIG = {
   
   // معلومات صاحب المتجر
   owner: {
-    name: "العربي  ",
-    phone: "01024911062",
-    whatsapp: "01024911062",
+    name: "الحمد  ",
+    phone: "01025423389",
+    whatsapp: "01025423389",
     email: "elaraby_ahamed@yahoo.com",
     title: "صاحب المتجر",
 
@@ -57,14 +57,14 @@ export const STORE_CONFIG = {
     salesManager: {
       name: "Ibrahim",
       image: "/ibrahim.png",
-      phone: "01024911062",
+      phone: "01025423389",
       title: "مدير المبيعات",
       bio: "مسؤول عن إدارة المبيعات وتطوير استراتيجيات التسويق",
     },
     deliveryManager: {
       name: "Ahmed",
       image: "/def.png",
-      phone: "01024911062",
+      phone: "01025423389",
       title: "مسؤول التوصيل",
       bio: "مسؤول عن توصيل الطلبات وضمان وصولها في الوقت المحدد",
     },
@@ -74,12 +74,16 @@ export const STORE_CONFIG = {
   locations: [
     {
       id: "branch1",
-      name: "   مول الاسناوي  ",
-      address: " مول الاسناوي شركه الحمد بجوار محطه مترو عزبه النخل الشرقيه المرج       ",
-      phone: "01024911062",
-      hours: "11:00 ظهراً - 10:00 مساءً",
-      coordinates: { lat: 30.0444, lng: 31.2357 },
-      googleMapsUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3454.18919669154!2d31.3483051!3d30.0508615!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14583fb69e051025%3A0x342d1b763093297a!2z2KfZhNi52KjZh9in2YrZhtmK2Kkg2YTZhNij2KzZh9iy2Kkg2KfZhNmF2KfZhNi52YbYqSDZhNmE2KfYqNmK2YjZhNmK2Kk!5e0!3m2!1sar!2seg!4v1694196350000!5m2!1sar!2seg",
+        name: "    شركه الحمد لأجهزه اللابتوبات  ",
+        address: " مول الاسناوي الادور الاول اخر شارع الاسناوي بجوار سنتر شاهين امام مساكن عثمان, Cairo, Egypt     ",
+        phone: "201024911062",
+        hours: "11:00 ظهراً - 10:00 مساءً",
+        coordinates: { 
+          lat: 30.1403676, 
+          lng: 31.3310362 
+        },
+        googleMapsUrl:
+        "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3450.3863760316835!2d31.3310362!3d30.1403676!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x145815ecc8f45abd%3A0x2a911403160941ac!2z2YXZiNmEINin2YTYp9iz2YbYp9mI2Ykg2YTZhNmD2YjZhdio2YrZiNiq2LE!5e0!3m2!1sen!2seg!4v1762662837544!5m2!1sen!2seg",
       isMain: true,
     },
 

@@ -491,7 +491,7 @@ ${'='.repeat(30)}
       'تم إرسال الطلب من الموقع الالكتروني'
     ].join('\n');
 
-    // WhatsApp target number requested: 01024911062 -> international 201024911062
+    // WhatsApp target number requested: 01025423389 -> international 201024911062
     const whatsappNumber = '201024911062';
 
     try {

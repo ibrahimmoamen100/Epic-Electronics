@@ -20,7 +20,7 @@ import { motion } from "framer-motion";
 const warrantyFeatures = [
   {
     icon: FaShieldAlt,
-    title: "ضمان 6 شهور",
+    title: "ضمان شهرين",
     description: "على جميع المنتجات ضد عيوب الصناعة",
     color: "text-blue-600",
     bgColor: "bg-blue-50",
@@ -47,16 +47,16 @@ const warrantyFeatures = [
 const companyInfo = [
   {
     icon: FaStore,
-    title: "شركة العربي للكمبيوتر",
-    description: "نحن شركة لبيع الأجهزة الاستيراد بأفضل الأسعار وبأفضل جودة",
+    title: "شركة الحمد للابتوبات",
+    description: "نحن شركة لبيع اللابتوبات الاستيراد بأفضل الأسعار وبأفضل جودة",
     color: "text-primary",
     bgColor: "bg-primary/5",
     borderColor: "border-primary/20",
   },
   {
     icon: FaShieldAlt,
-    title: "ضمان 6 شهور شامل",
-    description: "الجهاز عليه 6 شهور ضمان (5 شهور صيانة + شهر استبدال) 👌",
+    title: "ضمان شهرين شامل",
+    description: "الجهاز عليه شهرين ضمان (شهر صيانة + شهر استبدال) 👌",
     color: "text-green-600",
     bgColor: "bg-green-50",
     borderColor: "border-green-200",
@@ -97,9 +97,9 @@ export default function About() {
                   <div className="absolute inset-0  rounded-full  scale-110"></div>
                   <div className="relative p-4 rounded-3xl  mx-auto w-fit">
                     <img
-                      src="/logo1.png"
-                      alt="لوجو شركة العربي للكمبيوتر"
-                      className="w-32 h-32 md:w-48 md:h-48 object-contain"
+                      src="/logo.png"
+                      alt="لوجو شركة الحمد للابتوبات"
+                      className="w-auto h-32 md:w-auto md:h-48 object-contain"
                       onError={(e) => {
                         e.currentTarget.src = "/placeholder.svg";
                       }}
@@ -107,11 +107,10 @@ export default function About() {
                   </div>
                 </div>
                 <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-                  شركة العربي للكمبيوتر
-                </h1>
+                  شركة الحمد للابتوبات                </h1>
               </div>
               <p className="text-xl md:text-2xl text-gray-700 mb-8 leading-relaxed">
-                نحن شركة لبيع الأجهزة الاستيراد بأفضل الأسعار وبأفضل جودة
+                نحن شركة لبيع اللابتوبات الاستيراد بأفضل الأسعار وبأفضل جودة
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button

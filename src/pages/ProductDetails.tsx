@@ -814,7 +814,7 @@ const ProductDetails = () => {
                     </div>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800 group-hover:text-blue-700 transition-colors">ضمان 6 شهور</p>
+                    <p className="text-sm font-semibold text-gray-800 group-hover:text-blue-700 transition-colors">ضمان شهرين</p>
                     <p className="text-xs text-gray-600 mt-1">ضد عيوب الصناعة</p>
                   </div>
                 </div>

@@ -29,25 +29,10 @@ export default function Locations() {
             </h1>
           </div>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            نحن متواجدون في عدة مواقع لخدمتكم بشكل أفضل
-          </p>
+تعرف علي اماكن وجودنا          </p>
         </motion.div>
 
-        {/* Working Hours Info */}
-        <motion.div 
-          className="mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          <Alert className="border-primary/20 bg-primary/5">
-            <Clock className="h-4 w-4 text-primary" />
-            <AlertTitle className="text-primary">مواعيد العمل</AlertTitle>
-            <AlertDescription>
-              جميع فروعنا تعمل من الساعة 1:00 ظهراً حتى 11:00 مساءً يومياً
-            </AlertDescription>
-          </Alert>
-        </motion.div>
+
 
         {/* Locations Grid */}
         <div className="grid lg:grid-cols-2 gap-8">

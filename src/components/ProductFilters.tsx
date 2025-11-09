@@ -18,7 +18,7 @@ import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 import { formatCurrency } from "@/utils/format";
 
 const DEFAULT_SUPPLIER_NAME = "spark";
-const DEFAULT_SUPPLIER_PHONE = "01024911062";
+const DEFAULT_SUPPLIER_PHONE = "01025423389";
 
 export function ProductFilters() {
   const filters = useStore((state) => state.filters) || {};

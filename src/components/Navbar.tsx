@@ -38,7 +38,7 @@ export function Navbar() {
       <div className="container flex h-auto items-center justify-between py-1 px-4 md:px-8">
         <div className="flex items-center gap-2">
           <Link to="/" className="text-3xl  font-bold">
-            {STORE_LOGO_TEXT}
+            <img src='/logo.png' alt={STORE_LOGO_TEXT} className="w-auto h-16" />
           </Link>
         </div>
 
@@ -50,6 +50,7 @@ export function Navbar() {
               className="text-sm font-medium relative group transition-all duration-300 hover:text-primary"
             >
               {t(item.name)}
+
               <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
             </Link>
           ))}
