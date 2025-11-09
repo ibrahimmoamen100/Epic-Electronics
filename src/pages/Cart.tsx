@@ -127,7 +127,7 @@ const Cart = () => {
   // Function to send WhatsApp message with order details
   const sendWhatsAppOrderMessage = async (orderData: any, deliveryInfo: any) => {
     try {
-  const whatsappNumber = "201024911062";
+  const whatsappNumber = "201025423389";
       
       // Format order items with better structure (size, color, addons)
       const orderItemsText = orderData.items.map((item: any, index: number) => {
@@ -526,7 +526,7 @@ ${'='.repeat(30)}
     ].join('\n');
 
     // WhatsApp target number requested: 01025423389 -> international 201024911062
-    const whatsappNumber = '201024911062';
+    const whatsappNumber = '201025423389';
 
     // Prepare quantity deductions for all cart items
     const deductions = cart.map(item => ({ 

@@ -1115,7 +1115,7 @@ export default function Cashier() {
     }
 
     const message = generateWhatsAppMessage(filteredSales);
-    const whatsappNumber = "201024911062"; // Convert 01024911062 to international format
+    const whatsappNumber = "201025423389"; // Convert 01025423389 to international format
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
     
