@@ -90,11 +90,11 @@ const Index = () => {
               <CarouselContent>
                 {STORE_HERO_CAROUSEL.map((slide) => (
                   <CarouselItem key={slide.id}>
-                    <div className="relative h-48 sm:h-64 md:h-80 lg:h-96 rounded-xl overflow-hidden">
+                    <div className="relative h-48  sm:h-64 md:h-80 lg:h-96 rounded-xl overflow-hidden">
                       <img
                         src={slide.image}
                         alt={slide.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain md:object-cover"
                       />
                       <div className={`absolute inset-0 bg-gradient-to-r ${slide.overlay} flex items-center`}>
                         <div className="p-6 md:p-10 max-w-md">

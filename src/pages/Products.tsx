@@ -198,7 +198,6 @@ export default function Products() {
   return (
     <div className="min-h-screen flex flex-col">
         <div className="container py-8">
-        <h1 className="text-3xl font-bold mb-6">{t("products.title")}</h1>
 
         <div className="w-full mb-6">
           <ProductSearch

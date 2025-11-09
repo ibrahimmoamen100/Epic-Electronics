@@ -21,12 +21,12 @@ export function Topbar() {
   return (
     <div className="bg-primary text-primary-foreground">
       <div className="container flex h-12 items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center   gap-2">
           <a
             href={`tel:${CONTACT_PHONES.main}`}
-            className="flex items-center gap-2 hover:text-primary-foreground/80"
+            className="flex items-center flex-row-reverse gap-1 border border-primary-foreground/80 rounded-full p-1 text-sm md:text-base hover:text-primary-foreground/80"
           >
-            <Phone className="h-4 w-4" />
+            <Phone className="h-3 w-3" />
             {CONTACT_PHONES.main}
           </a>
           <div className="flex items-center gap-2">
@@ -34,18 +34,11 @@ export function Topbar() {
               href="https://www.facebook.com/groups/elmargstore"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-primary-foreground/80"
+              className="hover:text-primary-foreground/80 border border-primary-foreground/80 rounded-full p-1"
             >
               <Facebook className="h-4 w-4" />
             </a>
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary-foreground/80"
-            >
-              <Instagram className="h-4 w-4" />
-            </a>
+
           </div>
         </div>
 
