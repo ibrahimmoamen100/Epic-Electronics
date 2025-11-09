@@ -4,6 +4,9 @@ import LoginRequiredModal from "@/components/LoginRequiredModal";
 import { useState, useEffect } from "react";
 import { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   MessageCircle,
   Trash2,
@@ -13,6 +16,8 @@ import {
   AlertCircle,
   Settings,
   ShoppingBag,
+  Truck,
+  MapPin,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
@@ -260,34 +265,62 @@ ${'='.repeat(30)}
 
       console.log('Order data to save:', orderData);
 
-      // Try to create order and update quantities atomically on the server
+      // Prepare quantity deductions for all cart items
+      const deductions = cart.map(item => ({ 
+        productId: item.product.id, 
+        quantityToDeduct: item.quantity 
+      }));
+
+      // Create order and update quantities atomically in Firebase
+      let orderId: string;
       try {
         if (typeof createOrderAndUpdateProductQuantitiesAtomically === 'function') {
-          const deductions = cart.map(item => ({ productId: item.product.id, quantityToDeduct: item.quantity }));
-          const orderId = await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);
-          console.log('Order created atomically with ID:', orderId);
+          console.log('🔄 Creating order and updating quantities atomically...');
+          const result = await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);
+          orderId = result.orderId;
+          console.log('✅ Order created atomically with ID:', orderId);
+          console.log('✅ Product quantities updated in Firebase');
         } else {
+          console.warn('⚠️ createOrderAndUpdateProductQuantitiesAtomically not available, using fallback');
+          // Fallback: Save order first, then update quantities
           const docRef = await addDoc(collection(db, 'orders'), orderData);
-          console.log('Order saved with ID:', docRef.id);
+          orderId = docRef.id;
+          console.log('✅ Order saved with ID:', orderId);
+          
+          // Update quantities separately (not atomic, but better than nothing)
+          try {
+            if (typeof updateProductQuantitiesAtomically === 'function') {
+              await updateProductQuantitiesAtomically(deductions);
+              console.log('✅ Product quantities updated');
+            }
+          } catch (qtyError) {
+            console.error('❌ Failed to update quantities:', qtyError);
+            // Continue anyway - order is saved
+          }
         }
-      } catch (err) {
-        console.warn('Atomic order creation failed, falling back to plain addDoc', err);
-        const docRef = await addDoc(collection(db, 'orders'), orderData);
-        console.log('Order saved with ID (fallback):', docRef.id);
+      } catch (err: any) {
+        console.error('❌ Error creating order atomically:', err);
+        
+        // Try to save order without quantity update (better than losing the order)
+        try {
+          const docRef = await addDoc(collection(db, 'orders'), orderData);
+          orderId = docRef.id;
+          console.log('⚠️ Order saved without atomic quantity update. ID:', orderId);
+          console.warn('⚠️ Please update product quantities manually in Firebase');
+          toast.warning("تم حفظ الطلب، لكن حدث خطأ في تحديث الكميات. يرجى التحقق يدوياً.");
+        } catch (saveError) {
+          console.error('❌ Failed to save order:', saveError);
+          throw new Error('فشل في حفظ الطلب. يرجى المحاولة مرة أخرى.');
+        }
       }
-      // Note: product quantities are updated when items are added/removed from the cart
-      // (optimistic atomic updates happen in the store). To avoid double-deduction
-      // we don't re-run the atomic deduction here. If you prefer server-side
-      // confirmation at checkout instead, we should implement a reservation/confirm
-      // flow or a single transaction that creates the order and updates stock.
       
       toast.success("تم حفظ الطلب بنجاح");
       
       // Send WhatsApp message with order details
       await sendWhatsAppOrderMessage(orderData, deliveryInfo);
       
-      // Clear cart after successful order
-      clearCart();
+      // Clear cart after successful order (skip restore because quantities are already updated in Firebase)
+      await clearCart(true);
       
       // Reload products to ensure we have the latest data
       console.log('Reloading products after order completion...');
@@ -403,6 +436,7 @@ ${'='.repeat(30)}
 
   // delivery form handler - save order to Firestore (so admin/orders shows it), update stock atomically, then open WhatsApp to the configured number
   const onDeliverySubmit = async (data: DeliveryFormData) => {
+    setIsSubmitting(true);
     // Assemble order items (same shape as saveOrderToFirebase)
     const orderItems = cart.map((item) => ({
       productId: item.product.id,
@@ -494,38 +528,73 @@ ${'='.repeat(30)}
     // WhatsApp target number requested: 01025423389 -> international 201024911062
     const whatsappNumber = '201024911062';
 
+    // Prepare quantity deductions for all cart items
+    const deductions = cart.map(item => ({ 
+      productId: item.product.id, 
+      quantityToDeduct: item.quantity 
+    }));
+
+    // Create order and update quantities atomically in Firebase
+    let orderId: string;
     try {
-      // Save the order to Firestore so it appears in admin/orders
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      console.log('Order saved with ID (from delivery form):', docRef.id);
-
-      // Update quantities atomically
-      // Note: quantities are already deducted when items are added to the cart
-      // via optimistic updates in the store. We avoid re-deducting here to prevent
-      // double-subtraction. If you need a single atomic server-side operation,
-      // we should create a transaction that both writes the order and updates
-      // product quantities in one atomic operation.
-
+      if (typeof createOrderAndUpdateProductQuantitiesAtomically === 'function') {
+        console.log('🔄 Creating order and updating quantities atomically (from delivery form)...');
+        const result = await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);
+        orderId = result.orderId;
+        console.log('✅ Order created atomically with ID:', orderId);
+        console.log('✅ Product quantities updated in Firebase');
+      } else {
+        console.warn('⚠️ createOrderAndUpdateProductQuantitiesAtomically not available, using fallback');
+        // Fallback: Save order first, then update quantities
+        const docRef = await addDoc(collection(db, 'orders'), orderData);
+        orderId = docRef.id;
+        console.log('✅ Order saved with ID:', orderId);
+        
+        // Update quantities separately (not atomic, but better than nothing)
+        try {
+          if (typeof updateProductQuantitiesAtomically === 'function') {
+            await updateProductQuantitiesAtomically(deductions);
+            console.log('✅ Product quantities updated');
+          }
+        } catch (qtyError) {
+          console.error('❌ Failed to update quantities:', qtyError);
+          // Continue anyway - order is saved
+        }
+      }
+      
       toast.success('تم حفظ الطلب بنجاح');
-    } catch (error) {
-      console.error('Error saving order from delivery form:', error);
-      toast.error('تعذر حفظ الطلب في النظام، سيتم فتح واتساب للمتابعة');
-      // Proceed to open WhatsApp even if saving failed
+    } catch (error: any) {
+      console.error('❌ Error saving order from delivery form:', error);
+      
+      // Try to save order without quantity update (better than losing the order)
+      try {
+        const docRef = await addDoc(collection(db, 'orders'), orderData);
+        orderId = docRef.id;
+        console.log('⚠️ Order saved without atomic quantity update. ID:', orderId);
+        console.warn('⚠️ Please update product quantities manually in Firebase');
+        toast.warning("تم حفظ الطلب، لكن حدث خطأ في تحديث الكميات. يرجى التحقق يدوياً.");
+      } catch (saveError) {
+        console.error('❌ Failed to save order:', saveError);
+        toast.error('تعذر حفظ الطلب في النظام، سيتم فتح واتساب للمتابعة');
+        // Proceed to open WhatsApp even if saving failed
+      }
     }
 
     // Open WhatsApp to the configured number with the formatted message
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
 
-    // Reset form and clear cart
+    // Reset form and clear cart (skip restore because quantities are already updated in Firebase)
     reset();
-    clearCart();
+    await clearCart(true);
 
     // Reload products to reflect any quantity changes
     try {
       await useStore.getState().loadProducts();
     } catch (e) {
       console.warn('Failed to reload products after delivery-form order:', e);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -691,34 +760,145 @@ ${'='.repeat(30)}
           </div>
 
           <div className="md:col-span-2">
-            <div className="rounded-lg border bg-card p-6 sticky top-20">
-              <h2 className="text-xl font-semibold mb-4">معلومات التوصيل</h2>
+            <div className="rounded-lg border bg-card p-6 sticky top-20 shadow-sm">
+              <div className="flex items-center gap-2 mb-6">
+                <Truck className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">معلومات التوصيل</h2>
+              </div>
+
+              {/* Shipping Cost Info */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-green-900 mb-1">تكلفة الشحن</p>
+                    <div className="space-y-1 text-sm text-green-800">
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium">📍 داخل القاهرة:</span>
+                        <span className="text-green-700 font-semibold">100 جنيه</span>
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium">🚚 جميع المحافظات:</span>
+                        <span className="text-green-700 font-semibold">170 جنيه</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit(onDeliverySubmit)} className="space-y-4">
-                <div>
-                  <label className="block mb-1">اسم الزبون</label>
-                  <input type="text" {...register('fullName', { required: 'إلزامي' })} className="input input-bordered w-full" />
-                  {errors.fullName && <span className="text-red-500 text-xs">{errors.fullName.message}</span>}
+                <div className="space-y-2">
+                  <Label htmlFor="fullName" className="text-sm font-medium">
+                    اسم الزبون <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="أدخل اسمك الكامل"
+                    {...register('fullName', { required: 'هذا الحقل إلزامي' })}
+                    className={errors.fullName ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                  />
+                  {errors.fullName && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.fullName.message}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <label className="block mb-1">المحافظة</label>
-                  <input type="text" {...register('city', { required: 'إلزامي' })} className="input input-bordered w-full" />
-                  {errors.city && <span className="text-red-500 text-xs">{errors.city.message}</span>}
+
+                <div className="space-y-2">
+                  <Label htmlFor="city" className="text-sm font-medium">
+                    المحافظة <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="city"
+                    type="text"
+                    placeholder="مثال: القاهرة، الجيزة، الإسكندرية"
+                    {...register('city', { required: 'هذا الحقل إلزامي' })}
+                    className={errors.city ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                  />
+                  {errors.city && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.city.message}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <label className="block mb-1">العنوان بالتفصيل</label>
-                  <input type="text" {...register('address', { required: 'إلزامي' })} className="input input-bordered w-full" />
-                  {errors.address && <span className="text-red-500 text-xs">{errors.address.message}</span>}
+
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="text-sm font-medium">
+                    العنوان بالتفصيل <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="address"
+                    type="text"
+                    placeholder="الشارع، المنطقة، رقم الشقة/المبنى"
+                    {...register('address', { required: 'هذا الحقل إلزامي' })}
+                    className={errors.address ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                  />
+                  {errors.address && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.address.message}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <label className="block mb-1">رقم الهاتف</label>
-                  <input type="tel" {...register('phoneNumber', { required: 'إلزامي', pattern: { value: /^01[0-9]{9,}$/g, message: 'رقم غير صحيح!' } })} className="input input-bordered w-full" />
-                  {errors.phoneNumber && <span className="text-red-500 text-xs">{errors.phoneNumber.message}</span>}
+
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber" className="text-sm font-medium">
+                    رقم الهاتف <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    placeholder="01XXXXXXXXX"
+                    {...register('phoneNumber', { 
+                      required: 'هذا الحقل إلزامي',
+                      pattern: { 
+                        value: /^01[0-9]{9,}$/g, 
+                        message: 'رقم الهاتف غير صحيح! يجب أن يبدأ بـ 01 ويحتوي على 11 رقم' 
+                      } 
+                    })}
+                    className={errors.phoneNumber ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                  />
+                  {errors.phoneNumber && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.phoneNumber.message}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <label className="block mb-1">ملاحظات (اختياري)</label>
-                  <textarea {...register('notes')} className="input input-bordered w-full resize-none" rows={3} placeholder="أضف أي ملاحظات..."></textarea>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="text-sm font-medium">
+                    ملاحظات <span className="text-gray-400 text-xs">(اختياري)</span>
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="أضف أي ملاحظات إضافية للطلب..."
+                    rows={3}
+                    {...register('notes')}
+                    className="resize-none"
+                  />
                 </div>
-                <button type="submit" className="btn btn-primary w-full" disabled={!isValid}>{'إتمام الطلب'}</button>
+
+                <Button
+                  type="submit"
+                  disabled={!isValid || isSubmitting}
+                  className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-semibold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>جاري المعالجة...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FaWhatsapp className="h-5 w-5" />
+                      <span>إتمام الطلب وإرسال عبر واتساب</span>
+                    </>
+                  )}
+                </Button>
               </form>
             </div>
           </div>

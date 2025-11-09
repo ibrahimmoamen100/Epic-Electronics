@@ -246,18 +246,12 @@ export const useStore = create<StoreState>()(
         // If reducing quantity, we can do it without checking
         if (quantityDifference <= 0) {
           if (quantity <= 0) {
-            // Remove from cart and restore quantity
+            // Remove from cart and restore quantity locally (not in Firebase - will be updated when order is completed)
             const newQuantity = availableQuantity + currentCartQuantity;
-            await productsService.updateProduct(productId, {
-              ...product,
-              wholesaleInfo: product.wholesaleInfo
-                ? { ...product.wholesaleInfo, quantity: newQuantity }
-                : product.wholesaleInfo
-            });
 
             set((state) => ({
               cart: state.cart.filter((item) => item.product && item.product.id !== productId),
-              // Restore the quantity to products array
+              // Restore the quantity to products array (local only)
               products: state.products.map((p) =>
                 p.id === productId
                   ? {
@@ -272,20 +266,14 @@ export const useStore = create<StoreState>()(
             return;
           }
 
-          // Restore the difference to products array
+          // Restore the difference to products array locally (not in Firebase)
           const newQuantity = availableQuantity + Math.abs(quantityDifference);
-          await productsService.updateProduct(productId, {
-            ...product,
-            wholesaleInfo: product.wholesaleInfo
-              ? { ...product.wholesaleInfo, quantity: newQuantity }
-              : product.wholesaleInfo
-          });
 
           set((state) => ({
             cart: state.cart.map((item) =>
               item.product && item.product.id === productId ? { ...item, quantity } : item
             ),
-            // Restore the difference to products array
+            // Restore the difference to products array (local only)
             products: state.products.map((p) =>
               p.id === productId
                 ? {
@@ -305,20 +293,14 @@ export const useStore = create<StoreState>()(
           throw new Error(`الكمية المطلوبة غير متوفرة. المتوفر: ${availableQuantity}`);
         }
 
-        // Reduce the quantity from products array
+        // Reduce the quantity from products array locally (not in Firebase - will be updated when order is completed)
         const newQuantity = availableQuantity - quantityDifference;
-        await productsService.updateProduct(productId, {
-          ...product,
-          wholesaleInfo: product.wholesaleInfo
-            ? { ...product.wholesaleInfo, quantity: newQuantity }
-            : product.wholesaleInfo
-        });
 
         set((state) => ({
           cart: state.cart.map((item) =>
             item.product && item.product.id === productId ? { ...item, quantity } : item
           ),
-          // Reduce the quantity from products array
+          // Reduce the quantity from products array (local only)
           products: state.products.map((p) =>
             p.id === productId
               ? {
@@ -332,22 +314,24 @@ export const useStore = create<StoreState>()(
         }));
       },
       setFilters: (filters) => set({ filters }),
-      clearCart: async () => {
+      clearCart: async (skipRestore = false) => {
         const cart = get().cart;
         
-        // Restore all quantities to Firebase
-        for (const item of cart) {
-          const product = get().products.find((p) => p.id === item.product.id);
-          if (product) {
-            const currentQuantity = product.wholesaleInfo?.quantity || 0;
-            const newQuantity = currentQuantity + item.quantity;
-            
-            await productsService.updateProduct(item.product.id, {
-              ...product,
-              wholesaleInfo: product.wholesaleInfo
-                ? { ...product.wholesaleInfo, quantity: newQuantity }
-                : product.wholesaleInfo
-            });
+        // Restore all quantities to Firebase only if not skipping (e.g., after order completion)
+        if (!skipRestore) {
+          for (const item of cart) {
+            const product = get().products.find((p) => p.id === item.product.id);
+            if (product) {
+              const currentQuantity = product.wholesaleInfo?.quantity || 0;
+              const newQuantity = currentQuantity + item.quantity;
+              
+              await productsService.updateProduct(item.product.id, {
+                ...product,
+                wholesaleInfo: product.wholesaleInfo
+                  ? { ...product.wholesaleInfo, quantity: newQuantity }
+                  : product.wholesaleInfo
+              });
+            }
           }
         }
         

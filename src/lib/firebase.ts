@@ -671,7 +671,11 @@ export const createOrderAndUpdateProductQuantitiesAtomically = async (
     transaction.set(newOrderRef, {
       ...orderPayload,
       createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
     });
+
+    console.log('✅ Transaction: Order created with ID:', newOrderRef.id);
+    console.log('✅ Transaction: Product quantities updated for', quantityUpdates.length, 'products');
 
     return { orderId: newOrderRef.id };
   });

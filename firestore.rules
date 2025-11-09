@@ -26,6 +26,26 @@ service cloud.firestore {
       allow read, write: if true;
     }
     
+    // Allow read/write access to page_views collection (for analytics)
+    match /page_views/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to visitor_sessions collection (for analytics)
+    match /visitor_sessions/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to daily_stats collection (for analytics)
+    match /daily_stats/{document} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to page_stats collection (for analytics)
+    match /page_stats/{document} {
+      allow read, write: if true;
+    }
+    
     // Deny all other collections
     match /{document=**} {
       allow read, write: if false;
