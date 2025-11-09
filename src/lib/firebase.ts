@@ -415,6 +415,8 @@ export interface CashierSale {
   totalAmount: number;
   timestamp: Date;
   customerName?: string;
+  customerPhone?: string;
+  paymentMethod?: 'vodafone_cash' | 'instaPay' | 'cash';
 }
 
 export class FirebaseSalesService {

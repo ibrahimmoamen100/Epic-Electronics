@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 import { formatCurrency } from "@/utils/format";
 
@@ -37,9 +37,13 @@ export function ProductFilters() {
   // State to control accordion sections
   const [accordionValue, setAccordionValue] = useState<string[]>(["price", "category"]);
 
-  // Get filtered products based on current filters
+  // Get filtered products based on current filters (excluding CPU and GPU filters for dependent filtering)
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      // Exclude archived products
+      if (product.isArchived) {
+        return false;
+      }
       // Category filter
       if (filters.category && product.category !== filters.category) {
         return false;
@@ -145,15 +149,72 @@ export function ProductFilters() {
     ) as string[];
   }, [products, filters.category, filters.subcategory]);
 
-  // Processor names derived from products
+  // Processor names derived from filtered products and dependent on GPU filter
   const processorNames = useMemo(() => {
-    return Array.from(new Set(products.map(p => p.processor?.name).filter(Boolean) as string[]));
-  }, [products]);
+    let productsToConsider = filteredProducts;
+    
+    // If a GPU is selected, only show processors that exist in products with that GPU
+    if (filters.dedicatedGraphicsName) {
+      productsToConsider = productsToConsider.filter(
+        (p) => p.dedicatedGraphics?.name === filters.dedicatedGraphicsName
+      );
+    }
+    
+    return Array.from(
+      new Set(
+        productsToConsider
+          .map((p) => p.processor?.name)
+          .filter(Boolean) as string[]
+      )
+    );
+  }, [filteredProducts, filters.dedicatedGraphicsName]);
 
-  // Dedicated GPU names derived from products
+  // Dedicated GPU names derived from filtered products and dependent on CPU filter
   const gpuNames = useMemo(() => {
-    return Array.from(new Set(products.map(p => p.dedicatedGraphics?.name).filter(Boolean) as string[]));
-  }, [products]);
+    let productsToConsider = filteredProducts;
+    
+    // If a processor is selected, only show GPUs that exist in products with that processor
+    if (filters.processorName) {
+      productsToConsider = productsToConsider.filter(
+        (p) => p.processor?.name === filters.processorName
+      );
+    }
+    
+    return Array.from(
+      new Set(
+        productsToConsider
+          .map((p) => p.dedicatedGraphics?.name)
+          .filter(Boolean) as string[]
+      )
+    );
+  }, [filteredProducts, filters.processorName]);
+
+  // Validate and reset incompatible filters when available options change
+  useEffect(() => {
+    // Only reset if we have available options and the current filter is not in the list
+    // This happens when GPU filter changes and the selected processor is no longer compatible
+    if (processorNames.length > 0 && filters.processorName && !processorNames.includes(filters.processorName)) {
+      // Processor is no longer available (e.g., due to GPU filter change), reset it
+      setFilters((prevFilters) => ({
+        ...prevFilters,
+        processorName: undefined,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [processorNames.join(',')]); // Use join to create a stable dependency
+
+  useEffect(() => {
+    // Only reset if we have available options and the current filter is not in the list
+    // This happens when processor filter changes and the selected GPU is no longer compatible
+    if (gpuNames.length > 0 && filters.dedicatedGraphicsName && !gpuNames.includes(filters.dedicatedGraphicsName)) {
+      // GPU is no longer available (e.g., due to processor filter change), reset it
+      setFilters((prevFilters) => ({
+        ...prevFilters,
+        dedicatedGraphicsName: undefined,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gpuNames.join(',')]); // Use join to create a stable dependency
 
   const colors = useMemo(() => {
     return Array.from(
@@ -411,47 +472,91 @@ export function ProductFilters() {
 
         {/* Processor Filter */}
         <AccordionItem value="processor">
-          <AccordionTrigger className="text-sm font-medium">{t("filters.processor")}</AccordionTrigger>
+          <AccordionTrigger className="text-sm font-medium">
+            {t("filters.processor")}
+            {filters.dedicatedGraphicsName && (
+              <span className="text-xs text-muted-foreground ml-2">
+                ({t("filters.compatibleWith")} {filters.dedicatedGraphicsName})
+              </span>
+            )}
+          </AccordionTrigger>
           <AccordionContent>
             <RadioGroup
               value={filters.processorName || "all"}
-              onValueChange={(value) => setFilters({ ...filters, processorName: value === "all" ? undefined : value })}
+              onValueChange={(value) => {
+                const newProcessorName = value === "all" ? undefined : value;
+                // When processor changes, keep GPU filter but it will be automatically filtered to show only compatible GPUs
+                setFilters({ 
+                  ...filters, 
+                  processorName: newProcessorName
+                });
+              }}
               className="space-y-2 pt-2"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="all" id="all-processors" />
                 <Label htmlFor="all-processors">{t("filters.allProcessors")}</Label>
               </div>
-              {processorNames.map((name) => (
-                <div key={name} className="flex items-center space-x-2">
-                  <RadioGroupItem value={name} id={name} />
-                  <Label htmlFor={name}>{name}</Label>
+              {processorNames.length > 0 ? (
+                processorNames.map((name) => (
+                  <div key={name} className="flex items-center space-x-2">
+                    <RadioGroupItem value={name} id={name} />
+                    <Label htmlFor={name}>{name}</Label>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground py-2">
+                  {filters.dedicatedGraphicsName 
+                    ? t("filters.noCompatibleProcessors") 
+                    : t("filters.noProcessorsAvailable")}
                 </div>
-              ))}
+              )}
             </RadioGroup>
           </AccordionContent>
         </AccordionItem>
 
         {/* Dedicated GPU Filter */}
         <AccordionItem value="gpu">
-          <AccordionTrigger className="text-sm font-medium">{t("filters.dedicatedGraphics")}</AccordionTrigger>
+          <AccordionTrigger className="text-sm font-medium">
+            {t("filters.dedicatedGraphics")}
+            {filters.processorName && (
+              <span className="text-xs text-muted-foreground ml-2">
+                ({t("filters.compatibleWith")} {filters.processorName})
+              </span>
+            )}
+          </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-2 pt-2">
               <RadioGroup
                 value={filters.dedicatedGraphicsName || "all"}
-                onValueChange={(value) => setFilters({ ...filters, dedicatedGraphicsName: value === "all" ? undefined : value })}
+                onValueChange={(value) => {
+                  const newGpuName = value === "all" ? undefined : value;
+                  // When GPU changes, keep processor filter but it will be automatically filtered to show only compatible processors
+                  setFilters({ 
+                    ...filters, 
+                    dedicatedGraphicsName: newGpuName
+                  });
+                }}
                 className="space-y-2 pt-2"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value={"all"} id={"all-gpus"} />
                   <Label htmlFor={"all-gpus"}>{t("filters.allGPUs")}</Label>
                 </div>
-                {gpuNames.map((name) => (
-                  <div key={name} className="flex items-center space-x-2">
-                    <RadioGroupItem value={name} id={`gpu-${name}`} />
-                    <Label htmlFor={`gpu-${name}`}>{name}</Label>
+                {gpuNames.length > 0 ? (
+                  gpuNames.map((name) => (
+                    <div key={name} className="flex items-center space-x-2">
+                      <RadioGroupItem value={name} id={`gpu-${name}`} />
+                      <Label htmlFor={`gpu-${name}`}>{name}</Label>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground py-2">
+                    {filters.processorName 
+                      ? t("filters.noCompatibleGPUs") 
+                      : t("filters.noGPUsAvailable")}
                   </div>
-                ))}
+                )}
               </RadioGroup>
 
               <div className="flex items-center mt-2">

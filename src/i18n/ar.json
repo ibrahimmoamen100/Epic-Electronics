@@ -42,7 +42,12 @@
     "dedicatedGraphics": "كرت شاشة خارجي",
     "onlyWithGPU": "عرض المنتجات التي تحتوي على كرت شاشة خارجي فقط",
     "allProcessors": "جميع المعالجات",
-    "allGPUs": "جميع كروت الشاشة"
+    "allGPUs": "جميع كروت الشاشة",
+    "compatibleWith": "متوافق مع",
+    "noCompatibleProcessors": "لا توجد معالجات متوافقة مع كرت الشاشة المحدد",
+    "noProcessorsAvailable": "لا توجد معالجات متاحة",
+    "noCompatibleGPUs": "لا توجد كروت شاشة متوافقة مع المعالج المحدد",
+    "noGPUsAvailable": "لا توجد كروت شاشة متاحة"
   },
   "product": {
     "addToCart": "أضف إلى السلة",

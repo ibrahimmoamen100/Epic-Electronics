@@ -42,7 +42,12 @@
     "dedicatedGraphics": "Dedicated Graphics",
     "onlyWithGPU": "Only products with dedicated GPU",
     "allProcessors": "All Processors",
-    "allGPUs": "All GPUs"
+    "allGPUs": "All GPUs",
+    "compatibleWith": "compatible with",
+    "noCompatibleProcessors": "No processors compatible with the selected graphics card",
+    "noProcessorsAvailable": "No processors available",
+    "noCompatibleGPUs": "No graphics cards compatible with the selected processor",
+    "noGPUsAvailable": "No graphics cards available"
   },
   "product": {
     "addToCart": "Add to Cart",

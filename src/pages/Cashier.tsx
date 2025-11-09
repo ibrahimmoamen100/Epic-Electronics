@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +28,14 @@ import {
   RotateCcw,
   Settings,
   AlertTriangle,
+  Filter,
+  Calendar,
+  User,
+  Phone,
+  X,
+  Send,
+  FileText,
+  Clock,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -65,6 +74,8 @@ interface Sale {
   totalAmount: number;
   timestamp: Date;
   customerName?: string;
+  customerPhone?: string;
+  paymentMethod?: 'vodafone_cash' | 'instaPay' | 'cash';
 }
 
 export default function Cashier() {
@@ -76,7 +87,18 @@ export default function Cashier() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<'vodafone_cash' | 'instaPay' | 'cash'>('cash');
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  
+  // Advanced filters state
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+  const [customerNameFilter, setCustomerNameFilter] = useState<string>("");
+  const [phoneFilter, setPhoneFilter] = useState<string>("");
+  const [productNameFilter, setProductNameFilter] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(false);
   
   // Product options selection state
   const [selectedProductForOptions, setSelectedProductForOptions] = useState<Product | null>(null);
@@ -659,7 +681,9 @@ export default function Cashier() {
         })),
         totalAmount: cartTotals.total,
         timestamp: new Date(),
-        customerName: customerName || null
+        customerName: customerName || null,
+        customerPhone: customerPhone || null,
+        paymentMethod: paymentMethod || 'cash'
       };
 
       // Save to Firebase first
@@ -712,9 +736,11 @@ export default function Cashier() {
         return updatedSales;
       });
       
-      // Clear cart and customer name
+      // Clear cart and customer info
       setCart([]);
       setCustomerName("");
+      setCustomerPhone("");
+      setPaymentMethod('cash');
       
       // Reload products to ensure we have the latest data
       console.log('Cashier: Reloading products after sale completion...');
@@ -782,6 +808,8 @@ export default function Cashier() {
       
       setCart([]);
       setCustomerName("");
+      setCustomerPhone("");
+      setPaymentMethod('cash');
       
       console.log('Cashier: Cart cleared successfully');
       toast.success("تم مسح السلة واستعادة الكميات");
@@ -896,6 +924,205 @@ export default function Cashier() {
     saveSalesToStorage();
   }, [sales]);
 
+  // Advanced filtering logic
+  const filteredSales = useMemo(() => {
+    let filtered = [...sales];
+
+    // Date filter
+    if (dateFilter !== "all") {
+      const now = new Date();
+      let startDate: Date;
+
+      switch (dateFilter) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case "custom":
+          if (customStartDate && customEndDate) {
+            startDate = new Date(customStartDate);
+            const endDate = new Date(customEndDate);
+            endDate.setHours(23, 59, 59, 999);
+            filtered = filtered.filter(sale => {
+              const saleDate = new Date(sale.timestamp);
+              return saleDate >= startDate && saleDate <= endDate;
+            });
+          }
+          break;
+        default:
+          startDate = new Date(0);
+      }
+
+      if (dateFilter !== "custom") {
+        filtered = filtered.filter(sale => {
+          const saleDate = new Date(sale.timestamp);
+          return saleDate >= startDate;
+        });
+      }
+    }
+
+    // Customer name filter
+    if (customerNameFilter.trim()) {
+      const searchTerm = customerNameFilter.toLowerCase().trim();
+      filtered = filtered.filter(sale => {
+        const name = (sale.customerName || "").toLowerCase();
+        return name.includes(searchTerm);
+      });
+    }
+
+    // Phone filter
+    if (phoneFilter.trim()) {
+      const searchTerm = phoneFilter.trim();
+      filtered = filtered.filter(sale => {
+        const phone = (sale.customerPhone || "").trim();
+        return phone.includes(searchTerm);
+      });
+    }
+
+    // Product name filter
+    if (productNameFilter.trim()) {
+      const searchTerm = productNameFilter.toLowerCase().trim();
+      filtered = filtered.filter(sale => {
+        return sale.items.some(item => {
+          const productName = (item.product.name || "").toLowerCase();
+          return productName.includes(searchTerm);
+        });
+      });
+    }
+
+    // Sort by date (newest first)
+    return filtered.sort((a, b) => {
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  }, [sales, dateFilter, customStartDate, customEndDate, customerNameFilter, phoneFilter, productNameFilter]);
+
+  // Get payment method name
+  const getPaymentMethodName = (method?: string): string => {
+    switch (method) {
+      case 'vodafone_cash':
+        return 'فودافون كاش';
+      case 'instaPay':
+        return 'إنستاباي';
+      case 'cash':
+        return 'نقدي';
+      default:
+        return 'نقدي';
+    }
+  };
+
+  // Get payment method badge color
+  const getPaymentMethodBadgeVariant = (method?: string): "default" | "secondary" | "outline" => {
+    switch (method) {
+      case 'vodafone_cash':
+        return 'default';
+      case 'instaPay':
+        return 'secondary';
+      case 'cash':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setDateFilter("all");
+    setCustomStartDate("");
+    setCustomEndDate("");
+    setCustomerNameFilter("");
+    setPhoneFilter("");
+    setProductNameFilter("");
+  };
+
+  // Check if any filter is active
+  const hasActiveFilters = useMemo(() => {
+    return dateFilter !== "all" ||
+      customStartDate !== "" ||
+      customEndDate !== "" ||
+      customerNameFilter.trim() !== "" ||
+      phoneFilter.trim() !== "" ||
+      productNameFilter.trim() !== "";
+  }, [dateFilter, customStartDate, customEndDate, customerNameFilter, phoneFilter, productNameFilter]);
+
+  // Generate WhatsApp message
+  const generateWhatsAppMessage = (salesToExport: Sale[]): string => {
+    if (salesToExport.length === 0) {
+      return "لا توجد عمليات بيع للتصدير";
+    }
+
+    const lines: string[] = [];
+    lines.push("📊 تقرير عمليات البيع");
+    lines.push("=".repeat(30));
+    lines.push(`عدد العمليات: ${salesToExport.length}`);
+    lines.push(`تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}`);
+    lines.push("=".repeat(30));
+    lines.push("");
+
+    salesToExport.forEach((sale, index) => {
+      lines.push(`📋 عملية #${index + 1}`);
+      lines.push("-".repeat(25));
+      
+      // Customer info
+      lines.push(`👤 العميل: ${sale.customerName || "بدون اسم"}`);
+      if (sale.customerPhone) {
+        lines.push(`📞 الهاتف: ${sale.customerPhone}`);
+      }
+      if (sale.paymentMethod) {
+        lines.push(`💳 طريقة الدفع: ${getPaymentMethodName(sale.paymentMethod)}`);
+      }
+      
+      // Date
+      const saleDate = new Date(sale.timestamp);
+      lines.push(`📅 التاريخ: ${saleDate.toLocaleDateString('ar-EG')} - ${saleDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`);
+      
+      // Items
+      lines.push("🛍️ المنتجات:");
+      sale.items.forEach((item, itemIndex) => {
+        lines.push(`  ${itemIndex + 1}. ${item.product.name}`);
+        lines.push(`     الكمية: ${item.quantity}`);
+        if (item.selectedSize) {
+          lines.push(`     الحجم: ${item.selectedSize.label}`);
+        }
+        if (item.selectedAddons && item.selectedAddons.length > 0) {
+          const addons = item.selectedAddons.map(a => a.label).join(", ");
+          lines.push(`     الإضافات: ${addons}`);
+        }
+        lines.push(`     السعر: ${formatCurrency(item.totalPrice, 'جنيه')}`);
+      });
+      
+      // Total
+      lines.push(`💰 المجموع: ${formatCurrency(sale.totalAmount, 'جنيه')}`);
+      lines.push(`🆔 رقم العملية: ${sale.id.slice(-8)}`);
+      lines.push("");
+    });
+
+    lines.push("=".repeat(30));
+    lines.push(`إجمالي المبلغ: ${formatCurrency(salesToExport.reduce((sum, sale) => sum + sale.totalAmount, 0), 'جنيه')}`);
+
+    return lines.join("\n");
+  };
+
+  // Send to WhatsApp
+  const sendToWhatsApp = () => {
+    if (filteredSales.length === 0) {
+      toast.error("لا توجد عمليات بيع لإرسالها");
+      return;
+    }
+
+    const message = generateWhatsAppMessage(filteredSales);
+    const whatsappNumber = "201024911062"; // Convert 01024911062 to international format
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+    toast.success(`تم فتح WhatsApp لإرسال ${filteredSales.length} عملية بيع`);
+  };
+
   // Manual save function
   const saveSalesManually = async () => {
     try {
@@ -931,7 +1158,7 @@ export default function Cashier() {
     const confirmMessage = `هل أنت متأكد من حذف عملية البيع هذه؟
     
 العميل: ${saleToDelete.customerName || "عميل بدون اسم"}
-عدد المنتجات: ${totalItems} منتج
+${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhone}\n` : ''}عدد المنتجات: ${totalItems} منتج
 المجموع: ${saleToDelete.totalAmount.toLocaleString()} ج.م
 
 سيتم استرجاع جميع الكميات للمخزون.`;
@@ -1245,14 +1472,38 @@ export default function Cashier() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Customer Name */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">اسم العميل (اختياري)</label>
-                  <Input
-                    placeholder="أدخل اسم العميل..."
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                  />
+                {/* Customer Info */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">اسم العميل (اختياري)</label>
+                    <Input
+                      placeholder="أدخل اسم العميل..."
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">رقم الهاتف (اختياري)</label>
+                    <Input
+                      type="tel"
+                      placeholder="01XXXXXXXXX"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">طريقة الدفع <span className="text-red-500">*</span></label>
+                    <Select value={paymentMethod} onValueChange={(value: 'vodafone_cash' | 'instaPay' | 'cash') => setPaymentMethod(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">نقدي (Cash)</SelectItem>
+                        <SelectItem value="vodafone_cash">فودافون كاش (Vodafone Cash)</SelectItem>
+                        <SelectItem value="instaPay">إنستاباي (InstaPay)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {/* Cart Items */}
@@ -1375,21 +1626,190 @@ export default function Cashier() {
                          {/* Recent Sales */}
              <Card>
                <CardHeader>
-                 <CardTitle className="text-lg flex items-center gap-2">
-                   <DollarSign className="h-5 w-5" />
-                   المبيعات الأخيرة
-                 </CardTitle>
+                 <div className="flex flex-col gap-4">
+                   <div className="flex items-center justify-between flex-wrap gap-3">
+                     <CardTitle className="text-lg flex items-center gap-2">
+                       <DollarSign className="h-5 w-5" />
+                       المبيعات الأخيرة
+                       {hasActiveFilters && (
+                         <Badge variant="secondary" className="ml-2">
+                           {filteredSales.length} من {sales.length}
+                         </Badge>
+                       )}
+                     </CardTitle>
+                     <div className="flex items-center gap-2 flex-wrap">
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         onClick={() => setShowFilters(!showFilters)}
+                         className="gap-2"
+                       >
+                         <Filter className="h-4 w-4" />
+                         <span className="hidden sm:inline">{showFilters ? "إخفاء الفلاتر" : "الفلاتر"}</span>
+                         {hasActiveFilters && (
+                           <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                             !
+                           </Badge>
+                         )}
+                       </Button>
+                       {hasActiveFilters && (
+                         <>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={clearFilters}
+                             className="gap-2"
+                           >
+                             <X className="h-4 w-4" />
+                             <span className="hidden sm:inline">مسح الفلاتر</span>
+                             <span className="sm:hidden">مسح</span>
+                           </Button>
+                           <Button
+                             variant="default"
+                             size="sm"
+                             onClick={sendToWhatsApp}
+                             className="gap-2 bg-green-600 hover:bg-green-700"
+                           >
+                             <Send className="h-4 w-4" />
+                             <span className="hidden sm:inline">إرسال عبر WhatsApp</span>
+                             <span className="sm:hidden">واتساب</span>
+                           </Button>
+                         </>
+                       )}
+                     </div>
+                   </div>
+                 </div>
                </CardHeader>
                <CardContent>
+                 {/* Advanced Filters Panel */}
+                 {showFilters && (
+                   <div className="mb-6 p-4 bg-gray-50 rounded-lg border space-y-4">
+                     <div className="flex items-center justify-between mb-4">
+                       <h3 className="font-semibold text-sm flex items-center gap-2">
+                         <Filter className="h-4 w-4" />
+                         الفلاتر المتقدمة
+                       </h3>
+                       {hasActiveFilters && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={clearFilters}
+                           className="h-7 text-xs"
+                         >
+                           <X className="h-3 w-3 mr-1" />
+                           مسح الكل
+                         </Button>
+                       )}
+                     </div>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                       {/* Date Filter */}
+                       <div className="space-y-2">
+                         <Label className="text-xs font-medium flex items-center gap-1">
+                           <Calendar className="h-3 w-3" />
+                           الفترة الزمنية
+                         </Label>
+                         <Select value={dateFilter} onValueChange={setDateFilter}>
+                           <SelectTrigger className="h-9">
+                             <SelectValue />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="all">جميع الفترات</SelectItem>
+                             <SelectItem value="today">اليوم</SelectItem>
+                             <SelectItem value="week">آخر أسبوع</SelectItem>
+                             <SelectItem value="month">آخر شهر</SelectItem>
+                             <SelectItem value="custom">تحديد تاريخ مخصص</SelectItem>
+                           </SelectContent>
+                         </Select>
+                         {dateFilter === "custom" && (
+                           <div className="grid grid-cols-2 gap-2 mt-2">
+                             <div>
+                               <Label className="text-xs">من</Label>
+                               <Input
+                                 type="date"
+                                 value={customStartDate}
+                                 onChange={(e) => setCustomStartDate(e.target.value)}
+                                 className="h-9 text-xs"
+                               />
+                             </div>
+                             <div>
+                               <Label className="text-xs">إلى</Label>
+                               <Input
+                                 type="date"
+                                 value={customEndDate}
+                                 onChange={(e) => setCustomEndDate(e.target.value)}
+                                 className="h-9 text-xs"
+                               />
+                             </div>
+                           </div>
+                         )}
+                       </div>
+
+                       {/* Customer Name Filter */}
+                       <div className="space-y-2">
+                         <Label className="text-xs font-medium flex items-center gap-1">
+                           <User className="h-3 w-3" />
+                           اسم العميل
+                         </Label>
+                         <Input
+                           placeholder="ابحث بالاسم..."
+                           value={customerNameFilter}
+                           onChange={(e) => setCustomerNameFilter(e.target.value)}
+                           className="h-9"
+                         />
+                       </div>
+
+                       {/* Phone Filter */}
+                       <div className="space-y-2">
+                         <Label className="text-xs font-medium flex items-center gap-1">
+                           <Phone className="h-3 w-3" />
+                           رقم الهاتف
+                         </Label>
+                         <Input
+                           type="tel"
+                           placeholder="ابحث بالرقم..."
+                           value={phoneFilter}
+                           onChange={(e) => setPhoneFilter(e.target.value)}
+                           className="h-9"
+                         />
+                       </div>
+
+                       {/* Product Name Filter */}
+                       <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                         <Label className="text-xs font-medium flex items-center gap-1">
+                           <Package className="h-3 w-3" />
+                           اسم المنتج
+                         </Label>
+                         <Input
+                           placeholder="ابحث باسم المنتج..."
+                           value={productNameFilter}
+                           onChange={(e) => setProductNameFilter(e.target.value)}
+                           className="h-9"
+                         />
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
                  <div className="max-h-[670px] overflow-y-auto">
-                   {sales.length === 0 ? (
+                   {filteredSales.length === 0 ? (
                      <div className="text-center text-gray-500 py-8">
                        <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                       <p>لا توجد مبيعات حديثة</p>
+                       <p>{hasActiveFilters ? "لا توجد نتائج تطابق الفلاتر المحددة" : "لا توجد مبيعات حديثة"}</p>
+                       {hasActiveFilters && (
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={clearFilters}
+                           className="mt-4"
+                         >
+                           مسح الفلاتر
+                         </Button>
+                       )}
                      </div>
                                         ) : (
                                             <div className="space-y-4">
-                       {sales.slice(0, 5).map(sale => {
+                       {filteredSales.map(sale => {
                          const isDeleting = loadingProducts.size > 0;
                          return (
                            <div key={sale.id} className={`border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative ${isDeleting ? 'opacity-75' : ''}`}>
@@ -1400,31 +1820,59 @@ export default function Cashier() {
                                </div>
                              )}
                              
-                             {/* Sale Header */}
-                             <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
-                               <div className="flex items-center gap-2">
-                                 <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                   <DollarSign className="h-4 w-4 text-green-600" />
+                             {/* Sale Header - Enhanced */}
+                             <div className="flex justify-between items-start mb-4 pb-4 border-b border-gray-200">
+                               <div className="flex items-start gap-3 flex-1">
+                                 <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center shadow-sm">
+                                   <Receipt className="h-5 w-5 text-green-600" />
                                  </div>
-                                 <div>
-                                   <span className="text-sm font-semibold text-gray-900">
-                                     {sale.customerName || "عميل بدون اسم"}
-                                   </span>
-                                   <div className="text-xs text-gray-500">
-                                     {sale.timestamp.toLocaleDateString('ar-EG')} - {sale.timestamp.toLocaleTimeString('ar-EG', { 
-                                       hour: '2-digit', 
-                                       minute: '2-digit' 
-                                     })}
+                                 <div className="flex-1 min-w-0">
+                                   <div className="flex items-center gap-2 flex-wrap mb-1">
+                                     <span className="text-base font-bold text-gray-900">
+                                       {sale.customerName || "عميل بدون اسم"}
+                                     </span>
+                                     {sale.customerPhone && (
+                                       <Badge variant="outline" className="text-xs">
+                                         <Phone className="h-3 w-3 mr-1" />
+                                         {sale.customerPhone}
+                                       </Badge>
+                                     )}
+                                     {sale.paymentMethod && (
+                                       <Badge variant={getPaymentMethodBadgeVariant(sale.paymentMethod)} className="text-xs">
+                                         💳 {getPaymentMethodName(sale.paymentMethod)}
+                                       </Badge>
+                                     )}
+                                     <Badge variant="secondary" className="text-xs">
+                                       #{sale.id.slice(-8)}
+                                     </Badge>
+                                   </div>
+                                   <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                                     <div className="flex items-center gap-1">
+                                       <Calendar className="h-3 w-3" />
+                                       {sale.timestamp.toLocaleDateString('ar-EG', { 
+                                         year: 'numeric', 
+                                         month: 'long', 
+                                         day: 'numeric' 
+                                       })}
+                                     </div>
+                                     <div className="flex items-center gap-1">
+                                       <Clock className="h-3 w-3" />
+                                       {sale.timestamp.toLocaleTimeString('ar-EG', { 
+                                         hour: '2-digit', 
+                                         minute: '2-digit' 
+                                       })}
+                                     </div>
                                    </div>
                                  </div>
                                </div>
-                               <div className="flex items-start gap-2">
+                               <div className="flex items-start gap-2 ml-4">
                                  <div className="text-right">
-                                   <div className="text-lg font-bold text-green-600">
-                                     {sale.totalAmount.toLocaleString()} ج.م
+                                   <div className="text-xl font-bold text-green-600 mb-1">
+                                     {formatCurrency(sale.totalAmount, 'جنيه')}
                                    </div>
-                                   <div className="text-xs text-gray-500">
-                                     {sale.items.length} منتج
+                                   <div className="text-xs text-gray-500 flex items-center justify-end gap-1">
+                                     <Package className="h-3 w-3" />
+                                     {sale.items.length} {sale.items.length === 1 ? 'منتج' : 'منتجات'}
                                    </div>
                                  </div>
                                  <Button
@@ -1444,77 +1892,73 @@ export default function Cashier() {
                                </div>
                              </div>
 
-                             {/* Sale Items */}
+                             {/* Sale Items - Enhanced */}
                              <div className="space-y-2">
-                               {sale.items.slice(0, 3).map((item, index) => (
-                                 <div key={index} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+                               {sale.items.map((item, index) => (
+                                 <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 hover:shadow-sm transition-shadow">
                                    {/* Product Image */}
-                                   <div className="relative">
+                                   <div className="relative flex-shrink-0">
                                      <img
                                        src={item.product.images?.[0] || "/placeholder.svg"}
                                        alt={item.product.name}
-                                       className="w-12 h-12 object-cover rounded-md border"
+                                       className="w-14 h-14 object-cover rounded-lg border-2 border-white shadow-sm"
                                      />
                                      {item.selectedSize && (
-                                       <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1 rounded-full">
+                                       <Badge className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full border-2 border-white">
                                          {item.selectedSize.label}
-                                       </div>
+                                       </Badge>
                                      )}
                                    </div>
 
                                    {/* Product Details */}
                                    <div className="flex-1 min-w-0">
-                                     <div className="flex items-start justify-between">
+                                     <div className="flex items-start justify-between gap-3">
                                        <div className="flex-1 min-w-0">
-                                         <h4 className="text-sm font-medium text-gray-900 truncate">
+                                         <h4 className="text-sm font-semibold text-gray-900 mb-1">
                                            {item.product.name}
                                          </h4>
-                                         <div className="flex items-center gap-2 mt-1">
-                                           <span className="text-xs text-gray-500">
+                                         <div className="flex items-center gap-3 flex-wrap">
+                                           <Badge variant="outline" className="text-xs">
                                              الكمية: {item.quantity}
-                                           </span>
+                                           </Badge>
+                                           {item.selectedSize && (
+                                             <Badge variant="secondary" className="text-xs">
+                                               📐 {item.selectedSize.label}
+                                             </Badge>
+                                           )}
                                            {item.selectedAddons && item.selectedAddons.length > 0 && (
-                                             <span className="text-xs text-green-600">
-                                               +{item.selectedAddons.length} إضافة
-                                             </span>
+                                             <Badge variant="secondary" className="text-xs bg-green-50 text-green-700">
+                                               ➕ {item.selectedAddons.length} إضافة
+                                             </Badge>
                                            )}
                                          </div>
+                                         {/* Addons Display */}
+                                         {item.selectedAddons && item.selectedAddons.length > 0 && (
+                                           <div className="mt-2 flex flex-wrap gap-1">
+                                             {item.selectedAddons.map((addon, addonIndex) => (
+                                               <Badge
+                                                 key={addonIndex}
+                                                 variant="outline"
+                                                 className="text-xs bg-green-50 text-green-700 border-green-200"
+                                               >
+                                                 +{addon.label}
+                                               </Badge>
+                                             ))}
+                                           </div>
+                                         )}
                                        </div>
-                                       <div className="text-right ml-2">
-                                         <div className="text-sm font-semibold text-gray-900">
+                                       <div className="text-right flex-shrink-0">
+                                         <div className="text-sm font-bold text-gray-900 mb-1">
                                            {formatCurrency(item.unitFinalPrice, 'جنيه')}
                                          </div>
                                          <div className="text-xs text-gray-500">
-                                           × {item.quantity}
+                                           × {item.quantity} = {formatCurrency(item.totalPrice, 'جنيه')}
                                          </div>
                                        </div>
                                      </div>
-
-                                     {/* Addons Display */}
-                                     {item.selectedAddons && item.selectedAddons.length > 0 && (
-                                       <div className="mt-1 flex flex-wrap gap-1">
-                                         {item.selectedAddons.map((addon, addonIndex) => (
-                                           <span
-                                             key={addonIndex}
-                                             className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800"
-                                           >
-                                             +{addon.label}
-                                           </span>
-                                         ))}
-                                       </div>
-                                     )}
                                    </div>
                                  </div>
                                ))}
-
-                               {/* Show more items indicator */}
-                               {sale.items.length > 3 && (
-                                 <div className="text-center py-2">
-                                   <span className="text-xs text-gray-500">
-                                     +{sale.items.length - 3} منتجات أخرى
-                                   </span>
-                                 </div>
-                               )}
                              </div>
 
                              {/* Sale Footer */}
