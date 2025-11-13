@@ -112,6 +112,10 @@ export default function Cashier() {
   // Add loading state to prevent multiple rapid clicks
   const [loadingProducts, setLoadingProducts] = useState<Set<string>>(new Set());
 
+  // Manual total adjustment
+  const [customTotalEnabled, setCustomTotalEnabled] = useState(false);
+  const [customTotalValue, setCustomTotalValue] = useState<string>("");
+
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -242,6 +246,20 @@ export default function Cashier() {
     const total = subtotal; // Total equals subtotal without tax
     return { subtotal, tax, total };
   }, [cart]);
+
+  const parsedCustomTotal = useMemo(() => {
+    if (!customTotalEnabled) return null;
+    const sanitized = customTotalValue.replace(/,/g, "").trim();
+    if (sanitized === "") return null;
+    const parsed = Number(sanitized);
+    if (Number.isNaN(parsed) || parsed < 0) return null;
+    return parsed;
+  }, [customTotalEnabled, customTotalValue]);
+
+  const effectiveTotal = parsedCustomTotal ?? cartTotals.total;
+  const customTotalDifference = effectiveTotal - cartTotals.total;
+  const isCustomTotalInvalid =
+    customTotalEnabled && (customTotalValue.trim() === "" || parsedCustomTotal === null);
 
   // Add product to cart
   const addToCart = async (product: Product) => {
@@ -682,6 +700,11 @@ export default function Cashier() {
       }
       
       // Create sale record (quantities already deducted when adding to cart)
+      if (isCustomTotalInvalid) {
+        toast.error("يرجى إدخال قيمة إجمالية صحيحة قبل إتمام البيع");
+        return;
+      }
+
       const newSale: Omit<CashierSale, 'id'> = {
         items: cart.map(item => ({
           product: {
@@ -708,7 +731,7 @@ export default function Cashier() {
           unitFinalPrice: item.unitFinalPrice,
           totalPrice: item.totalPrice
         })),
-        totalAmount: cartTotals.total,
+        totalAmount: effectiveTotal,
         timestamp: new Date(),
         customerName: customerName || null,
         customerPhone: customerPhone || null,
@@ -770,6 +793,8 @@ export default function Cashier() {
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod('cash');
+      setCustomTotalEnabled(false);
+      setCustomTotalValue("");
       
       // Reload products to ensure we have the latest data
       console.log('Cashier: Reloading products after sale completion...');
@@ -839,6 +864,8 @@ export default function Cashier() {
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod('cash');
+      setCustomTotalEnabled(false);
+      setCustomTotalValue("");
       
       console.log('Cashier: Cart cleared successfully');
       toast.success("تم مسح السلة واستعادة الكميات");
@@ -1655,11 +1682,71 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
 
                 {/* Cart Totals */}
                 {cart.length > 0 && (
-                  <div className="space-y-2 pt-4 border-t">
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="custom-total"
+                          checked={customTotalEnabled}
+                          onCheckedChange={(checked) => {
+                            const enabled = !!checked;
+                            setCustomTotalEnabled(enabled);
+                            if (enabled) {
+                              setCustomTotalValue(cartTotals.total.toString());
+                            } else {
+                              setCustomTotalValue("");
+                            }
+                          }}
+                        />
+                        <Label htmlFor="custom-total" className="text-sm">
+                          تعديل الإجمالي يدوياً
+                        </Label>
+                      </div>
+                      {customTotalEnabled && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            className="w-40"
+                            value={customTotalValue}
+                            onChange={(e) => setCustomTotalValue(e.target.value)}
+                            placeholder="أدخل الإجمالي"
+                          />
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            ج.م
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {isCustomTotalInvalid && (
+                      <p className="text-xs text-red-600 text-right">
+                        يرجى إدخال قيمة إجمالية صحيحة (صفر أو أعلى).
+                      </p>
+                    )}
+
                     <div className="flex justify-between font-bold text-lg">
                       <span>الإجمالي:</span>
-                      <span>{cartTotals.total.toLocaleString()} ج.م</span>
+                      <span>{formatCurrency(effectiveTotal, 'جنيه')}</span>
                     </div>
+
+                    {customTotalEnabled && !isCustomTotalInvalid && (
+                      <div className="text-xs text-muted-foreground text-right">
+                        <span>الإجمالي الأصلي: {formatCurrency(cartTotals.total, 'جنيه')}</span>
+                        {customTotalDifference !== 0 && (
+                          <span
+                            className={`ml-2 ${
+                              customTotalDifference < 0 ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {customTotalDifference < 0 ? "-" : "+"}
+                            {formatCurrency(Math.abs(customTotalDifference), 'جنيه')}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1667,7 +1754,7 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
                 <div className="flex gap-2 pt-4">
                   <Button
                     onClick={completeSale}
-                    disabled={cart.length === 0 || loadingProducts.size > 0}
+                    disabled={cart.length === 0 || loadingProducts.size > 0 || isCustomTotalInvalid}
                     className="flex-1 gap-2"
                   >
                     {loadingProducts.size > 0 ? (
