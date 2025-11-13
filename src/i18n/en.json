@@ -47,7 +47,10 @@
     "noCompatibleProcessors": "No processors compatible with the selected graphics card",
     "noProcessorsAvailable": "No processors available",
     "noCompatibleGPUs": "No graphics cards compatible with the selected processor",
-    "noGPUsAvailable": "No graphics cards available"
+    "noGPUsAvailable": "No graphics cards available",
+    "screenSize": "Screen Size",
+    "allScreenSizes": "All Screen Sizes",
+    "noScreenSizesAvailable": "No screen sizes available"
   },
   "product": {
     "addToCart": "Add to Cart",

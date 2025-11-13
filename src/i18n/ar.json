@@ -47,7 +47,10 @@
     "noCompatibleProcessors": "لا توجد معالجات متوافقة مع كرت الشاشة المحدد",
     "noProcessorsAvailable": "لا توجد معالجات متاحة",
     "noCompatibleGPUs": "لا توجد كروت شاشة متوافقة مع المعالج المحدد",
-    "noGPUsAvailable": "لا توجد كروت شاشة متاحة"
+    "noGPUsAvailable": "لا توجد كروت شاشة متاحة",
+    "screenSize": "حجم الشاشة",
+    "allScreenSizes": "جميع أحجام الشاشات",
+    "noScreenSizesAvailable": "لا توجد أحجام شاشات متاحة"
   },
   "product": {
     "addToCart": "أضف إلى السلة",

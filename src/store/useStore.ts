@@ -65,6 +65,7 @@ export const useStore = create<StoreState>()(
         processorName: undefined,
         dedicatedGraphicsName: undefined,
         hasDedicatedGraphics: undefined,
+        screenSize: undefined,
         sortBy: undefined,
       },
       loading: false,
@@ -412,6 +413,7 @@ export const useStore = create<StoreState>()(
         set({ products: updatedProducts });
       },
       loadProducts: async () => {
+        set({ loading: true, error: null });
         try {
           const products = await productsService.getAllProducts();
           set({ products, error: null });
@@ -423,6 +425,8 @@ export const useStore = create<StoreState>()(
         } catch (error) {
           console.error('Error loading products:', error);
           set({ error: 'فشل في تحميل المنتجات' });
+        } finally {
+          set({ loading: false });
         }
       },
       searchProducts: async (searchTerm: string) => {

@@ -169,6 +169,12 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       availablePorts: [],
       gamingTechnologies: [],
     },
+    display: {
+      sizeInches: "",
+      resolution: "",
+      panelType: "",
+      refreshRate: "",
+    },
     wholesaleInfo: {
       supplierName: "",
       supplierPhone: "",
@@ -208,6 +214,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
   const [showWholesaleInfo, setShowWholesaleInfo] = useState(false);
   const [showProcessorInfo, setShowProcessorInfo] = useState(false);
   const [showDedicatedGraphicsInfo, setShowDedicatedGraphicsInfo] = useState(false);
+  const [showDisplayInfo, setShowDisplayInfo] = useState(false);
 
   // Functions to manage sizes
   const addSize = () => {
@@ -437,6 +444,17 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
         gamingTechnologies: formData.dedicatedGraphics.gamingTechnologies || [],
       } : undefined;
 
+      const processedDisplay = showDisplayInfo && formData.display ? {
+        sizeInches: formData.display.sizeInches
+          ? Number(formData.display.sizeInches)
+          : undefined,
+        resolution: formData.display.resolution || undefined,
+        panelType: formData.display.panelType || undefined,
+        refreshRate: formData.display.refreshRate
+          ? Number(formData.display.refreshRate)
+          : undefined,
+      } : undefined;
+
       const product = {
         ...formData,
         brand: finalBrand,
@@ -450,6 +468,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
         costs: formData.baseCost ? { base_cost: Number(formData.baseCost) } : undefined,
         processor: processedProcessor,
         dedicatedGraphics: processedDedicatedGraphics,
+        display: processedDisplay,
         discountPercentage: formData.specialOffer && formData.discountPercentage
           ? Number(formData.discountPercentage)
           : null,
@@ -487,6 +506,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       setShowWholesaleInfo(false);
       setShowProcessorInfo(false);
       setShowDedicatedGraphicsInfo(false);
+      setShowDisplayInfo(false);
       
       // Success message (will be shown regardless of Firebase/localStorage)
       toast.success("تمت إضافة المنتج بنجاح");
@@ -2231,6 +2251,123 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Display Specifications Section */}
+      <div className="rounded-md border p-4 space-y-4">
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="display-info"
+            checked={showDisplayInfo}
+            onCheckedChange={(checked) => {
+              setShowDisplayInfo(checked);
+              if (!checked) {
+                setFormData({
+                  ...formData,
+                  display: {
+                    sizeInches: "",
+                    resolution: "",
+                    panelType: "",
+                    refreshRate: "",
+                  },
+                });
+              } else if (!formData.display) {
+                setFormData({
+                  ...formData,
+                  display: {
+                    sizeInches: "",
+                    resolution: "",
+                    panelType: "",
+                    refreshRate: "",
+                  },
+                });
+              }
+            }}
+          />
+          <Label htmlFor="display-info" className="font-medium">
+            مواصفات الشاشة
+          </Label>
+        </div>
+
+        {showDisplayInfo && formData.display && (
+          <div className="grid gap-4 sm:grid-cols-2 pt-2">
+            <div>
+              <label className="text-sm font-medium">حجم الشاشة (بوصة)</label>
+              <Input
+                type="number"
+                min="10"
+                max="100"
+                step="0.1"
+                value={formData.display.sizeInches}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    display: {
+                      ...formData.display,
+                      sizeInches: e.target.value,
+                    },
+                  })
+                }
+                placeholder="مثال: 24"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">دقة العرض</label>
+              <Input
+                value={formData.display.resolution}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    display: {
+                      ...formData.display,
+                      resolution: e.target.value,
+                    },
+                  })
+                }
+                placeholder="مثال: Full HD (1920x1080)"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">نوع اللوحة</label>
+              <Input
+                value={formData.display.panelType}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    display: {
+                      ...formData.display,
+                      panelType: e.target.value,
+                    },
+                  })
+                }
+                placeholder="مثال: IPS"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">معدل التحديث (Hz)</label>
+              <Input
+                type="number"
+                min="30"
+                max="360"
+                step="1"
+                value={formData.display.refreshRate}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    display: {
+                      ...formData.display,
+                      refreshRate: e.target.value,
+                    },
+                  })
+                }
+                placeholder="مثال: 144"
+              />
+            </div>
           </div>
         )}
       </div>

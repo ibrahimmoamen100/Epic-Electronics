@@ -41,6 +41,29 @@ if (typeof window !== 'undefined') {
 export class FirebaseProductsService {
   private collectionName = 'products';
 
+  private replaceUndefinedWithNull<T>(value: T): T {
+    if (Array.isArray(value)) {
+      return (value as any).map((item: any) =>
+        this.replaceUndefinedWithNull(item)
+      ) as T;
+    }
+
+    if (value instanceof Date) {
+      return value;
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, any>).map(([key, val]) => [
+          key,
+          this.replaceUndefinedWithNull(val === undefined ? null : val),
+        ])
+      ) as T;
+    }
+
+    return (value === undefined ? (null as any) : value) as T;
+  }
+
   // Generate a URL-friendly slug from a product name
   private slugifyProductName(name: string): string {
     const maxWords = 25;
@@ -175,9 +198,11 @@ export class FirebaseProductsService {
 
   // Add new product
   async addProduct(product: Omit<Product, 'id'>): Promise<Product> {
+    const normalizedProduct = this.replaceUndefinedWithNull(product);
+
     // Clean the product data by removing undefined values
     const cleanProduct = Object.fromEntries(
-      Object.entries(product).filter(([_, value]) => value !== undefined)
+      Object.entries(normalizedProduct).filter(([_, value]) => value !== undefined)
     );
     
     // Build slug from product name and ensure uniqueness
@@ -244,10 +269,12 @@ export class FirebaseProductsService {
     try {
       console.log(`Firebase: Updating product ${id} with data:`, product);
       const docRef = doc(db, this.collectionName, id);
+
+      const normalizedProduct = this.replaceUndefinedWithNull(product);
       
       // Clean the product data by removing undefined values
       const cleanProduct = Object.fromEntries(
-        Object.entries(product).filter(([_, value]) => value !== undefined)
+        Object.entries(normalizedProduct).filter(([_, value]) => value !== undefined)
       );
       
       // Convert dates to Firestore Timestamps

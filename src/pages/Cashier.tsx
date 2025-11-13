@@ -83,6 +83,9 @@ export default function Cashier() {
   const { t } = useTranslation();
   const { products, updateProduct, loadProducts, removeFromCart: storeRemoveFromCart, updateProductQuantity } = useStore();
   
+  const PASSWORD = "elhamd102030";
+  const ACCESS_STORAGE_KEY = "cashier-access-granted";
+
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -108,6 +111,32 @@ export default function Cashier() {
   
   // Add loading state to prevent multiple rapid clicks
   const [loadingProducts, setLoadingProducts] = useState<Set<string>>(new Set());
+
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedValue = localStorage.getItem(ACCESS_STORAGE_KEY);
+    if (storedValue === "true") {
+      setIsAuthorized(true);
+    }
+  }, []);
+
+  const handlePasswordSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (passwordInput.trim() === PASSWORD) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ACCESS_STORAGE_KEY, "true");
+      }
+      setIsAuthorized(true);
+      setPasswordError(null);
+      setPasswordInput("");
+    } else {
+      setPasswordError("كلمة السر غير صحيحة، حاول مرة أخرى");
+    }
+  };
 
   // Check and archive expired products
   const checkAndArchiveExpiredProducts = useCallback(async () => {
@@ -827,11 +856,14 @@ export default function Cashier() {
 
   // Check and archive expired products on mount and when products change
   useEffect(() => {
+    if (!isAuthorized) return;
     checkAndArchiveExpiredProducts();
-  }, [checkAndArchiveExpiredProducts]);
+  }, [isAuthorized, checkAndArchiveExpiredProducts]);
 
   // Load sales from Firebase and localStorage on mount
   useEffect(() => {
+    if (!isAuthorized) return;
+
     const loadSales = async () => {
       try {
         console.log('Cashier: Loading sales from Firebase...');
@@ -905,10 +937,12 @@ export default function Cashier() {
     };
 
     loadSales();
-  }, []);
+  }, [isAuthorized]);
 
   // Save sales to localStorage whenever sales change
   useEffect(() => {
+    if (!isAuthorized) return;
+
     const saveSalesToStorage = () => {
       try {
         console.log('Cashier: Saving sales to localStorage, count:', sales.length);
@@ -922,7 +956,7 @@ export default function Cashier() {
 
     // Always save, even if sales array is empty (to clear localStorage when needed)
     saveSalesToStorage();
-  }, [sales]);
+  }, [sales, isAuthorized]);
 
   // Advanced filtering logic
   const filteredSales = useMemo(() => {
@@ -1242,6 +1276,8 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
 
   // Save data before page unload
   useEffect(() => {
+    if (!isAuthorized) return;
+
     const handleBeforeUnload = () => {
       try {
         localStorage.setItem("cashier-sales", JSON.stringify(sales));
@@ -1256,7 +1292,42 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [sales]);
+  }, [sales, isAuthorized]);
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="text-center text-xl font-bold text-gray-800">
+              حماية صفحة الكاشير
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="cashier-password">أدخل كلمة السر</Label>
+                <Input
+                  id="cashier-password"
+                  type="password"
+                  value={passwordInput}
+                  onChange={(event) => setPasswordInput(event.target.value)}
+                  placeholder="********"
+                  autoFocus
+                />
+                {passwordError && (
+                  <p className="text-sm text-red-500">{passwordError}</p>
+                )}
+              </div>
+              <Button type="submit" className="w-full">
+                تسجيل الدخول
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

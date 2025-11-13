@@ -189,6 +189,18 @@ export function ProductFilters() {
     );
   }, [filteredProducts, filters.processorName]);
 
+  const screenSizes = useMemo(() => {
+    return Array.from(
+      new Set(
+        filteredProducts
+          ?.map((p) => p.display?.sizeInches)
+          .filter((size): size is number => typeof size === "number")
+      ) || []
+    )
+      .sort((a, b) => a - b)
+      .map((size) => size.toString());
+  }, [filteredProducts]);
+
   // Validate and reset incompatible filters when available options change
   useEffect(() => {
     // Only reset if we have available options and the current filter is not in the list
@@ -515,6 +527,44 @@ export function ProductFilters() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* Screen Size Filter */}
+        <AccordionItem value="screen-size">
+          <AccordionTrigger className="text-sm font-medium">
+            {t("filters.screenSize")}
+          </AccordionTrigger>
+          <AccordionContent>
+            <RadioGroup
+              value={filters.screenSize || "all"}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  screenSize: value === "all" ? undefined : value,
+                })
+              }
+              className="space-y-2 pt-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="all" id="all-screen-sizes" />
+                <Label htmlFor="all-screen-sizes">
+                  {t("filters.allScreenSizes")}
+                </Label>
+              </div>
+              {screenSizes.length > 0 ? (
+                screenSizes.map((size) => (
+                  <div key={size} className="flex items-center space-x-2">
+                    <RadioGroupItem value={size} id={`screen-${size}`} />
+                    <Label htmlFor={`screen-${size}`}>{size}"</Label>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground py-2">
+                  {t("filters.noScreenSizesAvailable")}
+                </div>
+              )}
+            </RadioGroup>
+          </AccordionContent>
+        </AccordionItem>
+
         {/* Dedicated GPU Filter */}
         <AccordionItem value="gpu">
           <AccordionTrigger className="text-sm font-medium">
@@ -711,6 +761,7 @@ export function ProductFilters() {
             processorName: undefined,
             dedicatedGraphicsName: undefined,
             hasDedicatedGraphics: undefined,
+            screenSize: undefined,
           });
           // Navigate back to products page to clear URL parameters
           navigate('/products');

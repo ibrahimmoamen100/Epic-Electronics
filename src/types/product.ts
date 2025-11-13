@@ -68,6 +68,12 @@ export const ProductSchema = z.object({
     availablePorts: z.array(z.string()).optional(), // Available ports
     gamingTechnologies: z.array(z.string()).optional(), // Gaming technologies supported
   }).optional(),
+  display: z.object({
+    sizeInches: z.number().optional(), // Screen size in inches
+    resolution: z.string().optional(), // e.g., Full HD, 4K
+    panelType: z.string().optional(), // IPS, VA, TN, OLED, etc.
+    refreshRate: z.number().optional(), // Refresh rate in Hz
+  }).optional(),
   wholesaleInfo: z
     .object({
       supplierName: z.string(),
@@ -99,6 +105,7 @@ export const FilterSchema = z.object({
   processorName: z.string().optional(),
   dedicatedGraphicsName: z.string().optional(),
   hasDedicatedGraphics: z.boolean().optional(),
+  screenSize: z.string().optional(),
   sortBy: z
     .enum(["price-asc", "price-desc", "name-asc", "name-desc"])
     .optional(),

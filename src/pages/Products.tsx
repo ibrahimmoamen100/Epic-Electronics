@@ -92,7 +92,8 @@ export default function Products() {
     let matchesSupplier = true;
   let matchesProcessorName = true;
   let matchesDedicatedGraphicsName = true;
-  let matchesHasDedicatedGraphics = true;
+    let matchesHasDedicatedGraphics = true;
+    let matchesScreenSize = true;
 
     // Exclude archived products
     if (product.isArchived) {
@@ -141,6 +142,13 @@ export default function Products() {
         .some((s) => s.trim() === filters.size);
     }
 
+    if (filters.screenSize) {
+      matchesScreenSize =
+        product.display?.sizeInches !== undefined
+          ? String(product.display.sizeInches) === filters.screenSize
+          : false;
+    }
+
     // Removed supplier filter for customers
 
     return (
@@ -153,6 +161,7 @@ export default function Products() {
       && matchesProcessorName
       && matchesDedicatedGraphicsName
       && matchesHasDedicatedGraphics
+      && matchesScreenSize
     );
   });
 
