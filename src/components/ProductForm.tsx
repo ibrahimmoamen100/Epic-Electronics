@@ -65,6 +65,8 @@ const cacheMemoryOptions = ["8MB", "12MB", "16MB", "20MB", "24MB", "32MB"];
 const integratedGraphicsOptions = [
   "Intel UHD Graphics 770",
   "Intel UHD Graphics 630",
+  "Intel UHD Graphics 620",
+  
   "Intel Iris Xe Graphics",
   "AMD Radeon Graphics",
   "AMD Radeon Vega 8",
@@ -78,7 +80,9 @@ const graphicsCardOptions = [
   "GTX 1660 Ti", "GTX 1650",
   "RX 7900 XTX", "RX 7900 XT", "RX 7800 XT",
   "RX 6800 XT", "RX 6700 XT", "RX 6600 XT",
-  "RX 5700 XT", "RX 5600 XT"
+  "RX 5700 XT", "RX 5600 XT",
+  "RTX A2000", "RTX A3000", "RTX A4000", "RTX A5000", "RTX A6000", "RTX A7000", "RTX A8000", "RTX A9000",
+  "Intel Arc A380", "Intel Arc A310", "Intel Arc A350", "Intel Arc A370", "Intel Arc A330", "Intel Arc A310M", "Intel Arc A350M", "Intel Arc A370M", "Intel Arc A330M",
 ];
 
 // Graphics card manufacturers
