@@ -1085,6 +1085,51 @@ const ProductDetails = () => {
             </div>
           </div>
         )}
+        
+
+        {/* Processor Specifications */}
+        {product.display && (
+          <div className="mb-16">
+            <Separator className="mb-8" />
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-2xl font-bold mb-6 text-gray-900">مواصفات الشاشه</h2>
+              <div className="bg-white rounded-lg border shadow-sm p-6">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {product.display.sizeInches && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-gray-500">حجم الشاشه </h3>
+                      <p className="text-lg font-semibold text-gray-900">{product.display.sizeInches}</p>
+                    </div>
+                  )}
+                  
+                  {product.display.resolution && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-gray-500"> الدقه  </h3>
+                      <p className="text-lg font-semibold text-gray-900">{product.display.resolution} </p>
+                    </div>
+                  )}
+                  
+                  {product.display.panelType && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-gray-500">نوع الشاشه</h3>
+                      <p className="text-lg font-semibold text-gray-900"> Panel: {product.display.panelType} </p>
+                    </div>
+                  )}
+                  
+                  {product.display.refreshRate && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-gray-500"> التردد المتردد   </h3>
+                      <p className="text-lg font-semibold text-gray-900">{product.display.refreshRate} Hz </p>
+                    </div>
+                  )}
+
+
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {/* Suggested Products */}
         <div className="mb-16">
