@@ -1098,7 +1098,7 @@ const ProductDetails = () => {
                   {product.display.sizeInches && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">حجم الشاشه </h3>
-                      <p className="text-lg font-semibold text-gray-900">{product.display.sizeInches} inch</p>
+                      <p className="text-lg font-semibold text-gray-900">  {product.display.sizeInches} Inch </p>
                     </div>
                   )}
                   
@@ -1119,7 +1119,7 @@ const ProductDetails = () => {
                   {product.display.refreshRate && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500"> التردد المتردد   </h3>
-                      <p className="text-lg font-semibold text-gray-900">{product.display.refreshRate} Hz </p>
+                      <p className="text-lg font-semibold text-gray-900">   {product.display.refreshRate}Hz </p>
                     </div>
                   )}
 

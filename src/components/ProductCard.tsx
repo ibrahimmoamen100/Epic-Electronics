@@ -1,6 +1,7 @@
 import { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Eye, ShoppingCart, Timer, Package, AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -240,9 +241,11 @@ export const ProductCard = ({
       
       <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between">
         <div className="space-y-2 flex-1">
+          <Link to={`/product/${product.id}`} className="text-sm sm:text-base text-gray-600 line-clamp-1">
           <h3 className="font-semibold text-sm sm:text-base line-clamp-2 transition-colors duration-300 leading-tight text-gray-900">
             {product.name || 'Unnamed Product'}
           </h3>
+          </Link>
           <p className="text-xs sm:text-sm text-gray-600 line-clamp-1">
             {product.brand || 'Unknown Brand'}
           </p>
