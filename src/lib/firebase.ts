@@ -4,6 +4,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp, runTransaction } from 'firebase/firestore';
 import { Product } from '@/types/product';
+import { Employee, AttendanceRecord, MonthlySummary, ExcuseStatus, calculateDelayDeduction, calculateOvertime, calculateDelay } from '@/types/attendance';
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -709,5 +710,449 @@ export const createOrderAndUpdateProductQuantitiesAtomically = async (
     return { orderId: newOrderRef.id };
   });
 };
+
+// Firebase Employees Service
+export class FirebaseEmployeesService {
+  private collectionName = 'employees';
+
+  // Get all employees
+  async getAllEmployees(): Promise<Employee[]> {
+    try {
+      const employeesRef = collection(db, this.collectionName);
+      const q = query(employeesRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const employees: Employee[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        employees.push({
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        } as Employee);
+      });
+      
+      return employees;
+    } catch (error) {
+      console.error('Error getting employees:', error);
+      throw error;
+    }
+  }
+
+  // Get employee by ID
+  async getEmployeeById(id: string): Promise<Employee | null> {
+    try {
+      const docRef = doc(db, this.collectionName, id);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+          ...data,
+          id: docSnap.id,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        } as Employee;
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting employee:', error);
+      throw error;
+    }
+  }
+
+  // Add new employee
+  async addEmployee(employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employee> {
+    try {
+      const employeesRef = collection(db, this.collectionName);
+      
+      const employeeData = {
+        ...employee,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      };
+
+      const docRef = await addDoc(employeesRef, employeeData);
+      
+      return {
+        ...employee,
+        id: docRef.id,
+        createdAt: employeeData.createdAt.toDate().toISOString(),
+        updatedAt: employeeData.updatedAt.toDate().toISOString(),
+      } as Employee;
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      throw error;
+    }
+  }
+
+  // Update employee
+  async updateEmployee(id: string, employee: Partial<Employee>): Promise<Employee> {
+    try {
+      const docRef = doc(db, this.collectionName, id);
+      
+      const updateData: any = { ...employee };
+      delete updateData.id;
+      delete updateData.createdAt;
+      updateData.updatedAt = Timestamp.now();
+      
+      await updateDoc(docRef, updateData);
+      
+      const updatedEmployee = await this.getEmployeeById(id) as Employee;
+      return updatedEmployee;
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      throw error;
+    }
+  }
+
+  // Delete employee
+  async deleteEmployee(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.collectionName, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      throw error;
+    }
+  }
+}
+
+// Create and export the employees service instance
+export const employeesService = new FirebaseEmployeesService();
+
+// Firebase Attendance Service
+export class FirebaseAttendanceService {
+  private collectionName = 'attendance';
+
+  // Get all attendance records
+  async getAllAttendanceRecords(): Promise<AttendanceRecord[]> {
+    try {
+      const attendanceRef = collection(db, this.collectionName);
+      const q = query(attendanceRef, orderBy('date', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const records: AttendanceRecord[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        records.push({
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        } as AttendanceRecord);
+      });
+      
+      return records;
+    } catch (error) {
+      console.error('Error getting attendance records:', error);
+      throw error;
+    }
+  }
+
+  // Get attendance records by employee
+  async getAttendanceRecordsByEmployee(employeeId: string): Promise<AttendanceRecord[]> {
+    try {
+      const attendanceRef = collection(db, this.collectionName);
+      // Use only where clause to avoid index requirement, then sort in memory
+      const q = query(
+        attendanceRef,
+        where('employeeId', '==', employeeId)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const records: AttendanceRecord[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        records.push({
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        } as AttendanceRecord);
+      });
+      
+      // Sort by date descending in memory (newest first)
+      records.sort((a, b) => {
+        if (a.date > b.date) return -1;
+        if (a.date < b.date) return 1;
+        return 0;
+      });
+      
+      return records;
+    } catch (error) {
+      console.error('Error getting attendance records by employee:', error);
+      throw error;
+    }
+  }
+
+  // Get attendance records by date range
+  async getAttendanceRecordsByDateRange(startDate: string, endDate: string): Promise<AttendanceRecord[]> {
+    try {
+      const attendanceRef = collection(db, this.collectionName);
+      const q = query(
+        attendanceRef,
+        where('date', '>=', startDate),
+        where('date', '<=', endDate),
+        orderBy('date', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const records: AttendanceRecord[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        records.push({
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        } as AttendanceRecord);
+      });
+      
+      return records;
+    } catch (error) {
+      console.error('Error getting attendance records by date range:', error);
+      throw error;
+    }
+  }
+
+  // Get attendance record by employee and date
+  async getAttendanceRecordByEmployeeAndDate(employeeId: string, date: string): Promise<AttendanceRecord | null> {
+    try {
+      const attendanceRef = collection(db, this.collectionName);
+      const q = query(
+        attendanceRef,
+        where('employeeId', '==', employeeId),
+        where('date', '==', date)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        return null;
+      }
+      
+      const doc = querySnapshot.docs[0];
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+      } as AttendanceRecord;
+    } catch (error) {
+      console.error('Error getting attendance record:', error);
+      throw error;
+    }
+  }
+
+  // Add or update attendance record
+  async addOrUpdateAttendanceRecord(
+    employee: Employee,
+    date: string,
+    checkInTime: string | null,
+    checkOutTime: string | null,
+    excuseText?: string | null
+  ): Promise<AttendanceRecord> {
+    try {
+      // Check if record exists
+      const existingRecord = await this.getAttendanceRecordByEmployeeAndDate(employee.id, date);
+      
+      const delayMinutes = checkInTime ? calculateDelay(checkInTime, employee.workingHours) : 0;
+      const hasExcuse = !!excuseText;
+      const excuseStatus: ExcuseStatus = existingRecord?.excuseStatus || (hasExcuse ? 'pending' : 'rejected');
+      
+      // Calculate deduction
+      const deduction = calculateDelayDeduction(
+        delayMinutes,
+        excuseStatus,
+        employee.monthlySalary,
+        employee.monthlyWorkingHours
+      );
+      
+      // Calculate overtime
+      const overtime = calculateOvertime(
+        checkInTime,
+        checkOutTime,
+        employee.workingHours,
+        employee.monthlySalary,
+        employee.monthlyWorkingHours
+      );
+      
+      // Calculate daily net
+      const dailyNet = overtime.amount - deduction.amount;
+      
+      const recordData: Omit<AttendanceRecord, 'id' | 'createdAt' | 'updatedAt'> = {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        date,
+        checkInTime,
+        checkOutTime,
+        delayMinutes,
+        hasExcuse,
+        excuseText: excuseText || null,
+        excuseStatus,
+        deductionType: deduction.type,
+        deductionAmount: deduction.amount,
+        overtimeHours: overtime.hours,
+        overtimeAmount: overtime.amount,
+        dailyNet,
+      };
+
+      if (existingRecord) {
+        // Update existing record
+        const docRef = doc(db, this.collectionName, existingRecord.id);
+        await updateDoc(docRef, {
+          ...recordData,
+          updatedAt: Timestamp.now(),
+        });
+        
+        return {
+          ...recordData,
+          id: existingRecord.id,
+          createdAt: existingRecord.createdAt,
+          updatedAt: Timestamp.now().toDate().toISOString(),
+        } as AttendanceRecord;
+      } else {
+        // Create new record
+        const attendanceRef = collection(db, this.collectionName);
+        const docRef = await addDoc(attendanceRef, {
+          ...recordData,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
+        
+        return {
+          ...recordData,
+          id: docRef.id,
+          createdAt: Timestamp.now().toDate().toISOString(),
+          updatedAt: Timestamp.now().toDate().toISOString(),
+        } as AttendanceRecord;
+      }
+    } catch (error) {
+      console.error('Error adding/updating attendance record:', error);
+      throw error;
+    }
+  }
+
+  // Update excuse status
+  async updateExcuseStatus(
+    recordId: string,
+    status: ExcuseStatus,
+    employee: Employee
+  ): Promise<AttendanceRecord> {
+    try {
+      const docRef = doc(db, this.collectionName, recordId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        throw new Error('Attendance record not found');
+      }
+      
+      const data = docSnap.data() as AttendanceRecord;
+      
+      // Recalculate deduction based on new status
+      const deduction = calculateDelayDeduction(
+        data.delayMinutes,
+        status,
+        employee.monthlySalary,
+        employee.monthlyWorkingHours
+      );
+      
+      // Calculate daily net again
+      const dailyNet = data.overtimeAmount - deduction.amount;
+      
+      await updateDoc(docRef, {
+        excuseStatus: status,
+        deductionType: deduction.type,
+        deductionAmount: deduction.amount,
+        dailyNet,
+        updatedAt: Timestamp.now(),
+      });
+      
+      const updatedRecord = await this.getAttendanceRecordByEmployeeAndDate(employee.id, data.date) as AttendanceRecord;
+      return updatedRecord;
+    } catch (error) {
+      console.error('Error updating excuse status:', error);
+      throw error;
+    }
+  }
+
+  // Get monthly summary for an employee
+  async getMonthlySummary(employeeId: string, month: string): Promise<MonthlySummary | null> {
+    try {
+      const employee = await employeesService.getEmployeeById(employeeId);
+      if (!employee) {
+        return null;
+      }
+      
+      // Get all records for the month
+      const startDate = `${month}-01`;
+      const endDate = `${month}-31`;
+      const records = await this.getAttendanceRecordsByDateRange(startDate, endDate);
+      const employeeRecords = records.filter(r => r.employeeId === employeeId);
+      
+      let totalDeductions = 0;
+      let totalOvertime = 0;
+      let attendanceDays = 0;
+      let absentDays = 0;
+      let totalDelayMinutes = 0;
+      let pendingExcuses = 0;
+      let approvedExcuses = 0;
+      let rejectedExcuses = 0;
+      
+      employeeRecords.forEach(record => {
+        if (record.checkInTime) {
+          attendanceDays++;
+          totalDeductions += record.deductionAmount;
+          totalOvertime += record.overtimeAmount;
+          totalDelayMinutes += record.delayMinutes;
+          
+          if (record.excuseStatus === 'pending') pendingExcuses++;
+          else if (record.excuseStatus === 'approved') approvedExcuses++;
+          else if (record.excuseStatus === 'rejected') rejectedExcuses++;
+        } else {
+          absentDays++;
+        }
+      });
+      
+      const finalSalary = employee.monthlySalary - totalDeductions + totalOvertime;
+      
+      return {
+        employeeId,
+        employeeName: employee.name,
+        month,
+        baseSalary: employee.monthlySalary,
+        totalDeductions,
+        totalOvertime,
+        finalSalary,
+        attendanceDays,
+        absentDays,
+        totalDelayMinutes,
+        pendingExcuses,
+        approvedExcuses,
+        rejectedExcuses,
+      };
+    } catch (error) {
+      console.error('Error getting monthly summary:', error);
+      throw error;
+    }
+  }
+
+  // Delete attendance record
+  async deleteAttendanceRecord(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.collectionName, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting attendance record:', error);
+      throw error;
+    }
+  }
+}
+
+// Create and export the attendance service instance
+export const attendanceService = new FirebaseAttendanceService();
 
 export default app;

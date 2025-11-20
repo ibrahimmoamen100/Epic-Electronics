@@ -93,6 +93,11 @@ const Cart = () => {
   // Group cart items by supplier for WhatsApp messaging only
   const supplierGroupsForMessaging: SupplierGroup[] = cart.reduce(
     (groups: SupplierGroup[], item) => {
+      // Skip items with undefined or null product
+      if (!item.product) {
+        return groups;
+      }
+      
       const supplierName =
         item.product.wholesaleInfo?.supplierName || DEFAULT_SUPPLIER.name;
       const supplierPhone = (
@@ -223,14 +228,16 @@ ${'='.repeat(30)}
       console.log('Saving order for user:', userProfile.uid);
       console.log('User profile:', userProfile);
       
-      const orderItems = cart.map((item) => {
-        return {
-          productId: item.product.id,
-          productName: item.product.name,
-          quantity: item.quantity,
-          price: item.unitFinalPrice, // Use the calculated final price
-          totalPrice: item.totalPrice,
-          image: item.product.images[0],
+      const orderItems = cart
+        .filter((item) => item.product && item.product.id) // Filter out invalid items
+        .map((item) => {
+          return {
+            productId: item.product.id,
+            productName: item.product.name,
+            quantity: item.quantity,
+            price: item.unitFinalPrice, // Use the calculated final price
+            totalPrice: item.totalPrice,
+            image: item.product.images[0],
           selectedSize: item.selectedSize ? {
             id: item.selectedSize.id,
             label: item.selectedSize.label,
@@ -438,13 +445,15 @@ ${'='.repeat(30)}
   const onDeliverySubmit = async (data: DeliveryFormData) => {
     setIsSubmitting(true);
     // Assemble order items (same shape as saveOrderToFirebase)
-    const orderItems = cart.map((item) => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      quantity: item.quantity,
-      price: item.unitFinalPrice,
-      totalPrice: item.totalPrice,
-      image: item.product.images[0],
+    const orderItems = cart
+      .filter((item) => item.product && item.product.id) // Filter out invalid items
+      .map((item) => ({
+        productId: item.product.id,
+        productName: item.product.name,
+        quantity: item.quantity,
+        price: item.unitFinalPrice,
+        totalPrice: item.totalPrice,
+        image: item.product.images[0],
       selectedSize: item.selectedSize ? {
         id: item.selectedSize.id,
         label: item.selectedSize.label,
@@ -529,10 +538,12 @@ ${'='.repeat(30)}
     const whatsappNumber = '201025423389';
 
     // Prepare quantity deductions for all cart items
-    const deductions = cart.map(item => ({ 
-      productId: item.product.id, 
-      quantityToDeduct: item.quantity 
-    }));
+    const deductions = cart
+      .filter((item) => item.product && item.product.id) // Filter out invalid items
+      .map(item => ({ 
+        productId: item.product.id, 
+        quantityToDeduct: item.quantity 
+      }));
 
     // Create order and update quantities atomically in Firebase
     let orderId: string;
@@ -611,12 +622,14 @@ ${'='.repeat(30)}
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
               {/* Products List */}
               <div className="divide-y">
-                {cart.map((item) => {
-                  const itemPrice = getCartItemPrice(item);
-                  const isSpecialOffer = item.product.specialOffer && 
-                    item.product.discountPercentage && 
-                    item.product.offerEndsAt &&
-                    new Date(item.product.offerEndsAt) > new Date();
+                {cart
+                  .filter((item) => item.product && item.product.id) // Filter out invalid items
+                  .map((item) => {
+                    const itemPrice = getCartItemPrice(item);
+                    const isSpecialOffer = item.product.specialOffer && 
+                      item.product.discountPercentage && 
+                      item.product.offerEndsAt &&
+                      new Date(item.product.offerEndsAt) > new Date();
                   
                   return (
                     <div
@@ -1036,14 +1049,18 @@ async function clearCart(): Promise<void> {
   }
 
   // Prepare payloads for possible restore/update helpers
-  const restorePayload = currentCart.map((item: any) => ({
-    productId: item.product.id,
-    quantityToRestore: item.quantity,
+  const restorePayload = currentCart
+    .filter((item: any) => item.product && item.product.id) // Filter out invalid items
+    .map((item: any) => ({
+      productId: item.product.id,
+      quantityToRestore: item.quantity,
   }));
-  const negativeDeductPayload = currentCart.map((item: any) => ({
-    productId: item.product.id,
-    quantityToDeduct: -item.quantity,
-  }));
+  const negativeDeductPayload = currentCart
+    .filter((item: any) => item.product && item.product.id) // Filter out invalid items
+    .map((item: any) => ({
+      productId: item.product.id,
+      quantityToDeduct: -item.quantity,
+    }));
 
   try {
     // Dynamic import so we don't have to modify top-level imports in this file

@@ -321,6 +321,10 @@ export const useStore = create<StoreState>()(
         // Restore all quantities to Firebase only if not skipping (e.g., after order completion)
         if (!skipRestore) {
           for (const item of cart) {
+            // Skip items with undefined or null product
+            if (!item.product || !item.product.id) {
+              continue;
+            }
             const product = get().products.find((p) => p.id === item.product.id);
             if (product) {
               const currentQuantity = product.wholesaleInfo?.quantity || 0;
@@ -340,8 +344,10 @@ export const useStore = create<StoreState>()(
       },
       getCartTotal: () => {
         const state = get();
-        return state.cart.reduce((total, item) => {
-          return total + item.totalPrice;
+        return state.cart
+          .filter((item) => item.product && item.product.id) // Filter out invalid items
+          .reduce((total, item) => {
+            return total + item.totalPrice;
         }, 0);
       },
       getCartItemPrice: (cartItem: CartItem) => {
@@ -384,7 +390,7 @@ export const useStore = create<StoreState>()(
           const updatedProducts = products.filter((p) => p.id !== productId);
           
           // Also remove the product from cart if it exists
-          const updatedCart = cart.filter((item) => item.product.id !== productId);
+          const updatedCart = cart.filter((item) => item.product && item.product.id !== productId);
           
           set({
             products: updatedProducts,
@@ -450,10 +456,15 @@ export const useStore = create<StoreState>()(
         const products = get().products;
         const cart = get().cart;
         
-        // Remove cart items that reference deleted products
-        const validCartItems = cart.filter((item) => 
-          products.some((product) => product.id === item.product.id)
-        );
+        // Remove cart items that reference deleted products or have undefined product
+        const validCartItems = cart.filter((item) => {
+          // Check if item.product exists and has an id
+          if (!item.product || !item.product.id) {
+            return false;
+          }
+          // Check if product still exists in products list
+          return products.some((product) => product && product.id === item.product.id);
+        });
         
         if (validCartItems.length !== cart.length) {
           set({ cart: validCartItems });

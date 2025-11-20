@@ -32,6 +32,7 @@ import {
   LogOut,
   User,
   RotateCcw,
+  UserCheck,
 } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import {
@@ -557,6 +558,14 @@ const Admin = () => {
               >
                 <TrendingUp className="h-4 w-4" aria-hidden="true" />
                 تحليل الأرباح
+              </Button>
+              <Button
+                onClick={() => navigate("/attendance")}
+                className="gap-2"
+                aria-label="إدارة الحضور والغياب"
+              >
+                <UserCheck className="h-4 w-4" aria-hidden="true" />
+                الحضور والغياب
               </Button>
               <Button
                 onClick={handleResetAllPages}

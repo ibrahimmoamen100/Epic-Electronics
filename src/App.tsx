@@ -32,6 +32,7 @@ const FAQ = lazy(() => import("./pages/FAQ").catch(() => ({ default: () => <div>
 const Delivery = lazy(() => import("./pages/Delivery").catch(() => ({ default: () => <div>Error loading Delivery</div> })));
 const Orders = lazy(() => import("./pages/Orders").catch(() => ({ default: () => <div>Error loading Orders</div> })));
 const Settings = lazy(() => import("./pages/Settings").catch(() => ({ default: () => <div>Error loading Settings</div> })));
+const Attendance = lazy(() => import("./pages/Attendance").catch(() => ({ default: () => <div>Error loading Attendance</div> })));
 
 // Loading component
 const Loading = () => (
@@ -88,6 +89,7 @@ const App = () => (
                     <Route path="/delivery" element={<Delivery />} />
                     <Route path="/orders" element={<Orders />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/attendance" element={<Attendance />} />
                   </Routes>
                 </Suspense>
               </ErrorBoundary>

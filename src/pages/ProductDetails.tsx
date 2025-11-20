@@ -110,6 +110,7 @@ const ProductDetails = () => {
 
   // Check if product is in cart (considering selected size and color)
   const cartItem = cart.find((item) => 
+    item.product && 
     item.product.id === id && 
     (selectedSize ? item.selectedSize?.id === selectedSize.id : !item.selectedSize) &&
     (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor)
