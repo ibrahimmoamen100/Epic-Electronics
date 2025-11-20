@@ -76,7 +76,7 @@ export default function Attendance() {
     username: '',
     password: '',
     monthlySalary: 0,
-    monthlyWorkingHours: 176, // Default: 8 hours * 22 days
+    monthlyWorkingHours: 270, // Default: 8 hours * 22 days
     checkIn: '09:00',
     checkOut: '17:00',
   });
@@ -244,7 +244,7 @@ export default function Attendance() {
       username: '',
       password: '',
       monthlySalary: 0,
-      monthlyWorkingHours: 176,
+      monthlyWorkingHours: 270,
       checkIn: '09:00',
       checkOut: '17:00',
     });
