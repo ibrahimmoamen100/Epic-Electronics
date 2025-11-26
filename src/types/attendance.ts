@@ -1,8 +1,24 @@
 // Types for Attendance & Employee Management System
 
-export type ExcuseStatus = 'pending' | 'approved' | 'rejected';
+export type ExcuseStatus = 'pending' | 'accepted' | 'rejected';
 
 export type DeductionType = 'fixed' | 'hourly' | 'none' | 'quarter_day' | 'half_day';
+
+export type AttendanceStatus = 'present' | 'absent' | 'absent_excused';
+
+export type ExcusedAbsencePolicy = 'no_deduct' | 'deduct';
+
+export interface AttendanceSettings {
+  excusedAbsencePolicy: ExcusedAbsencePolicy;
+  workingDaysPerMonth: number;
+}
+
+export const DEFAULT_WORKING_DAYS_PER_MONTH = 26;
+
+export const DEFAULT_ATTENDANCE_SETTINGS: AttendanceSettings = {
+  excusedAbsencePolicy: 'no_deduct',
+  workingDaysPerMonth: DEFAULT_WORKING_DAYS_PER_MONTH,
+};
 
 export interface WorkingHours {
   checkIn: string; // Format: "HH:mm" (e.g., "09:00")
@@ -16,6 +32,7 @@ export interface Employee {
   password?: string; // كلمة المرور
   monthlySalary: number; // الراتب الشهري
   monthlyWorkingHours: number; // عدد ساعات العمل الشهرية الرسمية
+  monthlyWorkingDays?: number; // عدد أيام العمل الرسمية بالشهر
   workingHours: WorkingHours; // مواعيد الحضور والانصراف
   createdAt: string;
   updatedAt: string;
@@ -28,15 +45,21 @@ export interface AttendanceRecord {
   date: string; // Format: "YYYY-MM-DD"
   checkInTime: string | null; // Format: "HH:mm" or null if absent
   checkOutTime: string | null; // Format: "HH:mm" or null if absent
+  status: AttendanceStatus;
   delayMinutes: number; // مدة التأخير بالدقائق
   hasExcuse: boolean;
   excuseText: string | null;
   excuseStatus: ExcuseStatus;
+  excuseNote?: string | null;
+  excuseResolution?: 'no_deduct' | 'hourly' | null;
   deductionType: DeductionType;
   deductionAmount: number; // قيمة الخصم
   overtimeHours: number; // عدد ساعات الـ Overtime
   overtimeAmount: number; // قيمة الـ Overtime
-  dailyNet: number; // الصافي اليومي
+  dailyWage: number; // أجر اليوم المعتمد وقت التسجيل
+  dailyNet: number; // أثر اليوم على الراتب النهائي
+  excusedAbsencePolicy: ExcusedAbsencePolicy;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,12 +72,15 @@ export interface MonthlySummary {
   totalDeductions: number;
   totalOvertime: number;
   finalSalary: number;
-  attendanceDays: number;
-  absentDays: number;
+  attendanceDays: number; // أيام الحضور المسجلة
+  absentDays: number; // أيام الغياب بدون عذر
+  excusedAbsentDays?: number; // أيام الغياب بعذر
+  recordedDays: number;
   totalDelayMinutes: number;
   pendingExcuses: number;
-  approvedExcuses: number;
+  acceptedExcuses: number;
   rejectedExcuses: number;
+  generatedAt?: string;
 }
 
 // Delay deduction rules
@@ -72,9 +98,10 @@ export function calculateDelayDeduction(
   delayMinutes: number,
   excuseStatus: ExcuseStatus,
   monthlySalary: number,
-  monthlyWorkingHours: number
+  monthlyWorkingHours: number,
+  dailySalaryOverride?: number
 ): { type: DeductionType; amount: number } {
-  if (excuseStatus === 'approved') {
+  if (excuseStatus === 'accepted') {
     // Calculate by actual hours
     const hourlyRate = monthlySalary / monthlyWorkingHours;
     const delayHours = delayMinutes / 60;
@@ -90,6 +117,10 @@ export function calculateDelayDeduction(
   }
 
   // Rejected or no excuse - apply fixed deduction rules
+  const dailySalary =
+    dailySalaryOverride ??
+    calculateDailySalaryFromWorkingDays(monthlySalary, DEFAULT_WORKING_DAYS_PER_MONTH);
+
   if (delayMinutes < 15) {
     return { type: 'none', amount: 0 };
   } else if (delayMinutes < 30) {
@@ -100,11 +131,9 @@ export function calculateDelayDeduction(
     return { type: 'fixed', amount: DELAY_DEDUCTION_RULES.moreThan45 };
   } else if (delayMinutes < 90) {
     // Quarter day deduction
-    const dailySalary = monthlySalary / 30; // Assuming 30 days per month
     return { type: 'quarter_day', amount: dailySalary / 4 };
   } else {
     // Half day deduction
-    const dailySalary = monthlySalary / 30;
     return { type: 'half_day', amount: dailySalary / 2 };
   }
 }
@@ -166,5 +195,27 @@ export function calculateDelay(
   }
 
   return Math.floor((checkIn - officialCheckIn) / (1000 * 60));
+}
+
+export function calculateDailySalaryFromWorkingDays(
+  monthlySalary: number,
+  workingDays: number
+): number {
+  if (!workingDays || workingDays <= 0) {
+    return 0;
+  }
+  return monthlySalary / workingDays;
+}
+
+export function getEmployeeWorkingDays(employee?: Employee | null): number {
+  if (!employee || !employee.monthlyWorkingDays || employee.monthlyWorkingDays <= 0) {
+    return DEFAULT_WORKING_DAYS_PER_MONTH;
+  }
+  return employee.monthlyWorkingDays;
+}
+
+export function getEmployeeDailyWage(employee: Employee): number {
+  const workingDays = getEmployeeWorkingDays(employee);
+  return calculateDailySalaryFromWorkingDays(employee.monthlySalary, workingDays);
 }
 

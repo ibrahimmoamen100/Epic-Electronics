@@ -4,7 +4,21 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp, runTransaction } from 'firebase/firestore';
 import { Product } from '@/types/product';
-import { Employee, AttendanceRecord, MonthlySummary, ExcuseStatus, calculateDelayDeduction, calculateOvertime, calculateDelay } from '@/types/attendance';
+import {
+  Employee,
+  AttendanceRecord,
+  MonthlySummary,
+  ExcuseStatus,
+  DeductionType,
+  AttendanceStatus,
+  AttendanceSettings,
+  ExcusedAbsencePolicy,
+  DEFAULT_ATTENDANCE_SETTINGS,
+  calculateDelayDeduction,
+  calculateOvertime,
+  calculateDelay,
+  getEmployeeDailyWage,
+} from '@/types/attendance';
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -123,7 +137,7 @@ export class FirebaseProductsService {
       const productsRef = collection(db, this.collectionName);
       const q = query(productsRef, orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      
+
       const products: Product[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -135,7 +149,7 @@ export class FirebaseProductsService {
           expirationDate: data.expirationDate?.toDate?.()?.toISOString() || data.expirationDate,
         } as Product);
       });
-      
+
       // Also load products from localStorage fallback and merge
       try {
         const localProductsKey = 'local_products_fallback';
@@ -151,11 +165,11 @@ export class FirebaseProductsService {
       } catch (localError) {
         console.warn('⚠️ Error loading local products:', localError);
       }
-      
+
       return products;
     } catch (error: any) {
       console.warn('⚠️ Failed to load products from Firebase (falling back to localStorage):', error?.message || error);
-      
+
       // Fallback to localStorage
       try {
         const localProductsKey = 'local_products_fallback';
@@ -178,7 +192,7 @@ export class FirebaseProductsService {
     try {
       const docRef = doc(db, this.collectionName, id);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         const data = docSnap.data();
         return {
@@ -205,14 +219,14 @@ export class FirebaseProductsService {
     const cleanProduct = Object.fromEntries(
       Object.entries(normalizedProduct).filter(([_, value]) => value !== undefined)
     );
-    
+
     // Build slug from product name and ensure uniqueness
     const baseSlug = this.slugifyProductName((cleanProduct as any).name || 'product');
-    
+
     // Try Firebase first
     try {
       const productsRef = collection(db, this.collectionName);
-      
+
       // Convert dates to Firestore Timestamps
       const productData = {
         ...cleanProduct,
@@ -228,14 +242,14 @@ export class FirebaseProductsService {
       await setDoc(docRef, productData);
 
       console.log('✅ Product added to Firebase successfully:', uniqueSlug);
-      
+
       return {
         ...(cleanProduct as any),
         id: uniqueSlug,
       } as Product;
     } catch (error: any) {
       console.warn('⚠️ Failed to add product to Firebase (falling back to localStorage):', error?.message || error);
-      
+
       // Fallback to localStorage
       try {
         const uniqueSlug = baseSlug + '-' + Date.now();
@@ -243,20 +257,20 @@ export class FirebaseProductsService {
           ...(cleanProduct as any),
           id: uniqueSlug,
         } as Product;
-        
+
         // Save to localStorage
         const localProductsKey = 'local_products_fallback';
         const existingProducts = localStorage.getItem(localProductsKey);
         const products = existingProducts ? JSON.parse(existingProducts) : [];
         products.push(productWithId);
         localStorage.setItem(localProductsKey, JSON.stringify(products));
-        
+
         console.log('✅ Product saved to localStorage as fallback:', uniqueSlug);
         console.warn('⚠️ Product saved locally due to Firebase permissions issue. Product will be available but not synced to Firebase.');
-        
+
         // Add a flag to indicate this was saved locally
         (productWithId as any)._savedLocally = true;
-        
+
         return productWithId;
       } catch (localError) {
         console.error('❌ Error saving product to localStorage:', localError);
@@ -272,12 +286,12 @@ export class FirebaseProductsService {
       const docRef = doc(db, this.collectionName, id);
 
       const normalizedProduct = this.replaceUndefinedWithNull(product);
-      
+
       // Clean the product data by removing undefined values
       const cleanProduct = Object.fromEntries(
         Object.entries(normalizedProduct).filter(([_, value]) => value !== undefined)
       );
-      
+
       // Convert dates to Firestore Timestamps
       const updateData: any = { ...cleanProduct };
       if ((cleanProduct as any).createdAt) {
@@ -289,11 +303,11 @@ export class FirebaseProductsService {
       if ((cleanProduct as any).expirationDate) {
         updateData.expirationDate = Timestamp.fromDate(new Date((cleanProduct as any).expirationDate));
       }
-      
+
       console.log(`Firebase: Final update data:`, updateData);
       await updateDoc(docRef, updateData);
       console.log(`Firebase: Document updated successfully`);
-      
+
       const updatedProduct = await this.getProductById(id) as Product;
       console.log(`Firebase: Retrieved updated product:`, updatedProduct);
       return updatedProduct;
@@ -319,12 +333,12 @@ export class FirebaseProductsService {
     try {
       const productsRef = collection(db, this.collectionName);
       const q = query(
-        productsRef, 
+        productsRef,
         where('category', '==', category),
         orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      
+
       const products: Product[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -336,7 +350,7 @@ export class FirebaseProductsService {
           expirationDate: data.expirationDate?.toDate?.()?.toISOString() || data.expirationDate,
         } as Product);
       });
-      
+
       return products;
     } catch (error) {
       console.error('Error getting products by category:', error);
@@ -349,12 +363,12 @@ export class FirebaseProductsService {
     try {
       const productsRef = collection(db, this.collectionName);
       const q = query(
-        productsRef, 
+        productsRef,
         where('isArchived', '==', false),
         orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      
+
       const products: Product[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -366,7 +380,7 @@ export class FirebaseProductsService {
           expirationDate: data.expirationDate?.toDate?.()?.toISOString() || data.expirationDate,
         } as Product);
       });
-      
+
       return products;
     } catch (error) {
       console.error('Error getting active products:', error);
@@ -380,7 +394,7 @@ export class FirebaseProductsService {
       const productsRef = collection(db, this.collectionName);
       const q = query(productsRef, orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      
+
       const products: Product[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -391,7 +405,7 @@ export class FirebaseProductsService {
           offerEndsAt: data.offerEndsAt?.toDate?.()?.toISOString() || data.offerEndsAt,
           expirationDate: data.expirationDate?.toDate?.()?.toISOString() || data.expirationDate,
         } as Product;
-        
+
         // Filter by search term
         if (
           product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -401,7 +415,7 @@ export class FirebaseProductsService {
           products.push(product);
         }
       });
-      
+
       return products;
     } catch (error) {
       console.error('Error searching products:', error);
@@ -456,7 +470,7 @@ export class FirebaseSalesService {
       const salesRef = collection(db, this.collectionName);
       const q = query(salesRef, orderBy('timestamp', 'desc'));
       const querySnapshot = await getDocs(q);
-      
+
       const sales: CashierSale[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -466,7 +480,7 @@ export class FirebaseSalesService {
           timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
         } as CashierSale);
       });
-      
+
       return sales;
     } catch (error) {
       console.error('Error getting sales:', error);
@@ -478,15 +492,15 @@ export class FirebaseSalesService {
   async addSale(sale: Omit<CashierSale, 'id'>): Promise<CashierSale> {
     try {
       const salesRef = collection(db, this.collectionName);
-      
+
       // Convert timestamp to Firestore Timestamp
       const saleData = {
         ...sale,
         timestamp: Timestamp.fromDate(sale.timestamp),
       };
-      
+
       const docRef = await addDoc(salesRef, saleData);
-      
+
       return {
         ...sale,
         id: docRef.id,
@@ -508,7 +522,7 @@ export class FirebaseSalesService {
         orderBy('timestamp', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      
+
       const sales: CashierSale[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -518,7 +532,7 @@ export class FirebaseSalesService {
           timestamp: data.timestamp?.toDate?.() || new Date(data.timestamp),
         } as CashierSale);
       });
-      
+
       return sales;
     } catch (error) {
       console.error('Error getting sales by date range:', error);
@@ -542,7 +556,7 @@ export class FirebaseSalesService {
     try {
       const salesRef = collection(db, this.collectionName);
       const querySnapshot = await getDocs(salesRef);
-      
+
       const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
     } catch (error) {
@@ -580,23 +594,23 @@ export const updateProductQuantitiesAtomically = async (updates: QuantityUpdate[
 
     // Check if all products exist and have sufficient quantities
     const updatedQuantities: { [key: string]: number } = {};
-    
+
     for (let i = 0; i < updates.length; i++) {
       const update = updates[i];
       const productDoc = productDocs[i];
-      
+
       if (!productDoc.exists()) {
         throw new Error(`المنتج ${update.productId} غير موجود`);
       }
-      
+
       const productData = productDoc.data() as Product;
       const currentQuantity = productData.wholesaleInfo?.quantity || 0;
       const newQuantity = Math.max(0, currentQuantity - update.quantityToDeduct);
-      
+
       if (currentQuantity < update.quantityToDeduct) {
         console.warn(`تحذير: الكمية المطلوبة (${update.quantityToDeduct}) أكبر من المتوفر (${currentQuantity}) للمنتج ${productData.name}`);
       }
-      
+
       updatedQuantities[update.productId] = newQuantity;
     }
 
@@ -606,12 +620,12 @@ export const updateProductQuantitiesAtomically = async (updates: QuantityUpdate[
       const productDoc = productDocs[i];
       const productData = productDoc.data() as Product;
       const newQuantity = updatedQuantities[update.productId];
-      
+
       const productRef = doc(db, 'products', update.productId);
       transaction.update(productRef, {
         'wholesaleInfo.quantity': newQuantity
       });
-      
+
       console.log(`Transaction: تحديث المنتج ${productData.name} من ${productData.wholesaleInfo?.quantity || 0} إلى ${newQuantity}`);
     }
   });
@@ -630,19 +644,19 @@ export const restoreProductQuantitiesAtomically = async (restores: QuantityResto
 
     // Check if all products exist and calculate new quantities
     const updatedQuantities: { [key: string]: number } = {};
-    
+
     for (let i = 0; i < restores.length; i++) {
       const restore = restores[i];
       const productDoc = productDocs[i];
-      
+
       if (!productDoc.exists()) {
         throw new Error(`المنتج ${restore.productId} غير موجود`);
       }
-      
+
       const productData = productDoc.data() as Product;
       const currentQuantity = productData.wholesaleInfo?.quantity || 0;
       const newQuantity = currentQuantity + restore.quantityToRestore;
-      
+
       updatedQuantities[restore.productId] = newQuantity;
     }
 
@@ -652,12 +666,12 @@ export const restoreProductQuantitiesAtomically = async (restores: QuantityResto
       const productDoc = productDocs[i];
       const productData = productDoc.data() as Product;
       const newQuantity = updatedQuantities[restore.productId];
-      
+
       const productRef = doc(db, 'products', restore.productId);
       transaction.update(productRef, {
         'wholesaleInfo.quantity': newQuantity
       });
-      
+
       console.log(`Transaction: استعادة المنتج ${productData.name} من ${productData.wholesaleInfo?.quantity || 0} إلى ${newQuantity}`);
     }
   });
@@ -721,7 +735,7 @@ export class FirebaseEmployeesService {
       const employeesRef = collection(db, this.collectionName);
       const q = query(employeesRef, orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
-      
+
       const employees: Employee[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -732,7 +746,7 @@ export class FirebaseEmployeesService {
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
         } as Employee);
       });
-      
+
       return employees;
     } catch (error) {
       console.error('Error getting employees:', error);
@@ -745,7 +759,7 @@ export class FirebaseEmployeesService {
     try {
       const docRef = doc(db, this.collectionName, id);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         const data = docSnap.data();
         return {
@@ -767,7 +781,7 @@ export class FirebaseEmployeesService {
   async addEmployee(employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employee> {
     try {
       const employeesRef = collection(db, this.collectionName);
-      
+
       const employeeData = {
         ...employee,
         createdAt: Timestamp.now(),
@@ -775,7 +789,7 @@ export class FirebaseEmployeesService {
       };
 
       const docRef = await addDoc(employeesRef, employeeData);
-      
+
       return {
         ...employee,
         id: docRef.id,
@@ -792,14 +806,14 @@ export class FirebaseEmployeesService {
   async updateEmployee(id: string, employee: Partial<Employee>): Promise<Employee> {
     try {
       const docRef = doc(db, this.collectionName, id);
-      
+
       const updateData: any = { ...employee };
       delete updateData.id;
       delete updateData.createdAt;
       updateData.updatedAt = Timestamp.now();
-      
+
       await updateDoc(docRef, updateData);
-      
+
       const updatedEmployee = await this.getEmployeeById(id) as Employee;
       return updatedEmployee;
     } catch (error) {
@@ -826,6 +840,56 @@ export const employeesService = new FirebaseEmployeesService();
 // Firebase Attendance Service
 export class FirebaseAttendanceService {
   private collectionName = 'attendance';
+  private summaryCollectionName = 'attendance_summaries';
+
+  private getSummaryDocId(employeeId: string, month: string) {
+    return `${employeeId}_${month}`;
+  }
+
+  private mapRecord(docId: string, data: any): AttendanceRecord {
+    const status: AttendanceStatus = (data.status as AttendanceStatus) || (data.checkInTime ? 'present' : 'absent');
+    const storedExcuseStatus = (data.excuseStatus as ExcuseStatus | 'approved') || 'rejected';
+    const excuseStatus: ExcuseStatus =
+      storedExcuseStatus === 'approved' ? 'accepted' : storedExcuseStatus;
+    const normalizedDailyNet =
+      typeof data.dailyNet === 'number'
+        ? data.dailyNet
+        : (data.overtimeAmount ?? 0) - (data.deductionAmount ?? 0);
+
+    return {
+      ...data,
+      id: docId,
+      status,
+      excuseStatus,
+      notes: data.notes ?? null,
+      excuseNote: data.excuseNote ?? null,
+      excuseResolution: (data.excuseResolution as 'no_deduct' | 'hourly' | null) ?? null,
+      dailyWage: typeof data.dailyWage === 'number' ? data.dailyWage : 0,
+      dailyNet: normalizedDailyNet,
+      excusedAbsencePolicy:
+        (data.excusedAbsencePolicy as ExcusedAbsencePolicy) ||
+        DEFAULT_ATTENDANCE_SETTINGS.excusedAbsencePolicy,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+    } as AttendanceRecord;
+  }
+
+  private calculateBaseImpact(
+    status: AttendanceStatus,
+    dailyWage: number,
+    policy: ExcusedAbsencePolicy,
+    excuseStatus?: ExcuseStatus
+  ): number {
+    if (status === 'present') return dailyWage;
+    if (status === 'absent') return -dailyWage;
+    if (status === 'absent_excused') {
+      if (excuseStatus === 'rejected') return -dailyWage;
+      if (excuseStatus === 'accepted') return 0;
+      // Pending review should not affect salary yet
+      return 0;
+    }
+    return policy === 'deduct' ? -dailyWage : 0;
+  }
 
   // Get all attendance records
   async getAllAttendanceRecords(): Promise<AttendanceRecord[]> {
@@ -833,18 +897,13 @@ export class FirebaseAttendanceService {
       const attendanceRef = collection(db, this.collectionName);
       const q = query(attendanceRef, orderBy('date', 'desc'));
       const querySnapshot = await getDocs(q);
-      
+
       const records: AttendanceRecord[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        records.push({
-          ...data,
-          id: doc.id,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-        } as AttendanceRecord);
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        records.push(this.mapRecord(docSnapshot.id, data));
       });
-      
+
       return records;
     } catch (error) {
       console.error('Error getting attendance records:', error);
@@ -862,25 +921,20 @@ export class FirebaseAttendanceService {
         where('employeeId', '==', employeeId)
       );
       const querySnapshot = await getDocs(q);
-      
+
       const records: AttendanceRecord[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        records.push({
-          ...data,
-          id: doc.id,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-        } as AttendanceRecord);
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        records.push(this.mapRecord(docSnapshot.id, data));
       });
-      
+
       // Sort by date descending in memory (newest first)
       records.sort((a, b) => {
         if (a.date > b.date) return -1;
         if (a.date < b.date) return 1;
         return 0;
       });
-      
+
       return records;
     } catch (error) {
       console.error('Error getting attendance records by employee:', error);
@@ -899,18 +953,13 @@ export class FirebaseAttendanceService {
         orderBy('date', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      
+
       const records: AttendanceRecord[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        records.push({
-          ...data,
-          id: doc.id,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-        } as AttendanceRecord);
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        records.push(this.mapRecord(docSnapshot.id, data));
       });
-      
+
       return records;
     } catch (error) {
       console.error('Error getting attendance records by date range:', error);
@@ -928,19 +977,14 @@ export class FirebaseAttendanceService {
         where('date', '==', date)
       );
       const querySnapshot = await getDocs(q);
-      
+
       if (querySnapshot.empty) {
         return null;
       }
-      
+
       const doc = querySnapshot.docs[0];
       const data = doc.data();
-      return {
-        ...data,
-        id: doc.id,
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-      } as AttendanceRecord;
+      return this.mapRecord(doc.id, data);
     } catch (error) {
       console.error('Error getting attendance record:', error);
       throw error;
@@ -950,45 +994,109 @@ export class FirebaseAttendanceService {
   // Add or update attendance record
   async addOrUpdateAttendanceRecord(
     employee: Employee,
-    date: string,
-    checkInTime: string | null,
-    checkOutTime: string | null,
-    excuseText?: string | null
+    payload: {
+      date: string;
+      status: AttendanceStatus;
+      checkInTime?: string | null;
+      checkOutTime?: string | null;
+      excuseText?: string | null;
+      notes?: string | null;
+      settings?: AttendanceSettings | null;
+    }
   ): Promise<AttendanceRecord> {
     try {
-      // Check if record exists
-      const existingRecord = await this.getAttendanceRecordByEmployeeAndDate(employee.id, date);
-      
-      const delayMinutes = checkInTime ? calculateDelay(checkInTime, employee.workingHours) : 0;
-      const hasExcuse = !!excuseText;
-      const excuseStatus: ExcuseStatus = existingRecord?.excuseStatus || (hasExcuse ? 'pending' : 'rejected');
-      
-      // Calculate deduction
-      const deduction = calculateDelayDeduction(
-        delayMinutes,
-        excuseStatus,
-        employee.monthlySalary,
-        employee.monthlyWorkingHours
-      );
-      
-      // Calculate overtime
-      const overtime = calculateOvertime(
+      const {
+        date,
+        status,
         checkInTime,
         checkOutTime,
-        employee.workingHours,
-        employee.monthlySalary,
-        employee.monthlyWorkingHours
-      );
-      
+        excuseText,
+        notes,
+        settings,
+      } = payload;
+
+      // Check if record exists
+      const existingRecord = await this.getAttendanceRecordByEmployeeAndDate(employee.id, date);
+
+      const normalizedStatus: AttendanceStatus =
+        status || (checkInTime ? 'present' : 'absent');
+      const effectiveSettings = settings || DEFAULT_ATTENDANCE_SETTINGS;
+      const dailyWage = getEmployeeDailyWage(employee);
+      const effectiveCheckIn = normalizedStatus === 'present' ? checkInTime || null : null;
+      const effectiveCheckOut = normalizedStatus === 'present' ? checkOutTime || null : null;
+
+      const delayMinutes =
+        normalizedStatus === 'present' && effectiveCheckIn
+          ? calculateDelay(effectiveCheckIn, employee.workingHours)
+          : 0;
+      const hasExcuse = normalizedStatus === 'absent_excused' || !!excuseText;
+      const existingWasExcused = existingRecord?.status === 'absent_excused';
+      let excuseStatus: ExcuseStatus;
+      let excuseResolution: 'no_deduct' | 'hourly' | null =
+        existingRecord?.excuseResolution ?? null;
+
+      if (existingRecord) {
+        excuseStatus = existingRecord.excuseStatus;
+
+        if (!hasExcuse) {
+          excuseStatus = 'rejected';
+          excuseResolution = null;
+        } else if (!existingRecord.hasExcuse && hasExcuse) {
+          excuseStatus = 'pending';
+          excuseResolution = null;
+        } else if (normalizedStatus === 'absent_excused' && !existingWasExcused) {
+          excuseStatus = 'pending';
+          excuseResolution = null;
+        }
+      } else {
+        excuseStatus = hasExcuse ? 'pending' : 'rejected';
+        excuseResolution = null;
+      }
+
+      const shouldApplyDelayDeduction =
+        normalizedStatus === 'present' ||
+        (normalizedStatus === 'absent_excused' &&
+          excuseStatus === 'accepted' &&
+          excuseResolution === 'hourly');
+
+      const deduction = shouldApplyDelayDeduction
+        ? calculateDelayDeduction(
+            delayMinutes,
+            excuseStatus,
+            employee.monthlySalary,
+            employee.monthlyWorkingHours,
+            dailyWage
+          )
+        : { type: 'none' as const, amount: 0 };
+
+      // Calculate overtime
+      const overtime =
+        normalizedStatus === 'present'
+          ? calculateOvertime(
+              effectiveCheckIn,
+              effectiveCheckOut,
+              employee.workingHours,
+              employee.monthlySalary,
+              employee.monthlyWorkingHours
+            )
+          : { hours: 0, amount: 0 };
+
       // Calculate daily net
-      const dailyNet = overtime.amount - deduction.amount;
-      
+      const baseImpact = this.calculateBaseImpact(
+        normalizedStatus,
+        dailyWage,
+        effectiveSettings.excusedAbsencePolicy,
+        excuseStatus
+      );
+      const dailyNet = baseImpact - deduction.amount + overtime.amount;
+
       const recordData: Omit<AttendanceRecord, 'id' | 'createdAt' | 'updatedAt'> = {
         employeeId: employee.id,
         employeeName: employee.name,
         date,
-        checkInTime,
-        checkOutTime,
+        checkInTime: effectiveCheckIn,
+        checkOutTime: effectiveCheckOut,
+        status: normalizedStatus,
         delayMinutes,
         hasExcuse,
         excuseText: excuseText || null,
@@ -997,17 +1105,23 @@ export class FirebaseAttendanceService {
         deductionAmount: deduction.amount,
         overtimeHours: overtime.hours,
         overtimeAmount: overtime.amount,
+        dailyWage,
         dailyNet,
+        excusedAbsencePolicy: effectiveSettings.excusedAbsencePolicy,
+        excuseResolution,
+        excuseNote: existingRecord?.excuseNote || null,
+        notes: notes || null,
       };
 
       if (existingRecord) {
         // Update existing record
         const docRef = doc(db, this.collectionName, existingRecord.id);
-        await updateDoc(docRef, {
+        const payload = {
           ...recordData,
           updatedAt: Timestamp.now(),
-        });
-        
+        };
+        await updateDoc(docRef, payload);
+
         return {
           ...recordData,
           id: existingRecord.id,
@@ -1022,7 +1136,7 @@ export class FirebaseAttendanceService {
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         });
-        
+
         return {
           ...recordData,
           id: docRef.id,
@@ -1040,37 +1154,94 @@ export class FirebaseAttendanceService {
   async updateExcuseStatus(
     recordId: string,
     status: ExcuseStatus,
-    employee: Employee
+    employee: Employee,
+    note?: string | null,
+    resolution?: 'no_deduct' | 'hourly' | null
   ): Promise<AttendanceRecord> {
     try {
       const docRef = doc(db, this.collectionName, recordId);
       const docSnap = await getDoc(docRef);
-      
+
       if (!docSnap.exists()) {
         throw new Error('Attendance record not found');
       }
-      
+
       const data = docSnap.data() as AttendanceRecord;
-      
-      // Recalculate deduction based on new status
-      const deduction = calculateDelayDeduction(
-        data.delayMinutes,
-        status,
-        employee.monthlySalary,
-        employee.monthlyWorkingHours
-      );
-      
+      const currentStatus: AttendanceStatus =
+        (data.status as AttendanceStatus) || (data.checkInTime ? 'present' : 'absent');
+      const dailyWage =
+        typeof (data as any).dailyWage === 'number'
+          ? data.dailyWage
+          : getEmployeeDailyWage(employee);
+      const policy: ExcusedAbsencePolicy =
+        (data.excusedAbsencePolicy as ExcusedAbsencePolicy) ||
+        DEFAULT_ATTENDANCE_SETTINGS.excusedAbsencePolicy;
+
+      let nextResolution: 'no_deduct' | 'hourly' | null =
+        typeof resolution !== 'undefined' ? resolution : data.excuseResolution || null;
+
+      if (status !== 'accepted') {
+        nextResolution = null;
+      } else if (!nextResolution) {
+        nextResolution = 'hourly';
+      }
+
+      let deduction = { type: 'none' as DeductionType, amount: 0 };
+      if (currentStatus === 'present') {
+        deduction = calculateDelayDeduction(
+          data.delayMinutes,
+          status,
+          employee.monthlySalary,
+          employee.monthlyWorkingHours,
+          dailyWage
+        );
+      } else if (
+        currentStatus === 'absent_excused' &&
+        status === 'accepted' &&
+        nextResolution === 'hourly' &&
+        data.delayMinutes > 0
+      ) {
+        deduction = calculateDelayDeduction(
+          data.delayMinutes,
+          status,
+          employee.monthlySalary,
+          employee.monthlyWorkingHours,
+          dailyWage
+        );
+      }
+
+      if (status === 'accepted' && nextResolution === 'no_deduct') {
+        deduction = { type: 'none', amount: 0 };
+      }
+
       // Calculate daily net again
-      const dailyNet = data.overtimeAmount - deduction.amount;
-      
+      const baseImpact = this.calculateBaseImpact(
+        currentStatus,
+        dailyWage,
+        policy,
+        status
+      );
+      const dailyNet = baseImpact - deduction.amount + (data.overtimeAmount || 0);
+
+      const resolvedNote =
+        typeof note === 'undefined'
+          ? data.excuseNote ?? null
+          : typeof note === 'string' && note.trim().length > 0
+            ? note.trim()
+            : null;
+
       await updateDoc(docRef, {
         excuseStatus: status,
+        excuseNote: resolvedNote,
+        excuseResolution: nextResolution,
         deductionType: deduction.type,
         deductionAmount: deduction.amount,
+        dailyWage,
+        excusedAbsencePolicy: policy,
         dailyNet,
         updatedAt: Timestamp.now(),
       });
-      
+
       const updatedRecord = await this.getAttendanceRecordByEmployeeAndDate(employee.id, data.date) as AttendanceRecord;
       return updatedRecord;
     } catch (error) {
@@ -1086,39 +1257,99 @@ export class FirebaseAttendanceService {
       if (!employee) {
         return null;
       }
-      
+
       // Get all records for the month
       const startDate = `${month}-01`;
       const endDate = `${month}-31`;
       const records = await this.getAttendanceRecordsByDateRange(startDate, endDate);
       const employeeRecords = records.filter(r => r.employeeId === employeeId);
-      
+
+      const hasDailyWageData = employeeRecords.some(record => record.dailyWage && record.dailyWage > 0);
+
+      if (!hasDailyWageData) {
+        let totalDeductions = 0;
+        let totalOvertime = 0;
+        let attendanceDays = 0;
+        let absentDays = 0;
+        let totalDelayMinutes = 0;
+        let pendingExcuses = 0;
+        let acceptedExcuses = 0;
+        let rejectedExcuses = 0;
+
+        employeeRecords.forEach(record => {
+          if (record.checkInTime) {
+            attendanceDays++;
+            totalDeductions += record.deductionAmount;
+            totalOvertime += record.overtimeAmount;
+            totalDelayMinutes += record.delayMinutes;
+
+            if (record.excuseStatus === 'pending') pendingExcuses++;
+            else if (record.excuseStatus === 'accepted') acceptedExcuses++;
+            else if (record.excuseStatus === 'rejected') rejectedExcuses++;
+          } else {
+            absentDays++;
+          }
+        });
+
+        const finalSalary = employee.monthlySalary - totalDeductions + totalOvertime;
+
+        return {
+          employeeId,
+          employeeName: employee.name,
+          month,
+          baseSalary: employee.monthlySalary,
+          totalDeductions,
+          totalOvertime,
+          finalSalary,
+          attendanceDays,
+          absentDays,
+          excusedAbsentDays: 0,
+          recordedDays: employeeRecords.length,
+          totalDelayMinutes,
+          pendingExcuses,
+          acceptedExcuses,
+          rejectedExcuses,
+        };
+      }
+
       let totalDeductions = 0;
       let totalOvertime = 0;
-      let attendanceDays = 0;
+      let presentDays = 0;
       let absentDays = 0;
+      let excusedAbsentDays = 0;
       let totalDelayMinutes = 0;
       let pendingExcuses = 0;
-      let approvedExcuses = 0;
+      let acceptedExcuses = 0;
       let rejectedExcuses = 0;
-      
+      let finalSalary = 0;
+
       employeeRecords.forEach(record => {
-        if (record.checkInTime) {
-          attendanceDays++;
+        finalSalary += record.dailyNet || 0;
+
+        if (record.status === 'present') {
+          presentDays++;
           totalDeductions += record.deductionAmount;
           totalOvertime += record.overtimeAmount;
           totalDelayMinutes += record.delayMinutes;
-          
-          if (record.excuseStatus === 'pending') pendingExcuses++;
-          else if (record.excuseStatus === 'approved') approvedExcuses++;
-          else if (record.excuseStatus === 'rejected') rejectedExcuses++;
-        } else {
+        } else if (record.status === 'absent') {
           absentDays++;
+          totalDeductions += record.dailyWage;
+        } else if (record.status === 'absent_excused') {
+          if (record.excuseStatus === 'accepted') {
+            excusedAbsentDays++;
+          } else if (record.excuseStatus === 'rejected') {
+            absentDays++;
+            totalDeductions += record.dailyWage;
+          }
+        }
+
+        if (record.hasExcuse) {
+          if (record.excuseStatus === 'pending') pendingExcuses++;
+          else if (record.excuseStatus === 'accepted') acceptedExcuses++;
+          else if (record.excuseStatus === 'rejected') rejectedExcuses++;
         }
       });
-      
-      const finalSalary = employee.monthlySalary - totalDeductions + totalOvertime;
-      
+
       return {
         employeeId,
         employeeName: employee.name,
@@ -1127,15 +1358,78 @@ export class FirebaseAttendanceService {
         totalDeductions,
         totalOvertime,
         finalSalary,
-        attendanceDays,
+        attendanceDays: presentDays,
         absentDays,
+        excusedAbsentDays,
+        recordedDays: employeeRecords.length,
         totalDelayMinutes,
         pendingExcuses,
-        approvedExcuses,
+        acceptedExcuses,
         rejectedExcuses,
       };
     } catch (error) {
       console.error('Error getting monthly summary:', error);
+      throw error;
+    }
+  }
+
+  private async getMonthlySummaryFromArchive(employeeId: string, month: string): Promise<MonthlySummary | null> {
+    try {
+      const docId = this.getSummaryDocId(employeeId, month);
+      const docRef = doc(db, this.summaryCollectionName, docId);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        return null;
+      }
+
+      const data = docSnap.data();
+      return {
+        ...(data as MonthlySummary),
+        generatedAt: data.generatedAt?.toDate?.()?.toISOString() || data.generatedAt,
+      };
+    } catch (error) {
+      console.error('Error getting archived summary:', error);
+      throw error;
+    }
+  }
+
+  async saveMonthlySummary(employeeId: string, month: string): Promise<void> {
+    try {
+      const summary = await this.getMonthlySummary(employeeId, month);
+      if (!summary) return;
+
+      const docId = this.getSummaryDocId(employeeId, month);
+      const docRef = doc(db, this.summaryCollectionName, docId);
+      await setDoc(docRef, {
+        ...summary,
+        generatedAt: Timestamp.now(),
+      }, { merge: true });
+    } catch (error) {
+      console.error('Error saving monthly summary:', error);
+      throw error;
+    }
+  }
+
+  async getMonthlySummaryWithArchive(employeeId: string, month: string): Promise<MonthlySummary | null> {
+    try {
+      const liveSummary = await this.getMonthlySummary(employeeId, month);
+      const currentMonth = new Date().toISOString().slice(0, 7);
+
+      if (
+        liveSummary &&
+        (
+          month === currentMonth ||
+          (liveSummary.recordedDays ?? 0) > 0
+        )
+      ) {
+        return liveSummary;
+      }
+
+      const archived = await this.getMonthlySummaryFromArchive(employeeId, month);
+      return archived || liveSummary;
+    } catch (error) {
+      console.error('Error getting monthly summary with archive:', error);
       throw error;
     }
   }
@@ -1154,5 +1448,44 @@ export class FirebaseAttendanceService {
 
 // Create and export the attendance service instance
 export const attendanceService = new FirebaseAttendanceService();
+
+export class FirebaseAttendanceSettingsService {
+  private collectionName = 'attendance_settings';
+  private docId = 'general';
+
+  async getSettings(): Promise<AttendanceSettings> {
+    try {
+      const docRef = doc(db, this.collectionName, this.docId);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        await setDoc(docRef, DEFAULT_ATTENDANCE_SETTINGS);
+        return DEFAULT_ATTENDANCE_SETTINGS;
+      }
+
+      const data = docSnap.data() as Partial<AttendanceSettings>;
+      return {
+        ...DEFAULT_ATTENDANCE_SETTINGS,
+        ...data,
+      };
+    } catch (error) {
+      console.error('Error getting attendance settings:', error);
+      return DEFAULT_ATTENDANCE_SETTINGS;
+    }
+  }
+
+  async updateSettings(update: Partial<AttendanceSettings>): Promise<AttendanceSettings> {
+    try {
+      const docRef = doc(db, this.collectionName, this.docId);
+      await setDoc(docRef, update, { merge: true });
+      return this.getSettings();
+    } catch (error) {
+      console.error('Error updating attendance settings:', error);
+      throw error;
+    }
+  }
+}
+
+export const attendanceSettingsService = new FirebaseAttendanceSettingsService();
 
 export default app;
