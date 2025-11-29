@@ -131,7 +131,7 @@ export default function Attendance() {
     password: '',
     monthlySalary: 0,
     monthlyWorkingHours: 270, // Default: 8 hours * 22 days
-     monthlyWorkingDays: 26,
+    monthlyWorkingDays: 26,
     checkIn: '09:00',
     checkOut: '17:00',
   });
@@ -616,276 +616,282 @@ export default function Attendance() {
                   تسجيل حالة اليوم
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-full max-w-[95vw] sm:max-w-3xl lg:max-w-4xl">
-                <DialogHeader>
-                  <DialogTitle>تسجيل حالة اليوم</DialogTitle>
-                  <DialogDescription>
+              <DialogContent className="w-[calc(100vw-1rem)] max-w-[95vw] sm:max-w-2xl lg:max-w-3xl p-3 sm:p-6">
+                <DialogHeader className="space-y-2 pb-2">
+                  <DialogTitle className="text-base sm:text-lg">تسجيل حالة اليوم</DialogTitle>
+                  <DialogDescription className="text-xs sm:text-sm">
                     {isAdmin
                       ? 'اختر الموظف وحدد ما إذا كان اليوم حضورًا أم غيابًا مع أو بدون عذر'
                       : 'اختر حالتك اليومية وسجّل الأوقات أو الملاحظات إن لزم الأمر'
                     }
                   </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="max-h-[70vh] sm:max-h-[75vh] pr-1">
-                  <div className="space-y-5 pb-2">
-                    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                      <div className="space-y-5">
-                        <div className="rounded-lg border p-4 space-y-4">
-                          {isAdmin && (
-                            <div>
-                              <Label htmlFor="attendance-employee">الموظف</Label>
-                              <Select
-                                value={attendanceForm.employeeId}
-                                onValueChange={(value) =>
-                                  setAttendanceForm({ ...attendanceForm, employeeId: value })
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="اختر الموظف" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {employees.map((emp) => (
-                                    <SelectItem key={emp.id} value={emp.id}>
-                                      {emp.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                          {!isAdmin && currentEmployee && (
-                            <div>
-                              <Label>الموظف</Label>
-                              <Input value={currentEmployee.name} disabled className="bg-muted" />
-                            </div>
-                          )}
-                          <div>
-                            <Label htmlFor="attendance-date">التاريخ</Label>
-                            <Input
-                              id="attendance-date"
-                              type="date"
-                              value={attendanceForm.date}
-                              onChange={(e) =>
-                                setAttendanceForm({ ...attendanceForm, date: e.target.value })
-                              }
-                            />
-                          </div>
+                <ScrollArea className="max-h-[calc(85vh-8rem)] sm:max-h-[calc(80vh-8rem)] pr-2">
+                  <div className="space-y-3 sm:space-y-4 pb-2">
+                    {/* معلومات الموظف والتاريخ */}
+                    <div className="rounded-lg border p-2.5 sm:p-4 space-y-2.5 sm:space-y-3">
+                      {isAdmin && (
+                        <div>
+                          <Label htmlFor="attendance-employee" className="text-xs sm:text-sm">الموظف</Label>
+                          <Select
+                            value={attendanceForm.employeeId}
+                            onValueChange={(value) =>
+                              setAttendanceForm({ ...attendanceForm, employeeId: value })
+                            }
+                          >
+                            <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
+                              <SelectValue placeholder="اختر الموظف" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {employees.map((emp) => (
+                                <SelectItem key={emp.id} value={emp.id} className="text-xs sm:text-sm">
+                                  {emp.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <div className="rounded-lg border p-4 space-y-3">
-                          <Label>الحالة</Label>
-                          <div className="grid gap-3 sm:grid-cols-3">
-                            {statusOptions.map((option) => {
-                              const Icon = option.icon;
-                              const isActive = attendanceForm.status === option.value;
-                              return (
-                                <Button
-                                  key={option.value}
-                                  type="button"
-                                  variant={isActive ? 'default' : 'outline'}
-                                  className="h-full flex flex-col items-start gap-1 text-right"
-                                  onClick={() => {
-                                    setAttendanceForm((prev) => ({
-                                      ...prev,
-                                      status: option.value,
-                                      ...(option.value !== 'present'
-                                        ? { checkInTime: '', checkOutTime: '' }
-                                        : {}),
-                                    }));
-                                  }}
-                                >
-                                  <span className="flex items-center gap-2">
-                                    <Icon className="h-4 w-4" />
-                                    {option.label}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {option.helper}
-                                  </span>
-                                </Button>
-                              );
-                            })}
-                          </div>
+                      )}
+                      {!isAdmin && currentEmployee && (
+                        <div>
+                          <Label className="text-xs sm:text-sm">الموظف</Label>
+                          <Input value={currentEmployee.name} disabled className="bg-muted h-9 sm:h-10 text-xs sm:text-sm" />
                         </div>
+                      )}
+                      <div>
+                        <Label htmlFor="attendance-date" className="text-xs sm:text-sm">التاريخ</Label>
+                        <Input
+                          id="attendance-date"
+                          type="date"
+                          className="h-9 sm:h-10 text-xs sm:text-sm"
+                          value={attendanceForm.date}
+                          onChange={(e) =>
+                            setAttendanceForm({ ...attendanceForm, date: e.target.value })
+                          }
+                        />
                       </div>
-                      <div className="space-y-5">
-                        <div className="rounded-lg border p-4 space-y-4">
-                          <p className="text-sm font-medium">أوقات الحضور والانصراف</p>
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className={timeInputsDisabled ? 'opacity-60' : ''}>
-                              <div className="flex items-center justify-between">
-                                <Label>وقت الحضور</Label>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  disabled={timeInputsDisabled || !attendanceForm.checkInTime}
-                                  onClick={() => clearTimeField('checkInTime')}
-                                >
-                                  مسح
-                                </Button>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2 mt-2">
-                                <Select
-                                  value={checkInParts.hour || undefined}
-                                  onValueChange={(value) =>
-                                    handleTimePartChange('checkInTime', 'hour', value)
-                                  }
-                                  disabled={timeInputsDisabled}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="الساعة" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {HOURS_12.map((hour) => (
-                                      <SelectItem key={hour} value={hour}>
-                                        {hour}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Select
-                                  value={checkInParts.minute || undefined}
-                                  onValueChange={(value) =>
-                                    handleTimePartChange('checkInTime', 'minute', value)
-                                  }
-                                  disabled={timeInputsDisabled || !checkInParts.hour}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="الدقائق" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-60">
-                                    {MINUTES_60.map((minute) => (
-                                      <SelectItem key={minute} value={minute}>
-                                        {minute}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Select
-                                  value={checkInParts.period}
-                                  onValueChange={(value) =>
-                                    handleTimePartChange('checkInTime', 'period', value as Meridiem)
-                                  }
-                                  disabled={timeInputsDisabled || !checkInParts.hour}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="التوقيت" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="AM">صباحاً</SelectItem>
-                                    <SelectItem value="PM">مساءً</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <div className={timeInputsDisabled ? 'opacity-60' : ''}>
-                              <div className="flex items-center justify-between">
-                                <Label>وقت الانصراف</Label>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  disabled={timeInputsDisabled || !attendanceForm.checkOutTime}
-                                  onClick={() => clearTimeField('checkOutTime')}
-                                >
-                                  مسح
-                                </Button>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2 mt-2">
-                                <Select
-                                  value={checkOutParts.hour || undefined}
-                                  onValueChange={(value) =>
-                                    handleTimePartChange('checkOutTime', 'hour', value)
-                                  }
-                                  disabled={timeInputsDisabled}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="الساعة" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {HOURS_12.map((hour) => (
-                                      <SelectItem key={`out-${hour}`} value={hour}>
-                                        {hour}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Select
-                                  value={checkOutParts.minute || undefined}
-                                  onValueChange={(value) =>
-                                    handleTimePartChange('checkOutTime', 'minute', value)
-                                  }
-                                  disabled={timeInputsDisabled || !checkOutParts.hour}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="الدقائق" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-60">
-                                    {MINUTES_60.map((minute) => (
-                                      <SelectItem key={`out-minute-${minute}`} value={minute}>
-                                        {minute}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Select
-                                  value={checkOutParts.period}
-                                  onValueChange={(value) =>
-                                    handleTimePartChange('checkOutTime', 'period', value as Meridiem)
-                                  }
-                                  disabled={timeInputsDisabled || !checkOutParts.hour}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="التوقيت" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="AM">صباحاً</SelectItem>
-                                    <SelectItem value="PM">مساءً</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
+                    </div>
+
+                    {/* أزرار الحالة */}
+                    <div className="rounded-lg border p-2.5 sm:p-4 space-y-2.5 sm:space-y-3">
+                      <Label className="text-xs sm:text-sm font-medium">اختر الحالة</Label>
+                      <div className="grid gap-2 grid-cols-1 xs:grid-cols-3">
+                        {statusOptions.map((option) => {
+                          const Icon = option.icon;
+                          const isActive = attendanceForm.status === option.value;
+                          return (
+                            <Button
+                              key={option.value}
+                              type="button"
+                              variant={isActive ? 'default' : 'outline'}
+                              className="h-auto min-h-[3.5rem] sm:min-h-[4rem] flex flex-col items-start gap-0.5 sm:gap-1 text-right p-2 sm:p-3"
+                              onClick={() => {
+                                setAttendanceForm((prev) => ({
+                                  ...prev,
+                                  status: option.value,
+                                  ...(option.value !== 'present'
+                                    ? { checkInTime: '', checkOutTime: '' }
+                                    : {}),
+                                }));
+                              }}
+                            >
+                              <span className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
+                                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                                <span className="truncate">{option.label}</span>
+                              </span>
+                              <span className="text-[0.65rem] sm:text-xs text-muted-foreground leading-tight line-clamp-2">
+                                {option.helper}
+                              </span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* أوقات الحضور والانصراف */}
+                    <div className="rounded-lg border p-2.5 sm:p-4 space-y-2.5 sm:space-y-3">
+                      <p className="text-xs sm:text-sm font-medium">أوقات الحضور والانصراف</p>
+                      <div className="grid gap-3 sm:gap-4">
+                        {/* وقت الحضور */}
+                        <div className={timeInputsDisabled ? 'opacity-60' : ''}>
+                          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                            <Label className="text-xs sm:text-sm">وقت الحضور</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 sm:h-7 px-1.5 sm:px-2 text-[0.65rem] sm:text-xs"
+                              disabled={timeInputsDisabled || !attendanceForm.checkInTime}
+                              onClick={() => clearTimeField('checkInTime')}
+                            >
+                              مسح
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                            <Select
+                              value={checkInParts.hour || undefined}
+                              onValueChange={(value) =>
+                                handleTimePartChange('checkInTime', 'hour', value)
+                              }
+                              disabled={timeInputsDisabled}
+                            >
+                              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                                <SelectValue placeholder="ساعة" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {HOURS_12.map((hour) => (
+                                  <SelectItem key={hour} value={hour} className="text-xs sm:text-sm">
+                                    {hour}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={checkInParts.minute || undefined}
+                              onValueChange={(value) =>
+                                handleTimePartChange('checkInTime', 'minute', value)
+                              }
+                              disabled={timeInputsDisabled || !checkInParts.hour}
+                            >
+                              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                                <SelectValue placeholder="دقيقة" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-60">
+                                {MINUTES_60.map((minute) => (
+                                  <SelectItem key={minute} value={minute} className="text-xs sm:text-sm">
+                                    {minute}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={checkInParts.period}
+                              onValueChange={(value) =>
+                                handleTimePartChange('checkInTime', 'period', value as Meridiem)
+                              }
+                              disabled={timeInputsDisabled || !checkInParts.hour}
+                            >
+                              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                                <SelectValue placeholder="ص/م" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="AM" className="text-xs sm:text-sm">صباحاً</SelectItem>
+                                <SelectItem value="PM" className="text-xs sm:text-sm">مساءً</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* وقت الانصراف */}
+                        <div className={timeInputsDisabled ? 'opacity-60' : ''}>
+                          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                            <Label className="text-xs sm:text-sm">وقت الانصراف</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 sm:h-7 px-1.5 sm:px-2 text-[0.65rem] sm:text-xs"
+                              disabled={timeInputsDisabled || !attendanceForm.checkOutTime}
+                              onClick={() => clearTimeField('checkOutTime')}
+                            >
+                              مسح
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                            <Select
+                              value={checkOutParts.hour || undefined}
+                              onValueChange={(value) =>
+                                handleTimePartChange('checkOutTime', 'hour', value)
+                              }
+                              disabled={timeInputsDisabled}
+                            >
+                              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                                <SelectValue placeholder="ساعة" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {HOURS_12.map((hour) => (
+                                  <SelectItem key={`out-${hour}`} value={hour} className="text-xs sm:text-sm">
+                                    {hour}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={checkOutParts.minute || undefined}
+                              onValueChange={(value) =>
+                                handleTimePartChange('checkOutTime', 'minute', value)
+                              }
+                              disabled={timeInputsDisabled || !checkOutParts.hour}
+                            >
+                              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                                <SelectValue placeholder="دقيقة" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-60">
+                                {MINUTES_60.map((minute) => (
+                                  <SelectItem key={`out-minute-${minute}`} value={minute} className="text-xs sm:text-sm">
+                                    {minute}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={checkOutParts.period}
+                              onValueChange={(value) =>
+                                handleTimePartChange('checkOutTime', 'period', value as Meridiem)
+                              }
+                              disabled={timeInputsDisabled || !checkOutParts.hour}
+                            >
+                              <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                                <SelectValue placeholder="ص/م" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="AM" className="text-xs sm:text-sm">صباحاً</SelectItem>
+                                <SelectItem value="PM" className="text-xs sm:text-sm">مساءً</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-lg border p-4 space-y-4">
-                      <p className="text-sm font-medium">التفاصيل الإضافية</p>
-                      <div className="space-y-4">
+
+                    {/* التفاصيل الإضافية */}
+                    <div className="rounded-lg border p-2.5 sm:p-4 space-y-2.5 sm:space-y-3">
+                      <p className="text-xs sm:text-sm font-medium">التفاصيل الإضافية</p>
+                      <div className="space-y-2.5 sm:space-y-3">
                         <div>
-                          <Label htmlFor="attendance-excuse">نص العذر (اختياري)</Label>
+                          <Label htmlFor="attendance-excuse" className="text-xs sm:text-sm">نص العذر (اختياري)</Label>
                           <Textarea
                             id="attendance-excuse"
-                            className="resize-none"
+                            className="resize-none text-xs sm:text-sm min-h-[4rem] sm:min-h-[5rem]"
                             value={attendanceForm.excuseText}
                             onChange={(e) =>
                               setAttendanceForm({ ...attendanceForm, excuseText: e.target.value })
                             }
                             placeholder="أدخل نص العذر إن وجد"
-                            rows={3}
+                            rows={2}
                           />
                         </div>
                         <div>
-                          <Label htmlFor="attendance-notes">ملاحظات إضافية</Label>
+                          <Label htmlFor="attendance-notes" className="text-xs sm:text-sm">ملاحظات إضافية</Label>
                           <Textarea
                             id="attendance-notes"
-                            className="resize-none"
+                            className="resize-none text-xs sm:text-sm min-h-[4rem] sm:min-h-[5rem]"
                             value={attendanceForm.notes}
                             onChange={(e) =>
                               setAttendanceForm({ ...attendanceForm, notes: e.target.value })
                             }
                             placeholder="أي تفاصيل متعلقة بالحالة"
-                            rows={3}
+                            rows={2}
                           />
                         </div>
                       </div>
                     </div>
                   </div>
                 </ScrollArea>
-                <DialogFooter>
+                <DialogFooter className="gap-2 flex-col sm:flex-row pt-3">
                   <Button
                     variant="outline"
+                    className="h-9 sm:h-10 text-xs sm:text-sm w-full sm:w-auto order-2 sm:order-1"
                     onClick={() => {
                       setIsAttendanceDialogOpen(false);
                       resetAttendanceForm();
@@ -894,6 +900,7 @@ export default function Attendance() {
                     إلغاء
                   </Button>
                   <Button
+                    className="h-9 sm:h-10 text-xs sm:text-sm w-full sm:w-auto order-1 sm:order-2"
                     onClick={() => attendanceMutation.mutate()}
                     disabled={
                       !attendanceForm.employeeId ||
@@ -1185,7 +1192,7 @@ export default function Attendance() {
                         <TableRow>
                           {isAdmin && <TableHead>اسم الموظف</TableHead>}
                           <TableHead>التاريخ</TableHead>
-                      <TableHead>الحالة</TableHead>
+                          <TableHead>الحالة</TableHead>
                           <TableHead>وقت الحضور</TableHead>
                           <TableHead>وقت الانصراف</TableHead>
                           <TableHead>مدة التأخير</TableHead>
@@ -1209,22 +1216,22 @@ export default function Attendance() {
                               <TableCell className="font-medium">{record.employeeName}</TableCell>
                             )}
                             <TableCell>{record.date}</TableCell>
-                          <TableCell>{getStatusBadge(record.status)}</TableCell>
+                            <TableCell>{getStatusBadge(record.status)}</TableCell>
                             <TableCell>
-                            {record.status === 'present' && record.checkInTime ? (
+                              {record.status === 'present' && record.checkInTime ? (
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                {formatTimeTo12Hour(record.checkInTime)}
+                                  {formatTimeTo12Hour(record.checkInTime)}
                                 </span>
                               ) : (
-                              '-'
+                                '-'
                               )}
                             </TableCell>
                             <TableCell>
-                            {record.status === 'present' && record.checkOutTime ? (
+                              {record.status === 'present' && record.checkOutTime ? (
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                {formatTimeTo12Hour(record.checkOutTime)}
+                                  {formatTimeTo12Hour(record.checkOutTime)}
                                 </span>
                               ) : (
                                 '-'
@@ -1295,7 +1302,7 @@ export default function Attendance() {
                                 {record.dailyNet.toFixed(2)} جنيه
                               </span>
                             </TableCell>
-                          <TableCell>{record.notes || '-'}</TableCell>
+                            <TableCell>{record.notes || '-'}</TableCell>
                             {isAdmin && (
                               <TableCell>
                                 <div className="flex flex-col gap-2">
@@ -1468,11 +1475,11 @@ export default function Attendance() {
                     <p className="bg-muted p-3 rounded-md">
                       {selectedRecordForExcuse.excuseText}
                     </p>
-                  {selectedRecordForExcuse.excuseNote && (
-                    <p className="text-sm text-muted-foreground">
-                      <strong>آخر ملاحظة للمسؤول:</strong> {selectedRecordForExcuse.excuseNote}
-                    </p>
-                  )}
+                    {selectedRecordForExcuse.excuseNote && (
+                      <p className="text-sm text-muted-foreground">
+                        <strong>آخر ملاحظة للمسؤول:</strong> {selectedRecordForExcuse.excuseNote}
+                      </p>
+                    )}
                   </div>
                 )}
                 {excuseDecisionIntent && (
@@ -1499,26 +1506,26 @@ export default function Attendance() {
               <div className="space-y-3">
                 {(excuseDecisionIntent === 'accepted' ||
                   selectedRecordForExcuse.excuseStatus === 'accepted') && (
-                  <div className="space-y-2">
-                    <Label>طريقة احتساب العذر المقبول</Label>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Button
-                        type="button"
-                        variant={excuseResolutionMode === 'no_deduct' ? 'default' : 'outline'}
-                        onClick={() => setExcuseResolutionMode('no_deduct')}
-                      >
-                        قبول بدون خصم
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={excuseResolutionMode === 'hourly' ? 'default' : 'outline'}
-                        onClick={() => setExcuseResolutionMode('hourly')}
-                      >
-                        قبول واحتساب التأخير بالدقائق
-                      </Button>
+                    <div className="space-y-2">
+                      <Label>طريقة احتساب العذر المقبول</Label>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Button
+                          type="button"
+                          variant={excuseResolutionMode === 'no_deduct' ? 'default' : 'outline'}
+                          onClick={() => setExcuseResolutionMode('no_deduct')}
+                        >
+                          قبول بدون خصم
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={excuseResolutionMode === 'hourly' ? 'default' : 'outline'}
+                          onClick={() => setExcuseResolutionMode('hourly')}
+                        >
+                          قبول واحتساب التأخير بالدقائق
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             )}
             <DialogFooter className="flex gap-2">
