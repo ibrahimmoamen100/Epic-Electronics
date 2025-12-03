@@ -13,6 +13,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DataLoader } from "@/components/DataLoader";
 import { analytics } from "@/lib/analytics";
+import { useFacebookPixel } from "./useFacebookPixel";
 
 // Lazy load pages with error handling
 const Index = lazy(() => import("./pages/Index").catch(() => ({ default: () => <div>Error loading Index</div> })));
@@ -54,51 +55,67 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <HelmetProvider>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          {createPortal(<Toaster />, document.body)}
-          {createPortal(<Sonner />, document.body)}
-          <DataLoader />
-          <BrowserRouter>
-            <ScrollToTop />
-            <Layout>
-              <ErrorBoundary>
-                <Suspense fallback={<Loading />}>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/admin" element={<Admin />} />
-                    <Route path="/admin/setup" element={<AdminSetup />} />
-                    <Route path="/admin/orders" element={<AdminOrders />} />
-                    <Route path="/admin/analytics" element={<AdminAnalytics />} />
-                    <Route path="/admin/profit-analysis" element={<AdminProfitAnalysis />} />
-                    <Route path="/cashier" element={<Cashier />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/products" element={<Products />} />
-                    <Route path="/products/category/:category" element={<Products />} />
-                    {/* New SEO-friendly singular route */}
-                    <Route path="/product/:id" element={<ProductDetails />} />
-                    {/* Backward compatibility */}
-                    <Route path="/products/:id" element={<ProductDetails />} />
-                    <Route path="/locations" element={<Locations />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/careers" element={<Careers />} />
-                    <Route path="/faq" element={<FAQ />} />
-                    <Route path="/delivery" element={<Delivery />} />
-                    <Route path="/orders" element={<Orders />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/attendance" element={<Attendance />} />
-                  </Routes>
-                </Suspense>
-              </ErrorBoundary>
-            </Layout>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
-);
+// New component that uses the Facebook Pixel hook
+const AppRoutes = () => {
+  useFacebookPixel(); // Now this is inside BrowserRouter context
+
+  return (
+    <>
+    
+    <ScrollToTop />
+    <Layout>
+      <ErrorBoundary>
+        <Suspense fallback={<Loading />}>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/setup" element={<AdminSetup />} />
+            <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/analytics" element={<AdminAnalytics />} />
+            <Route path="/admin/profit-analysis" element={<AdminProfitAnalysis />} />
+            <Route path="/cashier" element={<Cashier />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/category/:category" element={<Products />} />
+            {/* New SEO-friendly singular route */}
+            <Route path="/product/:id" element={<ProductDetails />} />
+            {/* Backward compatibility */}
+            <Route path="/products/:id" element={<ProductDetails />} />
+            <Route path="/locations" element={<Locations />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/careers" element={<Careers />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/delivery" element={<Delivery />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/attendance" element={<Attendance />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
+    </Layout>
+    </>
+  );
+};
+
+const App = () => {
+  return (
+    <>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <TooltipProvider>
+              {createPortal(<Toaster />, document.body)}
+              {createPortal(<Sonner />, document.body)}
+              <DataLoader />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
+    </>
+  );
+};
 
 export default App;

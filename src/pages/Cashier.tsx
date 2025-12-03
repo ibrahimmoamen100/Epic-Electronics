@@ -83,7 +83,7 @@ export default function Cashier() {
   const { t } = useTranslation();
   const { products, updateProduct, loadProducts, removeFromCart: storeRemoveFromCart, updateProductQuantity } = useStore();
   
-  const PASSWORD = "elhamd102030";
+  const PASSWORD = "01025423389";
   const ACCESS_STORAGE_KEY = "cashier-access-granted";
 
   const [searchQuery, setSearchQuery] = useState("");
