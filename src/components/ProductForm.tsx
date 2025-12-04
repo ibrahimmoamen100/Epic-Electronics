@@ -394,6 +394,23 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       }
     }
 
+    // Validate wholesale info if enabled
+    if (showWholesaleInfo && formData.wholesaleInfo) {
+      const { purchasedQuantity, quantity } = formData.wholesaleInfo;
+      if (purchasedQuantity < 0) {
+        toast.error("الكمية المشتراة يجب أن تكون أكبر من أو تساوي صفر");
+        return;
+      }
+      if (quantity < 0) {
+        toast.error("الكمية المتاحة يجب أن تكون أكبر من أو تساوي صفر");
+        return;
+      }
+      if (quantity > purchasedQuantity) {
+        toast.error("الكمية المتاحة لا يمكن أن تكون أكبر من الكمية المشتراة");
+        return;
+      }
+    }
+
     try {
       // Process sizes and addons
       const processedSizes = formData.sizes
@@ -489,7 +506,21 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
         isArchived: formData.isArchived,
         createdAt: new Date().toISOString(),
         expirationDate: formData.expirationDate || null,
-        wholesaleInfo: showWholesaleInfo ? formData.wholesaleInfo : null,
+        wholesaleInfo: showWholesaleInfo ? (() => {
+          const wholesaleInfo = formData.wholesaleInfo;
+          if (!wholesaleInfo) return null;
+          
+          // عند إضافة منتج جديد، نضمن أن الكمية المتاحة = الكمية المشتراة
+          // إذا كانت الكمية المتاحة = 0 أو لم يتم تعيينها، نعيّنها = الكمية المشتراة
+          const finalQuantity = wholesaleInfo.quantity === 0 && wholesaleInfo.purchasedQuantity > 0
+            ? wholesaleInfo.purchasedQuantity
+            : (wholesaleInfo.quantity || 0);
+          
+          return {
+            ...wholesaleInfo,
+            quantity: finalQuantity,
+          };
+        })() : null,
       };
 
       // Remove id from product data since Firebase will generate it
@@ -1283,16 +1314,23 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                 value={formData.wholesaleInfo?.purchasedQuantity || 0}
                 onChange={(e) => {
                   const purchasedQuantity = parseInt(e.target.value) || 0;
+                  const currentQuantity = formData.wholesaleInfo?.quantity || 0;
+                  // عند إضافة منتج جديد، نعيّن الكمية المتاحة = الكمية المشتراة
+                  // إذا كانت الكمية المتاحة = 0 أو لم يتم تعيينها، نعيّنها = الكمية المشتراة
+                  const newQuantity = currentQuantity === 0 ? purchasedQuantity : currentQuantity;
                   setFormData({
                     ...formData,
                     wholesaleInfo: {
                       ...formData.wholesaleInfo!,
                       purchasedQuantity: purchasedQuantity,
-                      quantity: purchasedQuantity, // Set initial available quantity equal to purchased quantity
+                      quantity: newQuantity,
                     },
                   });
                 }}
               />
+              <p className="text-sm text-muted-foreground mt-1">
+                الكمية الإجمالية التي تم شراؤها من المورد
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">
@@ -1313,8 +1351,13 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                 }
               />
               <p className="text-sm text-muted-foreground mt-1">
-                هذه هي الكمية المتوفرة حالياً في المخزن
+                الكمية المتوفرة حالياً في المخزن (يتم خصمها تلقائياً عند البيع)
               </p>
+              {formData.wholesaleInfo && formData.wholesaleInfo.purchasedQuantity > 0 && (
+                <p className="text-xs text-blue-600 mt-1">
+                  المتبقي من الشراء: {formData.wholesaleInfo.purchasedQuantity - (formData.wholesaleInfo.quantity || 0)} قطعة
+                </p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-medium">ملاحظات</label>

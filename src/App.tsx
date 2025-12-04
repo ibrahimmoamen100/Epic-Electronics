@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { createPortal } from "react-dom";
 import { Suspense, lazy } from "react";
+import { Button } from "@/components/ui/button";
 import "./i18n/config";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Layout } from "./components/Layout";
@@ -19,7 +20,27 @@ import { useFacebookPixel } from "./useFacebookPixel";
 const Index = lazy(() => import("./pages/Index").catch(() => ({ default: () => <div>Error loading Index</div> })));
 const Admin = lazy(() => import("./pages/Admin").catch(() => ({ default: () => <div>Error loading Admin</div> })));
 const AdminOrders = lazy(() => import("./pages/admin/Orders").catch(() => ({ default: () => <div>Error loading AdminOrders</div> })));
-const AdminAnalytics = lazy(() => import("./pages/admin/Analytics").catch(() => ({ default: () => <div>Error loading AdminAnalytics</div> })));
+const AdminAnalytics = lazy(async () => {
+  try {
+    const module = await import("./pages/admin/Analytics");
+    return module;
+  } catch (err: any) {
+    console.error("Error loading AdminAnalytics:", err);
+    return { 
+      default: () => (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-2">خطأ في تحميل صفحة التحليلات</h2>
+            <p className="text-muted-foreground">{err?.message || "خطأ غير معروف"}</p>
+            <Button onClick={() => window.location.reload()} className="mt-4">
+              إعادة تحميل الصفحة
+            </Button>
+          </div>
+        </div>
+      )
+    };
+  }
+});
 const AdminProfitAnalysis = lazy(() => import("./pages/admin/ProfitAnalysis").catch(() => ({ default: () => <div>Error loading AdminProfitAnalysis</div> })));
 const AdminSetup = lazy(() => import("./pages/AdminSetup").catch(() => ({ default: () => <div>Error loading AdminSetup</div> })));
 const Cashier = lazy(() => import("./pages/Cashier").catch(() => ({ default: () => <div>Error loading Cashier</div> })));

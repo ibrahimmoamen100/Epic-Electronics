@@ -433,6 +433,23 @@ export function EditProductModal({
       }
     }
 
+    // Validate wholesale info if enabled
+    if (showWholesaleInfo && formData.wholesaleInfo) {
+      const { purchasedQuantity, quantity } = formData.wholesaleInfo;
+      if (purchasedQuantity < 0) {
+        toast.error("الكمية المشتراة يجب أن تكون أكبر من أو تساوي صفر");
+        return;
+      }
+      if (quantity < 0) {
+        toast.error("الكمية المتاحة يجب أن تكون أكبر من أو تساوي صفر");
+        return;
+      }
+      if (quantity > purchasedQuantity) {
+        toast.error("الكمية المتاحة لا يمكن أن تكون أكبر من الكمية المشتراة");
+        return;
+      }
+    }
+
     try {
       // Process processor data
       const processedProcessor = showProcessorInfo && formData.processor ? {
@@ -1290,6 +1307,37 @@ export function EditProductModal({
                       })
                     }
                   />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    الكمية الإجمالية التي تم شراؤها من المورد
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">
+                    الكمية المتوفرة حالياً *
+                  </label>
+                  <Input
+                    required
+                    type="number"
+                    min="0"
+                    value={formData.wholesaleInfo?.quantity || 0}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        wholesaleInfo: {
+                          ...formData.wholesaleInfo!,
+                          quantity: parseInt(e.target.value) || 0,
+                        },
+                      })
+                    }
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    الكمية المتوفرة حالياً في المخزن (يتم خصمها تلقائياً عند البيع)
+                  </p>
+                  {formData.wholesaleInfo && formData.wholesaleInfo.purchasedQuantity > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      المتبقي من الشراء: {formData.wholesaleInfo.purchasedQuantity - (formData.wholesaleInfo.quantity || 0)} قطعة
+                    </p>
+                  )}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-sm font-medium">Notes</label>

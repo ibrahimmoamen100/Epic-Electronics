@@ -13,11 +13,21 @@ export const useAnalytics = (timeRange: number = 30) => {
     try {
       setLoading(true);
       setError(null);
+      console.log(`[Analytics] Loading data for ${timeRange} days...`);
       const analyticsData = await analytics.getAnalyticsData(timeRange);
+      console.log('[Analytics] Data loaded:', {
+        totalVisitors: analyticsData.totalVisitors,
+        pageViews: analyticsData.pageViews,
+        topPages: analyticsData.topPages.length,
+        topReferrers: analyticsData.topReferrers.length,
+        hourlyTraffic: analyticsData.hourlyTraffic.length,
+        dailyTraffic: analyticsData.dailyTraffic.length,
+      });
       setData(analyticsData);
       setLastUpdated(new Date());
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'فشل في تحميل البيانات';
+      console.error('[Analytics] Error loading data:', err);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -34,10 +44,12 @@ export const useAnalytics = (timeRange: number = 30) => {
     }
   }, []);
 
-  // Load initial data
+  // Load initial data only if timeRange > 0
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (timeRange > 0) {
+      loadData();
+    }
+  }, [loadData, timeRange]);
 
   // Set up real-time updates
   useEffect(() => {
