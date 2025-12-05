@@ -925,6 +925,26 @@ const ProductDetails = () => {
                     </div>
                   )}
                   
+                  {product.processor.processorBrand && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-gray-500">  نوع المعالج</h3>
+                      <p className="text-lg font-semibold text-gray-900">{product.processor.processorBrand}</p>
+                    </div>
+                  )}
+                  {product.processor.processorGeneration && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-gray-500">  جيل المعالج</h3>
+                      <p className="text-lg font-semibold text-gray-900">{product.processor.processorGeneration}</p>
+                    </div>
+                  )}
+
+                  {product.processor.processorSeries && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-gray-500">  فئات المعالج</h3>
+                      <p className="text-lg font-semibold text-gray-900">{product.processor.processorSeries}</p>
+                    </div>
+                  )}
+
                   {product.processor.cacheMemory && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">ذاكرة التخزين المؤقت</h3>

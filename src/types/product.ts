@@ -45,18 +45,24 @@ export const ProductSchema = z.object({
   // Processor specifications
   processor: z.object({
     name: z.string().optional(), // Processor name (e.g., "Intel Core i7-12700K")
+    processorBrand: z.enum(["Intel", "AMD", "Other"]).optional(), // Processor brand
+    processorGeneration: z.string().optional(), // Processor generation (e.g., "الجيل السابع", "7th Gen")
+    processorSeries: z.string().optional(), // Processor series (e.g., "Intel Core i7", "AMD Ryzen 5")
     cacheMemory: z.string().optional(), // Cache memory in MB
     baseClockSpeed: z.number().optional(), // Base clock speed in GHz
     maxTurboSpeed: z.number().optional(), // Max turbo speed in GHz
     cores: z.number().optional(), // Number of cores
     threads: z.number().optional(), // Number of threads
-    integratedGraphics: z.string().optional(), // Integrated graphics
+    integratedGraphics: z.string().optional(), // Integrated graphics (deprecated, use integratedGpu)
+    integratedGpu: z.string().optional(), // Integrated GPU type
   }).optional(),
   // Dedicated Graphics Card specifications
   dedicatedGraphics: z.object({
     hasDedicatedGraphics: z.boolean().optional(), // Whether the product has dedicated graphics
-    name: z.string().optional(), // Graphics card name/model
-    manufacturer: z.string().optional(), // Manufacturer (NVIDIA, AMD, etc.)
+    name: z.string().optional(), // Graphics card name/model (deprecated, use dedicatedGpuModel)
+    manufacturer: z.string().optional(), // Manufacturer (deprecated, use dedicatedGpuBrand)
+    dedicatedGpuBrand: z.enum(["NVIDIA", "AMD", "Intel", "Custom"]).optional(), // GPU brand
+    dedicatedGpuModel: z.string().optional(), // GPU model (e.g., "RTX 3050", "GTX 1650")
     vram: z.number().optional(), // VRAM in GB
     memoryType: z.string().optional(), // Memory type (GDDR6, GDDR6X, etc.)
     memorySpeed: z.number().optional(), // Memory speed in MHz
@@ -103,7 +109,13 @@ export const FilterSchema = z.object({
   maxPrice: z.number().optional(),
   supplier: z.string().optional(),
   processorName: z.string().optional(),
+  processorBrand: z.array(z.enum(["Intel", "AMD", "Other"])).optional(), // Multiple selection
+  processorGeneration: z.array(z.string()).optional(), // Multiple selection
+  processorSeries: z.array(z.string()).optional(), // Multiple selection
+  integratedGpu: z.array(z.string()).optional(), // Multiple selection
   dedicatedGraphicsName: z.string().optional(),
+  dedicatedGpuBrand: z.array(z.enum(["NVIDIA", "AMD", "Intel", "Custom"])).optional(), // Multiple selection
+  dedicatedGpuModel: z.array(z.string()).optional(), // Multiple selection
   hasDedicatedGraphics: z.boolean().optional(),
   screenSize: z.string().optional(),
   sortBy: z

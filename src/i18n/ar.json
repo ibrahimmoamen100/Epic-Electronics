@@ -50,7 +50,12 @@
     "noGPUsAvailable": "لا توجد كروت شاشة متاحة",
     "screenSize": "حجم الشاشة",
     "allScreenSizes": "جميع أحجام الشاشات",
-    "noScreenSizesAvailable": "لا توجد أحجام شاشات متاحة"
+    "noScreenSizesAvailable": "لا توجد أحجام شاشات متاحة",
+    "filteredBy": "تم التصفية حسب",
+    "processorGeneration": "الجيل",
+    "processorSeries": "السلسلة",
+    "integratedGpu": "معالج رسومي مدمج",
+    "model": "الموديل"
   },
   "product": {
     "addToCart": "أضف إلى السلة",

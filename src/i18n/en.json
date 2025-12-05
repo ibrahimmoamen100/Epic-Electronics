@@ -50,7 +50,12 @@
     "noGPUsAvailable": "No graphics cards available",
     "screenSize": "Screen Size",
     "allScreenSizes": "All Screen Sizes",
-    "noScreenSizesAvailable": "No screen sizes available"
+    "noScreenSizesAvailable": "No screen sizes available",
+    "filteredBy": "Filtered by",
+    "processorGeneration": "Generation",
+    "processorSeries": "Series",
+    "integratedGpu": "Integrated GPU",
+    "model": "Model"
   },
   "product": {
     "addToCart": "Add to Cart",

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { ProductSearch } from "@/components/ProductSearch";
+import { ActiveFilters } from "@/components/ActiveFilters";
 import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 
 export default function Products() {
@@ -90,10 +91,16 @@ export default function Products() {
     let matchesColor = true;
     let matchesSize = true;
     let matchesSupplier = true;
-  let matchesProcessorName = true;
+    let matchesProcessorName = true;
   let matchesDedicatedGraphicsName = true;
     let matchesHasDedicatedGraphics = true;
     let matchesScreenSize = true;
+    let matchesProcessorBrand = true;
+    let matchesProcessorGeneration = true;
+    let matchesProcessorSeries = true;
+    let matchesIntegratedGpu = true;
+    let matchesDedicatedGpuBrand = true;
+    let matchesDedicatedGpuModel = true;
 
     // Exclude archived products
     if (product.isArchived) {
@@ -149,6 +156,48 @@ export default function Products() {
           : false;
     }
 
+    // Processor brand filter (multiple selection)
+    if (filters.processorBrand && filters.processorBrand.length > 0) {
+      matchesProcessorBrand = filters.processorBrand.includes(
+        product.processor?.processorBrand || ""
+      );
+    }
+
+    // Processor generation filter (multiple selection)
+    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+      matchesProcessorGeneration = filters.processorGeneration.includes(
+        product.processor?.processorGeneration || ""
+      );
+    }
+
+    // Processor series filter (multiple selection)
+    if (filters.processorSeries && filters.processorSeries.length > 0) {
+      matchesProcessorSeries = filters.processorSeries.includes(
+        product.processor?.processorSeries || ""
+      );
+    }
+
+    // Integrated GPU filter (multiple selection)
+    if (filters.integratedGpu && filters.integratedGpu.length > 0) {
+      matchesIntegratedGpu = filters.integratedGpu.includes(
+        product.processor?.integratedGpu || ""
+      );
+    }
+
+    // Dedicated GPU brand filter (multiple selection)
+    if (filters.dedicatedGpuBrand && filters.dedicatedGpuBrand.length > 0) {
+      matchesDedicatedGpuBrand = filters.dedicatedGpuBrand.includes(
+        product.dedicatedGraphics?.dedicatedGpuBrand || ""
+      );
+    }
+
+    // Dedicated GPU model filter (multiple selection)
+    if (filters.dedicatedGpuModel && filters.dedicatedGpuModel.length > 0) {
+      matchesDedicatedGpuModel = filters.dedicatedGpuModel.includes(
+        product.dedicatedGraphics?.dedicatedGpuModel || ""
+      );
+    }
+
     // Removed supplier filter for customers
 
     return (
@@ -157,11 +206,17 @@ export default function Products() {
       matchesSubcategory &&
       matchesBrand &&
       matchesColor &&
-      matchesSize
-      && matchesProcessorName
-      && matchesDedicatedGraphicsName
-      && matchesHasDedicatedGraphics
-      && matchesScreenSize
+      matchesSize &&
+      matchesProcessorName &&
+      matchesDedicatedGraphicsName &&
+      matchesHasDedicatedGraphics &&
+      matchesScreenSize &&
+      matchesProcessorBrand &&
+      matchesProcessorGeneration &&
+      matchesProcessorSeries &&
+      matchesIntegratedGpu &&
+      matchesDedicatedGpuBrand &&
+      matchesDedicatedGpuModel
     );
   });
 
@@ -214,6 +269,8 @@ export default function Products() {
             onChange={(value) => setFilters({ ...filters, search: value })}
           />
         </div>
+
+        <ActiveFilters />
 
         <div className="flex flex-col md:flex-row gap-6">
           {/* Mobile Filter Button - Opens from bottom */}

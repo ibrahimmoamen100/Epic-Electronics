@@ -226,6 +226,14 @@ export function EditProductModal({
       const normalizedProcessor = product.processor
         ? {
             ...product.processor,
+            processorBrand: product.processor.processorBrand || undefined,
+            processorGeneration: product.processor.processorGeneration || "",
+            processorSeries: product.processor.processorSeries || "",
+            processorSeriesSelect: product.processor.processorSeries || "",
+            customProcessorSeries: "",
+            integratedGpu: product.processor.integratedGpu || "",
+            integratedGpuSelect: product.processor.integratedGpu || "",
+            customIntegratedGpu: "",
             // Normalize cacheMemory
             cacheMemorySelect: cacheMemoryOptions.includes(product.processor.cacheMemory || '')
               ? (product.processor.cacheMemory || '')
@@ -247,6 +255,8 @@ export function EditProductModal({
       const normalizedDedicatedGraphics = product.dedicatedGraphics
         ? {
             ...product.dedicatedGraphics,
+            dedicatedGpuBrand: product.dedicatedGraphics.dedicatedGpuBrand || undefined,
+            dedicatedGpuModel: product.dedicatedGraphics.dedicatedGpuModel || "",
             // If the saved name matches one of the known options, keep it in nameSelect.
             // Otherwise mark as 'custom' and store the actual name in customName.
             nameSelect: graphicsCardOptions.includes(product.dedicatedGraphics.name)
@@ -454,6 +464,9 @@ export function EditProductModal({
       // Process processor data
       const processedProcessor = showProcessorInfo && formData.processor ? {
         name: formData.processor.name || undefined,
+        processorBrand: formData.processor.processorBrand || undefined,
+        processorGeneration: formData.processor.processorGeneration || undefined,
+        processorSeries: formData.processor.processorSeries || undefined,
         cacheMemory: formData.processor.cacheMemorySelect === 'custom'
           ? (formData.processor.customCacheMemory || undefined)
           : (formData.processor.cacheMemorySelect || undefined),
@@ -464,6 +477,9 @@ export function EditProductModal({
         integratedGraphics: formData.processor.integratedGraphicsSelect === 'custom'
           ? (formData.processor.customIntegratedGraphics || undefined)
           : (formData.processor.integratedGraphicsSelect || undefined),
+        integratedGpu: formData.processor.integratedGpuSelect === 'custom'
+          ? (formData.processor.customIntegratedGpu || undefined)
+          : (formData.processor.integratedGpuSelect || formData.processor.integratedGpu || undefined),
       } : undefined;
 
       // Process dedicated graphics data
@@ -473,6 +489,8 @@ export function EditProductModal({
           ? (formData.dedicatedGraphics.customName || undefined)
           : (formData.dedicatedGraphics.nameSelect || formData.dedicatedGraphics.name || undefined),
         manufacturer: formData.dedicatedGraphics.manufacturer || undefined,
+        dedicatedGpuBrand: formData.dedicatedGraphics.dedicatedGpuBrand || undefined,
+        dedicatedGpuModel: formData.dedicatedGraphics.dedicatedGpuModel || undefined,
         vram: formData.dedicatedGraphics.vramSelect === 'custom'
           ? (formData.dedicatedGraphics.customVram ? Number(formData.dedicatedGraphics.customVram) : undefined)
           : (formData.dedicatedGraphics.vramSelect ? Number(formData.dedicatedGraphics.vramSelect) : undefined),
@@ -1717,12 +1735,24 @@ export function EditProductModal({
                       ...formData,
                       processor: {
                         name: "",
+                        processorBrand: undefined,
+                        processorGeneration: "",
+                        processorSeries: "",
+                        processorSeriesSelect: "",
+                        customProcessorSeries: "",
+                        integratedGpu: "",
+                        integratedGpuSelect: "",
+                        customIntegratedGpu: "",
                         cacheMemory: "",
+                        cacheMemorySelect: "",
+                        customCacheMemory: "",
                         baseClockSpeed: "",
                         maxTurboSpeed: "",
                         cores: "",
                         threads: "",
                         integratedGraphics: "",
+                        integratedGraphicsSelect: "",
+                        customIntegratedGraphics: "",
                       },
                     } : null);
                   }
@@ -1736,7 +1766,118 @@ export function EditProductModal({
             {showProcessorInfo && formData?.processor && (
               <div className="grid gap-4 sm:grid-cols-2 pt-2">
                 <div>
-                  <label className="text-sm font-medium">اسم المعالج *</label>
+                  <label className="text-sm font-medium">نوع المعالج *</label>
+                  <Select
+                    value={formData.processor.processorBrand || ""}
+                    onValueChange={(value) =>
+                      setFormData(formData ? {
+                        ...formData,
+                        processor: {
+                          ...formData.processor,
+                          processorBrand: value as "Intel" | "AMD" | "Other",
+                          processorSeries: "", // Reset series when brand changes
+                          processorSeriesSelect: "",
+                          customProcessorSeries: "",
+                        },
+                      } : null)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر نوع المعالج" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Intel">Intel</SelectItem>
+                      <SelectItem value="AMD">AMD</SelectItem>
+                      <SelectItem value="Other">Other (قيمة مخصصة)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">جيل المعالج</label>
+                  <Input
+                    value={formData.processor.processorGeneration || ""}
+                    onChange={(e) =>
+                      setFormData(formData ? {
+                        ...formData,
+                        processor: {
+                          ...formData.processor,
+                          processorGeneration: e.target.value,
+                        },
+                      } : null)
+                    }
+                    placeholder="مثال: الجيل السابع، 7th Gen، الجيل الثاني عشر"
+                    maxLength={50}
+                  />
+                </div>
+
+                {formData.processor.processorBrand && (
+                  <div>
+                    <label className="text-sm font-medium">فئة المعالج *</label>
+                    <Select
+                      value={formData.processor.processorSeriesSelect || ""}
+                      onValueChange={(value) =>
+                        setFormData(formData ? {
+                          ...formData,
+                          processor: {
+                            ...formData.processor,
+                            processorSeriesSelect: value,
+                            processorSeries: value === "custom" ? formData.processor.customProcessorSeries : value,
+                            customProcessorSeries: value === "custom" ? formData.processor.customProcessorSeries : "",
+                          },
+                        } : null)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر فئة المعالج" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {formData.processor.processorBrand === "Intel" && (
+                          <>
+                            <SelectItem value="Intel Core i3">Intel Core i3</SelectItem>
+                            <SelectItem value="Intel Core i5">Intel Core i5</SelectItem>
+                            <SelectItem value="Intel Core i7">Intel Core i7</SelectItem>
+                            <SelectItem value="Intel Core i9">Intel Core i9</SelectItem>
+                            <SelectItem value="Intel Ultra 5">Intel Ultra 5</SelectItem>
+                            <SelectItem value="custom">قيمة مخصصة</SelectItem>
+                          </>
+                        )}
+                        {formData.processor.processorBrand === "AMD" && (
+                          <>
+                            <SelectItem value="AMD Ryzen 3">AMD Ryzen 3</SelectItem>
+                            <SelectItem value="AMD Ryzen 5">AMD Ryzen 5</SelectItem>
+                            <SelectItem value="AMD Ryzen 7">AMD Ryzen 7</SelectItem>
+                            <SelectItem value="AMD Ryzen 9">AMD Ryzen 9</SelectItem>
+                            <SelectItem value="custom">قيمة مخصصة</SelectItem>
+                          </>
+                        )}
+                        {formData.processor.processorBrand === "Other" && (
+                          <SelectItem value="custom">قيمة مخصصة</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {formData.processor.processorSeriesSelect === "custom" && (
+                      <Input
+                        className="mt-2"
+                        placeholder="أدخل فئة المعالج المخصصة"
+                        value={formData.processor.customProcessorSeries || ""}
+                        onChange={(e) =>
+                          setFormData(formData ? {
+                            ...formData,
+                            processor: {
+                              ...formData.processor,
+                              customProcessorSeries: e.target.value,
+                              processorSeries: e.target.value,
+                            },
+                          } : null)
+                        }
+                      />
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-medium">اسم المعالج</label>
                   <Input
                     value={formData.processor.name || ""}
                     onChange={(e) =>
@@ -1882,17 +2023,17 @@ export function EditProductModal({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="text-sm font-medium">كرت الشاشة الداخلي</label>
+                  <label className="text-sm font-medium">كرت الشاشة الداخلي المدمج في المعالج</label>
                   <Select
-                    value={formData.processor.integratedGraphicsSelect || ""}
+                    value={formData.processor.integratedGpuSelect || ""}
                     onValueChange={(value) =>
                       setFormData(formData ? {
                         ...formData,
                         processor: {
                           ...formData.processor,
-                          integratedGraphicsSelect: value,
-                          // Clear custom value when switching away from custom
-                          customIntegratedGraphics: value === 'custom' ? (formData.processor.customIntegratedGraphics || '') : '',
+                          integratedGpuSelect: value,
+                          integratedGpu: value === "custom" ? formData.processor.customIntegratedGpu : value,
+                          customIntegratedGpu: value === "custom" ? formData.processor.customIntegratedGpu : "",
                         },
                       } : null)
                     }
@@ -1901,25 +2042,41 @@ export function EditProductModal({
                       <SelectValue placeholder="اختر كرت الشاشة الداخلي" />
                     </SelectTrigger>
                     <SelectContent>
-                      {integratedGraphicsOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="custom">قيمة مخصصة</SelectItem>
+                      {formData.processor.processorBrand === "Intel" && (
+                        <>
+                          <SelectItem value="Intel UHD Graphics">Intel UHD Graphics</SelectItem>
+                          <SelectItem value="Intel Iris Xe Graphics">Intel Iris Xe Graphics</SelectItem>
+                          <SelectItem value="custom">قيمة مخصصة</SelectItem>
+                        </>
+                      )}
+                      {formData.processor.processorBrand === "AMD" && (
+                        <>
+                          <SelectItem value="AMD Radeon Integrated">AMD Radeon Integrated</SelectItem>
+                          <SelectItem value="custom">قيمة مخصصة</SelectItem>
+                        </>
+                      )}
+                      {(!formData.processor.processorBrand || formData.processor.processorBrand === "Other") && (
+                        <>
+                          <SelectItem value="Intel UHD Graphics">Intel UHD Graphics</SelectItem>
+                          <SelectItem value="Intel Iris Xe Graphics">Intel Iris Xe Graphics</SelectItem>
+                          <SelectItem value="AMD Radeon Integrated">AMD Radeon Integrated</SelectItem>
+                          <SelectItem value="custom">قيمة مخصصة</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
-                  {formData.processor.integratedGraphicsSelect === "custom" && (
+                  {formData.processor.integratedGpuSelect === "custom" && (
                     <Input
                       className="mt-2"
                       placeholder="أدخل كرت الشاشة المخصص"
-                      value={formData.processor.customIntegratedGraphics || ''}
+                      value={formData.processor.customIntegratedGpu || ""}
                       onChange={(e) =>
                         setFormData(formData ? {
                           ...formData,
                           processor: {
                             ...formData.processor,
-                            customIntegratedGraphics: e.target.value,
+                            customIntegratedGpu: e.target.value,
+                            integratedGpu: e.target.value,
                           },
                         } : null)
                       }
@@ -1998,7 +2155,52 @@ export function EditProductModal({
                 {formData.dedicatedGraphics.hasDedicatedGraphics && (
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="text-sm font-medium">اسم/موديل كرت الشاشة *</label>
+                      <label className="text-sm font-medium">نوع كرت الشاشة *</label>
+                      <Select
+                        value={formData.dedicatedGraphics.dedicatedGpuBrand || ""}
+                        onValueChange={(value) =>
+                          setFormData(formData ? {
+                            ...formData,
+                            dedicatedGraphics: {
+                              ...formData.dedicatedGraphics,
+                              dedicatedGpuBrand: value as "NVIDIA" | "AMD" | "Intel" | "Custom",
+                              dedicatedGpuModel: value === "Custom" ? formData.dedicatedGraphics.dedicatedGpuModel : "",
+                            },
+                          } : null)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر نوع كرت الشاشة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NVIDIA">NVIDIA</SelectItem>
+                          <SelectItem value="AMD">AMD</SelectItem>
+                          <SelectItem value="Intel">Intel</SelectItem>
+                          <SelectItem value="Custom">قيمة مخصصة</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">موديل كرت الشاشة *</label>
+                      <Input
+                        value={formData.dedicatedGraphics.dedicatedGpuModel || ""}
+                        onChange={(e) =>
+                          setFormData(formData ? {
+                            ...formData,
+                            dedicatedGraphics: {
+                              ...formData.dedicatedGraphics,
+                              dedicatedGpuModel: e.target.value,
+                            },
+                          } : null)
+                        }
+                        placeholder="مثال: RTX 3050, GTX 1650, Radeon RX 6600"
+                        maxLength={100}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">اسم/موديل كرت الشاشة (قديم)</label>
                       <Select
                         value={formData.dedicatedGraphics.nameSelect || formData.dedicatedGraphics.name || ""}
                         onValueChange={(value) =>
