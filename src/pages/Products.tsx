@@ -158,9 +158,12 @@ export default function Products() {
 
     // Processor brand filter (multiple selection)
     if (filters.processorBrand && filters.processorBrand.length > 0) {
-      matchesProcessorBrand = filters.processorBrand.includes(
-        product.processor?.processorBrand || ""
-      );
+      const processorBrand = product.processor?.processorBrand;
+      if (processorBrand === "Intel" || processorBrand === "AMD" || processorBrand === "Other") {
+        matchesProcessorBrand = filters.processorBrand.includes(processorBrand);
+      } else {
+        matchesProcessorBrand = false;
+      }
     }
 
     // Processor generation filter (multiple selection)
@@ -186,9 +189,12 @@ export default function Products() {
 
     // Dedicated GPU brand filter (multiple selection)
     if (filters.dedicatedGpuBrand && filters.dedicatedGpuBrand.length > 0) {
-      matchesDedicatedGpuBrand = filters.dedicatedGpuBrand.includes(
-        product.dedicatedGraphics?.dedicatedGpuBrand || ""
-      );
+      const dedicatedGpuBrand = product.dedicatedGraphics?.dedicatedGpuBrand;
+      if (dedicatedGpuBrand === "NVIDIA" || dedicatedGpuBrand === "AMD" || dedicatedGpuBrand === "Intel" || dedicatedGpuBrand === "Custom") {
+        matchesDedicatedGpuBrand = filters.dedicatedGpuBrand.includes(dedicatedGpuBrand);
+      } else {
+        matchesDedicatedGpuBrand = false;
+      }
     }
 
     // Dedicated GPU model filter (multiple selection)
@@ -263,15 +269,16 @@ export default function Products() {
     <div className="min-h-screen flex flex-col">
         <div className="container py-8">
 
+
+        <ActiveFilters />
+
         <div className="w-full mb-6">
           <ProductSearch
             value={filters.search || ""}
             onChange={(value) => setFilters({ ...filters, search: value })}
           />
         </div>
-
-        <ActiveFilters />
-
+        
         <div className="flex flex-col md:flex-row gap-6">
           {/* Mobile Filter Button - Opens from bottom */}
           <div className="md:hidden mb-4">

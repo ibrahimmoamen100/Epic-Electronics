@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,7 +55,15 @@ const Analytics = () => {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState("30");
   const [expandedPage, setExpandedPage] = useState<string | null>(null);
-  const { isAuthenticated, loading: authLoading, session } = useAdminAuth();
+  const { isAuthenticated, loading: authLoading, session, login } = useAdminAuth();
+  
+  // Handle login using the hook's login function
+  const handleLogin = useCallback(async (password: string) => {
+    console.log('🔐 Analytics: handleLogin called');
+    const result = await login(password);
+    console.log('🔐 Analytics: handleLogin result:', result);
+    return result;
+  }, [login]);
   
   // Only load analytics data if authenticated
   const { 
@@ -86,7 +94,7 @@ const Analytics = () => {
   }
 
   if (!isAuthenticated) {
-    return <AdminLogin />;
+    return <AdminLogin onLogin={handleLogin} loading={authLoading} />;
   }
 
   const formatDuration = (milliseconds: number) => {
