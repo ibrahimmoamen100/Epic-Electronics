@@ -163,38 +163,92 @@ export function ProductFilters() {
     );
   }, [filteredProducts]);
 
-  // Processor generations derived from filtered products
+  // Processor generations derived from filtered products, filtered by processor brand if selected
   const processorGenerations = useMemo(() => {
+    let productsToConsider = filteredProducts;
+    
+    // Filter by processor brand if selected
+    if (filters.processorBrand && filters.processorBrand.length > 0) {
+      productsToConsider = productsToConsider.filter((p) => {
+        const processorBrand = p.processor?.processorBrand;
+        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+        return filters.processorBrand?.includes(processorBrand) || false;
+      });
+    }
+    
     return Array.from(
       new Set(
-        filteredProducts
+        productsToConsider
           .map((p) => p.processor?.processorGeneration)
           .filter(Boolean) as string[]
       )
     ).sort();
-  }, [filteredProducts]);
+  }, [filteredProducts, filters.processorBrand]);
 
-  // Processor series derived from filtered products
+  // Processor series derived from filtered products, filtered by processor brand and generation if selected
   const processorSeries = useMemo(() => {
+    let productsToConsider = filteredProducts;
+    
+    // Filter by processor brand if selected
+    if (filters.processorBrand && filters.processorBrand.length > 0) {
+      productsToConsider = productsToConsider.filter((p) => {
+        const processorBrand = p.processor?.processorBrand;
+        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+        return filters.processorBrand?.includes(processorBrand) || false;
+      });
+    }
+    
+    // Filter by processor generation if selected
+    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+      productsToConsider = productsToConsider.filter((p) =>
+        filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
+      );
+    }
+    
     return Array.from(
       new Set(
-        filteredProducts
+        productsToConsider
           .map((p) => p.processor?.processorSeries)
           .filter(Boolean) as string[]
       )
     ).sort();
-  }, [filteredProducts]);
+  }, [filteredProducts, filters.processorBrand, filters.processorGeneration]);
 
-  // Integrated GPUs derived from filtered products
+  // Integrated GPUs derived from filtered products, filtered by processor brand, generation, and series if selected
   const integratedGpus = useMemo(() => {
+    let productsToConsider = filteredProducts;
+    
+    // Filter by processor brand if selected
+    if (filters.processorBrand && filters.processorBrand.length > 0) {
+      productsToConsider = productsToConsider.filter((p) => {
+        const processorBrand = p.processor?.processorBrand;
+        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+        return filters.processorBrand?.includes(processorBrand) || false;
+      });
+    }
+    
+    // Filter by processor generation if selected
+    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+      productsToConsider = productsToConsider.filter((p) =>
+        filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
+      );
+    }
+    
+    // Filter by processor series if selected
+    if (filters.processorSeries && filters.processorSeries.length > 0) {
+      productsToConsider = productsToConsider.filter((p) =>
+        filters.processorSeries?.includes(p.processor?.processorSeries || "")
+      );
+    }
+    
     return Array.from(
       new Set(
-        filteredProducts
+        productsToConsider
           .map((p) => p.processor?.integratedGpu)
           .filter(Boolean) as string[]
       )
     ).sort();
-  }, [filteredProducts]);
+  }, [filteredProducts, filters.processorBrand, filters.processorGeneration, filters.processorSeries]);
 
   // Dedicated GPU brands derived from filtered products
   const dedicatedGpuBrands = useMemo(() => {
@@ -220,9 +274,39 @@ export function ProductFilters() {
     ).sort();
   }, [filteredProducts]);
 
-  // Processor names derived from filtered products and dependent on GPU filter
+  // Processor names derived from filtered products and dependent on processor filters (brand, generation, series, integratedGpu) and GPU filter
   const processorNames = useMemo(() => {
     let productsToConsider = filteredProducts;
+    
+    // Filter by processor brand if selected
+    if (filters.processorBrand && filters.processorBrand.length > 0) {
+      productsToConsider = productsToConsider.filter((p) => {
+        const processorBrand = p.processor?.processorBrand;
+        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+        return filters.processorBrand?.includes(processorBrand) || false;
+      });
+    }
+    
+    // Filter by processor generation if selected
+    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+      productsToConsider = productsToConsider.filter((p) =>
+        filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
+      );
+    }
+    
+    // Filter by processor series if selected
+    if (filters.processorSeries && filters.processorSeries.length > 0) {
+      productsToConsider = productsToConsider.filter((p) =>
+        filters.processorSeries?.includes(p.processor?.processorSeries || "")
+      );
+    }
+    
+    // Filter by integrated GPU if selected
+    if (filters.integratedGpu && filters.integratedGpu.length > 0) {
+      productsToConsider = productsToConsider.filter((p) =>
+        filters.integratedGpu?.includes(p.processor?.integratedGpu || "")
+      );
+    }
     
     // If a GPU is selected, only show processors that exist in products with that GPU
     if (filters.dedicatedGraphicsName) {
@@ -238,7 +322,7 @@ export function ProductFilters() {
           .filter(Boolean) as string[]
       )
     );
-  }, [filteredProducts, filters.dedicatedGraphicsName]);
+  }, [filteredProducts, filters.processorBrand, filters.processorGeneration, filters.processorSeries, filters.integratedGpu, filters.dedicatedGraphicsName]);
 
   // Dedicated GPU names derived from filtered products and dependent on CPU filter
   const gpuNames = useMemo(() => {
@@ -544,20 +628,264 @@ export function ProductFilters() {
                 <RadioGroupItem value="all" id="all-brands" />
                 <Label htmlFor="all-brands">{t("filters.allBrands")}</Label>
               </div>
-              {brands.map((brand) => (
-                <div key={brand} className="flex items-center space-x-2">
-                  <RadioGroupItem value={brand} id={brand} />
-                  <Label htmlFor={brand}>{brand}</Label>
-                </div>
-              ))}
+              {brands.map((brand) => {
+                const count = filteredProducts.filter((p) => p.brand === brand).length;
+                return (
+                  <div key={brand} className="flex items-center justify-between w-full">
+                    <div className="flex items-center space-x-2 flex-1">
+                      <RadioGroupItem value={brand} id={brand} />
+                      <Label htmlFor={brand}>{brand}</Label>
+                    </div>
+                    <span className="text-xs text-muted-foreground">({count})</span>
+                  </div>
+                );
+              })}
             </RadioGroup>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Processor Filter */}
+        {/* Processor Brand Filter - First */}
+        <AccordionItem value="processor-brand">
+          <AccordionTrigger className="text-sm font-medium">
+            نوع المعالج *
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-2 pt-2">
+              {processorBrands.length > 0 ? (
+                processorBrands.map((brand) => {
+                  const count = filteredProducts.filter((p) => {
+                    const processorBrand = p.processor?.processorBrand;
+                    return processorBrand === "Intel" || processorBrand === "AMD" || processorBrand === "Other"
+                      ? processorBrand === brand
+                      : false;
+                  }).length;
+                  return (
+                    <div key={brand} className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Checkbox
+                          id={`processor-brand-${brand}`}
+                          checked={filters.processorBrand?.includes(brand) || false}
+                          onCheckedChange={(checked) => {
+                            const currentBrands = filters.processorBrand || [];
+                            if (checked) {
+                              setFilters({
+                                ...filters,
+                                processorBrand: [...currentBrands, brand],
+                                processorName: undefined, // Reset processor name when brand changes
+                              });
+                            } else {
+                              setFilters({
+                                ...filters,
+                                processorBrand: currentBrands.filter((b) => b !== brand),
+                                processorName: undefined, // Reset processor name when brand changes
+                              });
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`processor-brand-${brand}`}>{brand}</Label>
+                      </div>
+                      <span className="text-xs text-muted-foreground">({count})</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-sm text-muted-foreground py-2">
+                  لا توجد أنواع معالجات متاحة حالياً
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Processor Generation Filter - Second */}
+        <AccordionItem value="processor-generation">
+          <AccordionTrigger className="text-sm font-medium">
+            جيل المعالج
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-2 pt-2">
+              {processorGenerations.length > 0 ? (
+                processorGenerations.map((generation) => {
+                  // Count products with this generation that match other processor filters
+                  const count = filteredProducts.filter((p) => {
+                    if (p.processor?.processorGeneration !== generation) return false;
+                    if (filters.processorBrand && filters.processorBrand.length > 0) {
+                      const processorBrand = p.processor?.processorBrand;
+                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+                      if (!filters.processorBrand.includes(processorBrand)) return false;
+                    }
+                    return true;
+                  }).length;
+                  return (
+                    <div key={generation} className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Checkbox
+                          id={`processor-generation-${generation}`}
+                          checked={filters.processorGeneration?.includes(generation) || false}
+                          onCheckedChange={(checked) => {
+                            const currentGenerations = filters.processorGeneration || [];
+                            if (checked) {
+                              setFilters({
+                                ...filters,
+                                processorGeneration: [...currentGenerations, generation],
+                                processorName: undefined, // Reset processor name when generation changes
+                              });
+                            } else {
+                              setFilters({
+                                ...filters,
+                                processorGeneration: currentGenerations.filter((g) => g !== generation),
+                                processorName: undefined, // Reset processor name when generation changes
+                              });
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`processor-generation-${generation}`}>{generation}</Label>
+                      </div>
+                      <span className="text-xs text-muted-foreground">({count})</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-sm text-muted-foreground py-2">
+                  لا توجد أجيال معالجات متاحة حالياً
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Processor Series Filter - Third */}
+        <AccordionItem value="processor-series">
+          <AccordionTrigger className="text-sm font-medium">
+            فئة المعالج *
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-2 pt-2">
+              {processorSeries.length > 0 ? (
+                processorSeries.map((series) => {
+                  // Count products with this series that match other processor filters
+                  const count = filteredProducts.filter((p) => {
+                    if (p.processor?.processorSeries !== series) return false;
+                    if (filters.processorBrand && filters.processorBrand.length > 0) {
+                      const processorBrand = p.processor?.processorBrand;
+                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+                      if (!filters.processorBrand.includes(processorBrand)) return false;
+                    }
+                    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+                      if (!filters.processorGeneration.includes(p.processor?.processorGeneration || "")) return false;
+                    }
+                    return true;
+                  }).length;
+                  return (
+                    <div key={series} className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Checkbox
+                          id={`processor-series-${series}`}
+                          checked={filters.processorSeries?.includes(series) || false}
+                          onCheckedChange={(checked) => {
+                            const currentSeries = filters.processorSeries || [];
+                            if (checked) {
+                              setFilters({
+                                ...filters,
+                                processorSeries: [...currentSeries, series],
+                                processorName: undefined, // Reset processor name when series changes
+                              });
+                            } else {
+                              setFilters({
+                                ...filters,
+                                processorSeries: currentSeries.filter((s) => s !== series),
+                                processorName: undefined, // Reset processor name when series changes
+                              });
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`processor-series-${series}`}>{series}</Label>
+                      </div>
+                      <span className="text-xs text-muted-foreground">({count})</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-sm text-muted-foreground py-2">
+                  لا توجد فئات معالجات متاحة حالياً
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Integrated GPU Filter - Fourth */}
+        <AccordionItem value="integrated-gpu">
+          <AccordionTrigger className="text-sm font-medium">
+            كرت الشاشة الداخلي المدمج في المعالج
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-2 pt-2">
+              {integratedGpus.length > 0 ? (
+                integratedGpus.map((gpu) => {
+                  // Count products with this integrated GPU that match other processor filters
+                  const count = filteredProducts.filter((p) => {
+                    if (p.processor?.integratedGpu !== gpu) return false;
+                    if (filters.processorBrand && filters.processorBrand.length > 0) {
+                      const processorBrand = p.processor?.processorBrand;
+                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+                      if (!filters.processorBrand.includes(processorBrand)) return false;
+                    }
+                    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+                      if (!filters.processorGeneration.includes(p.processor?.processorGeneration || "")) return false;
+                    }
+                    if (filters.processorSeries && filters.processorSeries.length > 0) {
+                      if (!filters.processorSeries.includes(p.processor?.processorSeries || "")) return false;
+                    }
+                    return true;
+                  }).length;
+                  return (
+                    <div key={gpu} className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Checkbox
+                          id={`integrated-gpu-${gpu}`}
+                          checked={filters.integratedGpu?.includes(gpu) || false}
+                          onCheckedChange={(checked) => {
+                            const currentGpus = filters.integratedGpu || [];
+                            if (checked) {
+                              setFilters({
+                                ...filters,
+                                integratedGpu: [...currentGpus, gpu],
+                                processorName: undefined, // Reset processor name when integrated GPU changes
+                              });
+                            } else {
+                              setFilters({
+                                ...filters,
+                                integratedGpu: currentGpus.filter((g) => g !== gpu),
+                                processorName: undefined, // Reset processor name when integrated GPU changes
+                              });
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`integrated-gpu-${gpu}`}>{gpu}</Label>
+                      </div>
+                      <span className="text-xs text-muted-foreground">({count})</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-sm text-muted-foreground py-2">
+                  لا توجد كروت شاشة داخلية متاحة حالياً
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Processor Filter - Last, depends on previous filters */}
         <AccordionItem value="processor">
           <AccordionTrigger className="text-sm font-medium">
             {t("filters.processor")}
+            {(filters.processorBrand || filters.processorGeneration || filters.processorSeries || filters.integratedGpu) && (
+              <span className="text-xs text-muted-foreground ml-2">
+                (مُصفى حسب التصفيات السابقة)
+              </span>
+            )}
             {filters.dedicatedGraphicsName && (
               <span className="text-xs text-muted-foreground ml-2">
                 ({t("filters.compatibleWith")} {filters.dedicatedGraphicsName})
@@ -569,7 +897,6 @@ export function ProductFilters() {
               value={filters.processorName || "all"}
               onValueChange={(value) => {
                 const newProcessorName = value === "all" ? undefined : value;
-                // When processor changes, keep GPU filter but it will be automatically filtered to show only compatible GPUs
                 setFilters({ 
                   ...filters, 
                   processorName: newProcessorName
@@ -582,180 +909,46 @@ export function ProductFilters() {
                 <Label htmlFor="all-processors">{t("filters.allProcessors")}</Label>
               </div>
               {processorNames.length > 0 ? (
-                processorNames.map((name) => (
-                  <div key={name} className="flex items-center space-x-2">
-                    <RadioGroupItem value={name} id={name} />
-                    <Label htmlFor={name}>{name}</Label>
-                  </div>
-                ))
+                processorNames.map((name) => {
+                  const count = filteredProducts.filter((p) => {
+                    if (p.processor?.name !== name) return false;
+                    // Match all processor filters
+                    if (filters.processorBrand && filters.processorBrand.length > 0) {
+                      const processorBrand = p.processor?.processorBrand;
+                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
+                      if (!filters.processorBrand.includes(processorBrand)) return false;
+                    }
+                    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+                      if (!filters.processorGeneration.includes(p.processor?.processorGeneration || "")) return false;
+                    }
+                    if (filters.processorSeries && filters.processorSeries.length > 0) {
+                      if (!filters.processorSeries.includes(p.processor?.processorSeries || "")) return false;
+                    }
+                    if (filters.integratedGpu && filters.integratedGpu.length > 0) {
+                      if (!filters.integratedGpu.includes(p.processor?.integratedGpu || "")) return false;
+                    }
+                    return true;
+                  }).length;
+                  return (
+                    <div key={name} className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <RadioGroupItem value={name} id={name} />
+                        <Label htmlFor={name}>{name}</Label>
+                      </div>
+                      <span className="text-xs text-muted-foreground">({count})</span>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-sm text-muted-foreground py-2">
                   {filters.dedicatedGraphicsName 
                     ? t("filters.noCompatibleProcessors") 
+                    : (filters.processorBrand || filters.processorGeneration || filters.processorSeries || filters.integratedGpu)
+                    ? "لا توجد معالجات متاحة مع التصفيات المحددة"
                     : t("filters.noProcessorsAvailable")}
                 </div>
               )}
             </RadioGroup>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Processor Brand Filter */}
-        <AccordionItem value="processor-brand">
-          <AccordionTrigger className="text-sm font-medium">
-            نوع المعالج *
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {processorBrands.length > 0 ? (
-                processorBrands.map((brand) => (
-                  <div key={brand} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`processor-brand-${brand}`}
-                      checked={filters.processorBrand?.includes(brand) || false}
-                      onCheckedChange={(checked) => {
-                        const currentBrands = filters.processorBrand || [];
-                        if (checked) {
-                          setFilters({
-                            ...filters,
-                            processorBrand: [...currentBrands, brand],
-                          });
-                        } else {
-                          setFilters({
-                            ...filters,
-                            processorBrand: currentBrands.filter((b) => b !== brand),
-                          });
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`processor-brand-${brand}`}>{brand}</Label>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد أنواع معالجات متاحة حالياً
-                </div>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Processor Generation Filter */}
-        <AccordionItem value="processor-generation">
-          <AccordionTrigger className="text-sm font-medium">
-            جيل المعالج
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {processorGenerations.length > 0 ? (
-                processorGenerations.map((generation) => (
-                  <div key={generation} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`processor-generation-${generation}`}
-                      checked={filters.processorGeneration?.includes(generation) || false}
-                      onCheckedChange={(checked) => {
-                        const currentGenerations = filters.processorGeneration || [];
-                        if (checked) {
-                          setFilters({
-                            ...filters,
-                            processorGeneration: [...currentGenerations, generation],
-                          });
-                        } else {
-                          setFilters({
-                            ...filters,
-                            processorGeneration: currentGenerations.filter((g) => g !== generation),
-                          });
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`processor-generation-${generation}`}>{generation}</Label>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد أجيال معالجات متاحة حالياً
-                </div>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Processor Series Filter */}
-        <AccordionItem value="processor-series">
-          <AccordionTrigger className="text-sm font-medium">
-            فئة المعالج *
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {processorSeries.length > 0 ? (
-                processorSeries.map((series) => (
-                  <div key={series} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`processor-series-${series}`}
-                      checked={filters.processorSeries?.includes(series) || false}
-                      onCheckedChange={(checked) => {
-                        const currentSeries = filters.processorSeries || [];
-                        if (checked) {
-                          setFilters({
-                            ...filters,
-                            processorSeries: [...currentSeries, series],
-                          });
-                        } else {
-                          setFilters({
-                            ...filters,
-                            processorSeries: currentSeries.filter((s) => s !== series),
-                          });
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`processor-series-${series}`}>{series}</Label>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد فئات معالجات متاحة حالياً
-                </div>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Integrated GPU Filter */}
-        <AccordionItem value="integrated-gpu">
-          <AccordionTrigger className="text-sm font-medium">
-            كرت الشاشة الداخلي المدمج في المعالج
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {integratedGpus.length > 0 ? (
-                integratedGpus.map((gpu) => (
-                  <div key={gpu} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`integrated-gpu-${gpu}`}
-                      checked={filters.integratedGpu?.includes(gpu) || false}
-                      onCheckedChange={(checked) => {
-                        const currentGpus = filters.integratedGpu || [];
-                        if (checked) {
-                          setFilters({
-                            ...filters,
-                            integratedGpu: [...currentGpus, gpu],
-                          });
-                        } else {
-                          setFilters({
-                            ...filters,
-                            integratedGpu: currentGpus.filter((g) => g !== gpu),
-                          });
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`integrated-gpu-${gpu}`}>{gpu}</Label>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد كروت شاشة داخلية متاحة حالياً
-                </div>
-              )}
-            </div>
           </AccordionContent>
         </AccordionItem>
 

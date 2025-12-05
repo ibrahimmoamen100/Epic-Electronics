@@ -2,6 +2,7 @@ import { useStore } from "@/store/useStore";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
+import { useMemo } from "react";
 
 interface ActiveFilter {
   key: string;
@@ -15,6 +16,133 @@ export function ActiveFilters() {
   const navigate = useNavigate();
   const filters = useStore((state) => state.filters);
   const setFilters = useStore((state) => state.setFilters);
+  const products = useStore((state) => state.products) || [];
+
+  // Calculate filtered products count
+  const filteredProductsCount = useMemo(() => {
+    return products.filter((product) => {
+      // Exclude archived products
+      if (product.isArchived) {
+        return false;
+      }
+
+      // Search filter
+      if (filters.search) {
+        if (!product.name.toLowerCase().includes(filters.search.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // Category filter
+      if (filters.category && product.category !== filters.category) {
+        return false;
+      }
+
+      // Subcategory filter
+      if (filters.subcategory && product.subcategory !== filters.subcategory) {
+        return false;
+      }
+
+      // Brand filter
+      if (filters.brand && product.brand !== filters.brand) {
+        return false;
+      }
+
+      // Color filter
+      if (filters.color) {
+        const matchesColor = product.color
+          ?.split(",")
+          .some((c) => c.trim() === filters.color);
+        if (!matchesColor) return false;
+      }
+
+      // Size filter
+      if (filters.size) {
+        const matchesSize = product.size
+          ?.split(",")
+          .some((s) => s.trim() === filters.size);
+        if (!matchesSize) return false;
+      }
+
+      // Processor Name filter
+      if (filters.processorName && product.processor?.name !== filters.processorName) {
+        return false;
+      }
+
+      // Processor Brand filter
+      if (filters.processorBrand && filters.processorBrand.length > 0) {
+        if (!filters.processorBrand.includes(product.processor?.processorBrand || "")) {
+          return false;
+        }
+      }
+
+      // Processor Generation filter
+      if (filters.processorGeneration && filters.processorGeneration.length > 0) {
+        if (!filters.processorGeneration.includes(product.processor?.processorGeneration || "")) {
+          return false;
+        }
+      }
+
+      // Processor Series filter
+      if (filters.processorSeries && filters.processorSeries.length > 0) {
+        if (!filters.processorSeries.includes(product.processor?.processorSeries || "")) {
+          return false;
+        }
+      }
+
+      // Integrated GPU filter
+      if (filters.integratedGpu && filters.integratedGpu.length > 0) {
+        if (!filters.integratedGpu.includes(product.processor?.integratedGpu || "")) {
+          return false;
+        }
+      }
+
+      // Dedicated Graphics Name filter
+      if (filters.dedicatedGraphicsName && product.dedicatedGraphics?.name !== filters.dedicatedGraphicsName) {
+        return false;
+      }
+
+      // Has Dedicated Graphics filter
+      if (filters.hasDedicatedGraphics !== undefined) {
+        if (!!product.dedicatedGraphics !== filters.hasDedicatedGraphics) {
+          return false;
+        }
+      }
+
+      // Screen Size filter
+      if (filters.screenSize) {
+        const screenSizeMatch =
+          product.display?.sizeInches !== undefined
+            ? String(product.display.sizeInches) === filters.screenSize
+            : false;
+        if (!screenSizeMatch) return false;
+      }
+
+      // Dedicated GPU Brand filter
+      if (filters.dedicatedGpuBrand && filters.dedicatedGpuBrand.length > 0) {
+        if (!filters.dedicatedGpuBrand.includes(product.dedicatedGraphics?.dedicatedGpuBrand || "")) {
+          return false;
+        }
+      }
+
+      // Dedicated GPU Model filter
+      if (filters.dedicatedGpuModel && filters.dedicatedGpuModel.length > 0) {
+        if (!filters.dedicatedGpuModel.includes(product.dedicatedGraphics?.dedicatedGpuModel || "")) {
+          return false;
+        }
+      }
+
+      // Price range filters
+      if (filters.minPrice !== undefined && product.price < filters.minPrice) {
+        return false;
+      }
+      if (filters.maxPrice !== undefined && product.price > filters.maxPrice) {
+        return false;
+      }
+
+      return true;
+    }).length;
+  }, [products, filters]);
 
   // Get all active filters
   const getActiveFilters = (): ActiveFilter[] => {
@@ -281,7 +409,18 @@ export function ActiveFilters() {
   }
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 space-y-3">
+      {/* Products Count */}
+      <div className="flex items-center justify-between pb-2 border-b">
+        <span className="text-base font-semibold text-foreground">
+          {t("products.title") || "المنتجات"}
+        </span>
+        <span className="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
+          {filteredProductsCount} {t("products.product") || "منتج"}
+        </span>
+      </div>
+
+      {/* Active Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-muted-foreground">
           {t("filters.filteredBy") || "تم التصفية حسب:"}
