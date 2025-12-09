@@ -17,9 +17,9 @@ export const STORE_CONFIG = {
   // معلومات الاتصال
   contact: {
     phone: "01025423389",
-    formattedPhone: "201024911062",
-    whatsapp: "201024911062",
-    email: "elaraby_ahamed@yahoo.com",
+    formattedPhone: "201025423389",
+    whatsapp: "201025423389",
+    email: "ibrahim.moamen100@gmail.com",
     address: "  مكرم عبيد، مول زون، الدور الرابع، محل الحمد كمبيوتر",
     city: "القاهرة",
     country: "مصر",
@@ -76,7 +76,7 @@ export const STORE_CONFIG = {
       id: "branch1",
         name: "    شركه الحمد لأجهزه اللابتوبات  ",
         address: " مول الاسناوي الادور الاول اخر شارع الاسناوي بجوار سنتر شاهين امام مساكن عثمان, Cairo, Egypt     ",
-        phone: "201024911062",
+        phone: "201025423389",
         hours: "11:00 ظهراً - 10:00 مساءً",
         coordinates: { 
           lat: 30.1403676, 
