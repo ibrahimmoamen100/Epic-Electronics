@@ -88,6 +88,7 @@ export default function Products() {
     let matchesCategory = true;
     let matchesSubcategory = true;
     let matchesBrand = true;
+    let matchesPrice = true;
     let matchesColor = true;
     let matchesSize = true;
     let matchesSupplier = true;
@@ -123,6 +124,14 @@ export default function Products() {
 
     if (filters.brand) {
       matchesBrand = product.brand === filters.brand;
+    }
+
+    if (filters.minPrice !== undefined) {
+      matchesPrice = product.price >= filters.minPrice;
+    }
+
+    if (filters.maxPrice !== undefined) {
+      matchesPrice = matchesPrice && product.price <= filters.maxPrice;
     }
 
     if (filters.color) {
@@ -211,6 +220,7 @@ export default function Products() {
       matchesCategory &&
       matchesSubcategory &&
       matchesBrand &&
+      matchesPrice &&
       matchesColor &&
       matchesSize &&
       matchesProcessorName &&

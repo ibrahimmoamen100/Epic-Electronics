@@ -26,6 +26,14 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -48,6 +56,7 @@ const ProductDetails = () => {
   const { t } = useTranslation();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isBatteryModalOpen, setIsBatteryModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
   const [selectedAddons, setSelectedAddons] = useState<ProductAddon[]>([]);
@@ -822,7 +831,11 @@ const ProductDetails = () => {
               </motion.div>
 
               <motion.div 
-                className="group relative overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-xl p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                role="button"
+                tabIndex={0}
+                onClick={() => setIsBatteryModalOpen(true)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setIsBatteryModalOpen(true)}
+                className="group relative overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-xl p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-200"
                 whileHover={{ y: -2 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -837,7 +850,7 @@ const ProductDetails = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-800 group-hover:text-green-700 transition-colors">ضمان الشاحن</p>
-                    <p className="text-xs text-gray-600 mt-1">والبطارية شهر</p>
+                    <p className="text-xs text-gray-600 mt-1">والبطارية اسبوعين</p>
                   </div>
                 </div>
               </motion.div>
@@ -1188,6 +1201,57 @@ const ProductDetails = () => {
         open={modalOpen}
         onOpenChange={setModalOpen}
       />
+
+      <Dialog open={isBatteryModalOpen} onOpenChange={setIsBatteryModalOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              ضمان الشاحن والبطارية
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-gray-600">
+              يغطي الضمان الشاحن والبطارية لمدة أسبوعين من تاريخ الشراء.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border bg-green-50 border-green-100 p-3">
+                <p className="text-sm font-semibold text-green-800">مدة التشغيل المتوقعة</p>
+                <p className="text-sm text-green-700 mt-1">من ساعتين إلى ٥ ساعات حسب الاستخدام.</p>
+              </div>
+              <div className="rounded-lg border bg-red-50 border-red-100 p-3">
+                <p className="text-sm font-semibold text-red-800">علامة الخلل</p>
+                <p className="text-sm text-red-700 mt-1">
+                  إذا انخفضت البطارية من 100٪ إلى نفاد كامل في أقل من ساعتين فهذا مؤشر على مشكلة.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-4 bg-gray-50">
+              <p className="text-sm font-semibold text-gray-900 mb-2">شروط الاستبدال</p>
+              <ul className="list-disc pr-5 space-y-1 text-sm text-gray-700">
+                <li>يمكن استبدال الجهاز أو البطارية ببطارية أخرى خلال أسبوعين من الضمان عند ثبوت المشكلة.</li>
+                <li>بعد مرور أسبوعين لا يمكن الاستبدال.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <p className="text-sm font-semibold text-gray-900 mb-2">نصائح للحفاظ على عمر البطارية</p>
+              <ul className="list-disc pr-5 space-y-1 text-sm text-gray-700">
+                <li>استخدم الشاحن الأصلي وتجنب الشواحن غير الموثوقة.</li>
+                <li>تجنب استخدام الجهاز أثناء الشحن وتقليل تعرضه للحرارة.</li>
+                <li>حافظ على الشحن بين 20٪ و80٪ قدر الإمكان.</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter className="flex sm:justify-end">
+            <Button variant="outline" onClick={() => setIsBatteryModalOpen(false)}>
+              إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

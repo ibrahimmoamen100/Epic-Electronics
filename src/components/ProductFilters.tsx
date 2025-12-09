@@ -435,8 +435,13 @@ export function ProductFilters() {
     return filteredProducts?.map((p) => p.price) || [];
   }, [filteredProducts]);
 
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
+  const hasPrices = prices.length > 0;
+  const minPrice = hasPrices ? Math.min(...prices) : 0;
+  const maxPrice = hasPrices ? Math.max(...prices) : 0;
+  const priceRange: [number, number] = [
+    filters.minPrice ?? minPrice,
+    filters.maxPrice ?? maxPrice,
+  ];
 
   // Reset dependent filters when category changes
   const handleCategoryChange = (value: string) => {
@@ -517,18 +522,19 @@ export function ProductFilters() {
             <div className="space-y-4 pt-2">
               <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                  {formatCurrency(filters.maxPrice || maxPrice, 'جنيه')}{" "}
+                  {formatCurrency(priceRange[1], 'جنيه')}{" "}
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  {formatCurrency(filters.minPrice || minPrice, 'جنيه')}{" "}
+                  {formatCurrency(priceRange[0], 'جنيه')}{" "}
                 </span>
 
               </div>
               <Slider
-                defaultValue={[minPrice, maxPrice]}
+                value={priceRange}
                 min={minPrice}
                 max={maxPrice}
                 step={1}
+                disabled={!hasPrices}
                 onValueChange={(value) =>
                   setFilters({
                     ...filters,

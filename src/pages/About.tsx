@@ -28,8 +28,8 @@ const warrantyFeatures = [
   },
   {
     icon: FaBatteryFull,
-    title: "ضمان شهر واحد",
-    description: "على البطاريات والشواحن والبورات",
+    title: "ضمان  اسبوعين",
+    description: "على البطاريات والشواحن و الهاردات",
     color: "text-green-600",
     bgColor: "bg-green-50",
     borderColor: "border-green-200",
@@ -37,7 +37,7 @@ const warrantyFeatures = [
   {
     icon: FaExchangeAlt,
     title: "شهر استبدال",
-    description: "على جميع المنتجات",
+    description: " على جميع المنتجات",
     color: "text-purple-600",
     bgColor: "bg-purple-50",
     borderColor: "border-purple-200",
