@@ -72,6 +72,8 @@ export interface MonthlySummary {
   totalDeductions: number;
   totalOvertime: number;
   finalSalary: number;
+  totalAdvances?: number;
+  netSalaryAfterAdvances?: number;
   attendanceDays: number; // أيام الحضور المسجلة
   absentDays: number; // أيام الغياب بدون عذر
   excusedAbsentDays?: number; // أيام الغياب بعذر
@@ -81,6 +83,16 @@ export interface MonthlySummary {
   acceptedExcuses: number;
   rejectedExcuses: number;
   generatedAt?: string;
+}
+
+export interface SalaryAdvance {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  month: string; // Format: "YYYY-MM"
+  amount: number;
+  note?: string | null;
+  createdAt: string;
 }
 
 // Delay deduction rules

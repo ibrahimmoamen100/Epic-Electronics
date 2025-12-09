@@ -14,6 +14,7 @@ import {
   AttendanceSettings,
   ExcusedAbsencePolicy,
   DEFAULT_ATTENDANCE_SETTINGS,
+  SalaryAdvance,
   calculateDelayDeduction,
   calculateOvertime,
   calculateDelay,
@@ -840,6 +841,7 @@ export const employeesService = new FirebaseEmployeesService();
 // Firebase Attendance Service
 export class FirebaseAttendanceService {
   private collectionName = 'attendance';
+  private advancesCollectionName = 'salary_advances';
   private summaryCollectionName = 'attendance_summaries';
 
   private getSummaryDocId(employeeId: string, month: string) {
@@ -987,6 +989,98 @@ export class FirebaseAttendanceService {
       return this.mapRecord(doc.id, data);
     } catch (error) {
       console.error('Error getting attendance record:', error);
+      throw error;
+    }
+  }
+
+  // Add salary advance
+  async addSalaryAdvance(
+    employee: Employee,
+    payload: { amount: number; month: string; note?: string | null }
+  ): Promise<SalaryAdvance> {
+    try {
+      const docRef = await addDoc(collection(db, this.advancesCollectionName), {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        month: payload.month,
+        amount: payload.amount,
+        note: payload.note || null,
+        createdAt: Timestamp.now(),
+      });
+
+      return {
+        id: docRef.id,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        month: payload.month,
+        amount: payload.amount,
+        note: payload.note || null,
+        createdAt: Timestamp.now().toDate().toISOString(),
+      };
+    } catch (error) {
+      console.error('Error adding salary advance:', error);
+      throw error;
+    }
+  }
+
+  // Get salary advances for an employee and month
+  async getSalaryAdvances(employeeId: string, month: string): Promise<SalaryAdvance[]> {
+    try {
+      const advancesRef = collection(db, this.advancesCollectionName);
+      const q = query(
+        advancesRef,
+        where('employeeId', '==', employeeId),
+        where('month', '==', month)
+      );
+      const snap = await getDocs(q);
+      const advances: SalaryAdvance[] = [];
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        advances.push({
+          id: docSnap.id,
+          employeeId: data.employeeId,
+          employeeName: data.employeeName,
+          month: data.month,
+          amount: data.amount,
+          note: data.note || null,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        });
+      });
+      advances.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      return advances;
+    } catch (error) {
+      console.error('Error getting salary advances:', error);
+      throw error;
+    }
+  }
+
+  // Get salary advances for a month (optionally filtered by employee)
+  async getSalaryAdvancesByMonth(month: string, employeeId?: string): Promise<SalaryAdvance[]> {
+    try {
+      const advancesRef = collection(db, this.advancesCollectionName);
+      const constraints = [
+        where('month', '==', month),
+        ...(employeeId ? [where('employeeId', '==', employeeId)] : []),
+      ];
+      const q = query(advancesRef, ...constraints);
+      const snap = await getDocs(q);
+      const advances: SalaryAdvance[] = [];
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        advances.push({
+          id: docSnap.id,
+          employeeId: data.employeeId,
+          employeeName: data.employeeName,
+          month: data.month,
+          amount: data.amount,
+          note: data.note || null,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        });
+      });
+      advances.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      return advances;
+    } catch (error) {
+      console.error('Error getting salary advances by month:', error);
       throw error;
     }
   }
@@ -1292,6 +1386,9 @@ export class FirebaseAttendanceService {
         });
 
         const finalSalary = employee.monthlySalary - totalDeductions + totalOvertime;
+        const advances = await this.getSalaryAdvances(employeeId, month);
+        const totalAdvances = advances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
+        const netSalaryAfterAdvances = finalSalary - totalAdvances;
 
         return {
           employeeId,
@@ -1301,6 +1398,8 @@ export class FirebaseAttendanceService {
           totalDeductions,
           totalOvertime,
           finalSalary,
+          totalAdvances,
+          netSalaryAfterAdvances,
           attendanceDays,
           absentDays,
           excusedAbsentDays: 0,
@@ -1322,6 +1421,7 @@ export class FirebaseAttendanceService {
       let acceptedExcuses = 0;
       let rejectedExcuses = 0;
       let finalSalary = 0;
+      let totalAdvances = 0;
 
       employeeRecords.forEach(record => {
         finalSalary += record.dailyNet || 0;
@@ -1350,6 +1450,10 @@ export class FirebaseAttendanceService {
         }
       });
 
+      const advances = await this.getSalaryAdvances(employeeId, month);
+      totalAdvances = advances.reduce((sum, adv) => sum + (adv.amount || 0), 0);
+      const netSalaryAfterAdvances = finalSalary - totalAdvances;
+
       return {
         employeeId,
         employeeName: employee.name,
@@ -1358,6 +1462,8 @@ export class FirebaseAttendanceService {
         totalDeductions,
         totalOvertime,
         finalSalary,
+        totalAdvances,
+        netSalaryAfterAdvances,
         attendanceDays: presentDays,
         absentDays,
         excusedAbsentDays,

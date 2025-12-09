@@ -123,6 +123,16 @@ export default function Attendance() {
   const [excuseDecisionNote, setExcuseDecisionNote] = useState('');
   const [excuseDecisionIntent, setExcuseDecisionIntent] = useState<ExcuseStatus | null>(null);
   const [excuseResolutionMode, setExcuseResolutionMode] = useState<'hourly' | 'no_deduct'>('hourly');
+  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+
+  // Salary advance state
+  const [isAdvanceDialogOpen, setIsAdvanceDialogOpen] = useState(false);
+  const [advanceForm, setAdvanceForm] = useState({
+    employeeId: '',
+    month: format(new Date(), 'yyyy-MM'),
+    amount: 0,
+    note: '',
+  });
 
   // Employee form state
   const [employeeForm, setEmployeeForm] = useState({
@@ -181,6 +191,20 @@ export default function Attendance() {
       return attendanceService.getAttendanceRecordsByDateRange(startDate, endDate);
     },
     enabled: isAuthenticated,
+  });
+
+  // Fetch salary advances for the selected month
+  const { data: salaryAdvances = [], isLoading: advancesLoading } = useQuery({
+    queryKey: ['salaryAdvances', selectedMonth, isAdmin ? selectedEmployee : currentEmployeeId],
+    queryFn: () => {
+      if (isAdmin) {
+        const employeeFilter = selectedEmployee !== 'all' ? selectedEmployee : undefined;
+        return attendanceService.getSalaryAdvancesByMonth(selectedMonth, employeeFilter);
+      }
+      if (!currentEmployeeId) return Promise.resolve([]);
+      return attendanceService.getSalaryAdvances(currentEmployeeId, selectedMonth);
+    },
+    enabled: isAuthenticated && (isAdmin || !!currentEmployeeId),
   });
 
   const {
@@ -335,7 +359,7 @@ export default function Attendance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
-      toast.success('تم تسجيل الحضور بنجاح');
+      toast.success(editingRecord ? 'تم تحديث السجل بنجاح' : 'تم تسجيل الحضور بنجاح');
       setIsAttendanceDialogOpen(false);
       resetAttendanceForm();
     },
@@ -390,6 +414,41 @@ export default function Attendance() {
     },
   });
 
+  // Salary advance mutation
+  const salaryAdvanceMutation = useMutation({
+    mutationFn: async () => {
+      const month = advanceForm.month || format(new Date(), 'yyyy-MM');
+      const targetEmployee = isAdmin
+        ? employees.find((e) => e.id === (advanceForm.employeeId || selectedEmployee || ''))
+        : currentEmployee;
+
+      if (!targetEmployee) throw new Error('الموظف غير موجود');
+      if (!advanceForm.amount || advanceForm.amount <= 0) {
+        throw new Error('أدخل مبلغ السلفة');
+      }
+
+      return attendanceService.addSalaryAdvance(targetEmployee, {
+        amount: advanceForm.amount,
+        month,
+        note: advanceForm.note || null,
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['salaryAdvances'] });
+      queryClient.invalidateQueries({ queryKey: ['monthlySummary', data.employeeId, data.month] });
+      toast.success('تم تسجيل السلفة بنجاح');
+      setIsAdvanceDialogOpen(false);
+      setAdvanceForm((prev) => ({
+        ...prev,
+        amount: 0,
+        note: '',
+      }));
+    },
+    onError: (error: any) => {
+      toast.error('حدث خطأ: ' + (error.message || 'تعذر تسجيل السلفة'));
+    },
+  });
+
   const resetEmployeeForm = () => {
     setEmployeeForm({
       name: '',
@@ -416,6 +475,7 @@ export default function Attendance() {
       excuseText: '',
       notes: '',
     });
+    setEditingRecord(null);
   };
 
   const openEditEmployee = (employee: Employee) => {
@@ -483,6 +543,20 @@ export default function Attendance() {
         [field]: nextValue,
       };
     });
+  };
+
+  const openEditAttendance = (record: AttendanceRecord) => {
+    setEditingRecord(record);
+    setAttendanceForm({
+      employeeId: record.employeeId,
+      date: record.date,
+      status: record.status,
+      checkInTime: record.checkInTime || '',
+      checkOutTime: record.checkOutTime || '',
+      excuseText: record.excuseText || '',
+      notes: record.notes || '',
+    });
+    setIsAttendanceDialogOpen(true);
   };
 
   const clearTimeField = (field: 'checkInTime' | 'checkOutTime') => {
@@ -608,8 +682,33 @@ export default function Attendance() {
               <LogOut className="h-4 w-4" />
               تسجيل الخروج
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                setAdvanceForm({
+                  employeeId: isAdmin ? (selectedEmployee !== 'all' ? selectedEmployee : '') : currentEmployeeId || '',
+                  month: selectedMonth,
+                  amount: 0,
+                  note: '',
+                });
+                setIsAdvanceDialogOpen(true);
+              }}
+            >
+              <DollarSign className="h-4 w-4" />
+              طلب سلفة
+            </Button>
             {/* Attendance Dialog - Available for both Admin and Employee */}
-            <Dialog open={isAttendanceDialogOpen} onOpenChange={setIsAttendanceDialogOpen}>
+            <Dialog
+              open={isAttendanceDialogOpen}
+              onOpenChange={(open) => {
+                setIsAttendanceDialogOpen(open);
+                if (!open) {
+                  resetAttendanceForm();
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={resetAttendanceForm}>
                   <Calendar className="h-4 w-4 ml-2" />
@@ -618,12 +717,15 @@ export default function Attendance() {
               </DialogTrigger>
               <DialogContent className="w-[calc(100vw-1rem)] max-w-[95vw] sm:max-w-2xl lg:max-w-3xl p-3 sm:p-6">
                 <DialogHeader className="space-y-2 pb-2">
-                  <DialogTitle className="text-base sm:text-lg">تسجيل حالة اليوم</DialogTitle>
+                  <DialogTitle className="text-base sm:text-lg">
+                    {editingRecord ? 'تعديل سجل اليوم' : 'تسجيل حالة اليوم'}
+                  </DialogTitle>
                   <DialogDescription className="text-xs sm:text-sm">
-                    {isAdmin
-                      ? 'اختر الموظف وحدد ما إذا كان اليوم حضورًا أم غيابًا مع أو بدون عذر'
-                      : 'اختر حالتك اليومية وسجّل الأوقات أو الملاحظات إن لزم الأمر'
-                    }
+                    {editingRecord
+                      ? 'قم بتعديل وقت الحضور أو الانصراف أو الحالة مباشرةً دون إنشاء سجل جديد.'
+                      : isAdmin
+                        ? 'اختر الموظف وحدد ما إذا كان اليوم حضورًا أم غيابًا مع أو بدون عذر'
+                        : 'اختر حالتك اليومية وسجّل الأوقات أو الملاحظات إن لزم الأمر'}
                   </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[calc(85vh-8rem)] sm:max-h-[calc(80vh-8rem)] pr-2">
@@ -1206,7 +1308,7 @@ export default function Attendance() {
                           <TableHead>قيمة Overtime</TableHead>
                           <TableHead>الصافي اليومي</TableHead>
                           <TableHead>ملاحظات إضافية</TableHead>
-                          {isAdmin && <TableHead>الإجراءات</TableHead>}
+                          <TableHead>الإجراءات</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1303,38 +1405,51 @@ export default function Attendance() {
                               </span>
                             </TableCell>
                             <TableCell>{record.notes || '-'}</TableCell>
-                            {isAdmin && (
-                              <TableCell>
-                                <div className="flex flex-col gap-2">
-                                  {record.hasExcuse && record.excuseStatus === 'pending' ? (
-                                    <>
+                            <TableCell>
+                              <div className="flex flex-col gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openEditAttendance(record)}
+                                  disabled={
+                                    !isAdmin &&
+                                    record.employeeId !== currentEmployeeId
+                                  }
+                                >
+                                  تعديل السجل
+                                </Button>
+                                {isAdmin && (
+                                  <>
+                                    {record.hasExcuse && record.excuseStatus === 'pending' ? (
+                                      <>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => openExcuseDialog(record, 'accepted')}
+                                        >
+                                          قبول العذر
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => openExcuseDialog(record, 'rejected')}
+                                        >
+                                          رفض العذر
+                                        </Button>
+                                      </>
+                                    ) : (
                                       <Button
-                                        variant="outline"
+                                        variant="ghost"
                                         size="sm"
-                                        onClick={() => openExcuseDialog(record, 'accepted')}
+                                        onClick={() => openExcuseDialog(record)}
                                       >
-                                        قبول العذر
+                                        مراجعة السجل
                                       </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => openExcuseDialog(record, 'rejected')}
-                                      >
-                                        رفض العذر
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openExcuseDialog(record)}
-                                    >
-                                      مراجعة السجل
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                            )}
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1363,6 +1478,48 @@ export default function Attendance() {
                 />
               ) : null}
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  السلف للشهر الحالي
+                </CardTitle>
+                <CardDescription>
+                  إجمالي السلف يتم خصمه تلقائيًا من الراتب النهائي لنفس الشهر
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {advancesLoading ? (
+                  <div className="flex justify-center py-6">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                  </div>
+                ) : salaryAdvances.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">لا توجد سلف مسجلة لهذا الشهر</p>
+                ) : (
+                  <div className="space-y-2">
+                    {salaryAdvances.map((adv) => (
+                      <div
+                        key={adv.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between border rounded-lg p-3"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-semibold">{adv.employeeName}</p>
+                          <p className="text-xs text-muted-foreground">{adv.month}</p>
+                          {adv.note && <p className="text-sm text-muted-foreground">ملاحظة: {adv.note}</p>}
+                        </div>
+                        <div className="text-right mt-2 sm:mt-0">
+                          <p className="text-lg font-bold text-red-600">-{adv.amount.toFixed(2)} جنيه</p>
+                          <p className="text-xs text-muted-foreground">
+                            {adv.createdAt ? new Date(adv.createdAt).toLocaleString() : ''}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
@@ -1439,6 +1596,110 @@ export default function Attendance() {
           </Card>
         )}
       </div>
+
+      {/* Salary Advance Dialog */}
+      <Dialog
+        open={isAdvanceDialogOpen}
+        onOpenChange={(open) => {
+          setIsAdvanceDialogOpen(open);
+          if (!open) {
+            setAdvanceForm((prev) => ({ ...prev, amount: 0, note: '' }));
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>تسجيل سلفة</DialogTitle>
+            <DialogDescription>
+              يتم خصم مبلغ السلفة من الراتب النهائي لنفس الشهر.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {isAdmin && (
+              <div>
+                <Label>الموظف</Label>
+                <Select
+                  value={advanceForm.employeeId || (selectedEmployee !== 'all' ? selectedEmployee : undefined)}
+                  onValueChange={(value) =>
+                    setAdvanceForm((prev) => ({ ...prev, employeeId: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الموظف" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {!isAdmin && currentEmployee && (
+              <div>
+                <Label>الموظف</Label>
+                <Input value={currentEmployee.name} disabled className="bg-muted" />
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>الشهر</Label>
+                <Input
+                  type="month"
+                  value={advanceForm.month}
+                  onChange={(e) =>
+                    setAdvanceForm((prev) => ({ ...prev, month: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>المبلغ (جنيه)</Label>
+                <Input
+                  type="number"
+                  value={advanceForm.amount}
+                  onChange={(e) =>
+                    setAdvanceForm((prev) => ({
+                      ...prev,
+                      amount: Number(e.target.value),
+                    }))
+                  }
+                  placeholder="0"
+                  min={0}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>ملاحظة (اختياري)</Label>
+              <Textarea
+                value={advanceForm.note}
+                onChange={(e) =>
+                  setAdvanceForm((prev) => ({ ...prev, note: e.target.value }))
+                }
+                placeholder="سبب السلفة أو أي تفاصيل إضافية"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAdvanceDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={() => salaryAdvanceMutation.mutate()}
+              disabled={
+                salaryAdvanceMutation.isPending ||
+                (!isAdmin && !currentEmployeeId) ||
+                advanceForm.amount <= 0 ||
+                (isAdmin && !(advanceForm.employeeId || selectedEmployee !== 'all'))
+              }
+            >
+              {salaryAdvanceMutation.isPending ? 'جاري الحفظ...' : 'حفظ السلفة'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Excuse Approval Dialog - Only for Admin */}
       {isAdmin && (
@@ -1641,6 +1902,18 @@ function MonthlySummaryCard({
           <div className="col-span-2">
             <span className="text-muted-foreground">الراتب النهائي الحالي:</span>
             <p className="font-semibold text-2xl">{summary.finalSalary.toFixed(2)} جنيه</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">إجمالي السلف:</span>
+            <p className="font-semibold text-red-600">
+              -{(summary.totalAdvances || 0).toFixed(2)} جنيه
+            </p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">الصافي بعد السلف:</span>
+            <p className="font-semibold text-green-700">
+              {(summary.netSalaryAfterAdvances ?? summary.finalSalary).toFixed(2)} جنيه
+            </p>
           </div>
           <div>
             <span className="text-muted-foreground">الراتب الأساسي:</span>
