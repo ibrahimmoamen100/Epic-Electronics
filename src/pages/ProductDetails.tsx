@@ -7,6 +7,7 @@ import { ProductModal } from "@/components/ProductModal";
 import { ProductOptions } from "@/components/ProductOptions";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { analytics } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import {
   ShoppingCart,
@@ -83,12 +84,57 @@ const ProductDetails = () => {
   // Parse available colors and create color-image mapping
   const availableColors = product?.color ? product.color.split(',').map(c => c.trim()) : [];
 
-  // Handle loading state for product details
+  // Handle loading state for product details and track page view with product name
   useEffect(() => {
     if (products.length > 0) {
       // Products are loaded, check if current product exists
       if (product) {
         setIsLoading(false);
+        
+        // Store product info in sessionStorage for analytics to access
+        // This helps extractProductNameFromUrl find the product name
+        try {
+          sessionStorage.setItem('current_product', JSON.stringify({
+            id: product.id,
+            name: product.name,
+            slug: product.id // slug is the same as id
+          }));
+        } catch (e) {
+          console.warn('Failed to store product in sessionStorage:', e);
+        }
+        
+        // Track page view with actual product name
+        // This ensures we track with the correct product name, not just from URL slug
+        const currentPath = window.location.pathname;
+        if (currentPath.startsWith('/product/')) {
+          console.log('[ProductDetails] 🎯 Starting page view tracking', {
+            path: currentPath,
+            productName: product.name,
+            productId: product.id,
+            productFound: !!product
+          });
+          
+          // Longer delay to ensure analytics system is ready and locationchange event has fired
+          const trackTimeout = setTimeout(() => {
+            console.log('[ProductDetails] 📊 Calling trackPageView with product name...');
+            analytics.trackPageView(currentPath, product.name).then(() => {
+              console.log('[ProductDetails] ✅ Successfully tracked page view for product:', {
+                path: currentPath,
+                productName: product.name,
+                productId: product.id
+              });
+            }).catch(err => {
+              console.error('[ProductDetails] ❌ Failed to track page view:', err);
+              console.error('Error details:', {
+                error: err,
+                message: err?.message,
+                stack: err?.stack
+              });
+            });
+          }, 500); // Increased delay to ensure locationchange event has processed
+          
+          return () => clearTimeout(trackTimeout);
+        }
       } else {
         // Product not found, redirect after a short delay
         setTimeout(() => {
@@ -96,7 +142,7 @@ const ProductDetails = () => {
         }, 100);
       }
     }
-  }, [products, product, navigate]);
+  }, [products, product, navigate, id]);
   
   // Create mapping between colors and images
   const colorImageMapping = useMemo(() => {

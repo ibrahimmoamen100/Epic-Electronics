@@ -1,6 +1,30 @@
 import { db } from './firebase';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, orderBy, limit, Timestamp, increment } from 'firebase/firestore';
 
+interface Order {
+  id: string;
+  userId: string;
+  items: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    price: number;
+    image: string;
+    unitFinalPrice: number;
+    totalPrice: number;
+  }[];
+  total: number;
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  deliveryInfo: {
+    fullName: string;
+    phoneNumber: string;
+    address: string;
+    city: string;
+  };
+  createdAt: Date | Timestamp;
+  updatedAt: Date | Timestamp;
+}
+
 export interface PageView {
   id: string;
   page: string;
@@ -141,13 +165,13 @@ class Analytics {
   private currentPageStartTime: Date;
   private lastTrackedPath: string | null = null;
   private lastTrackTimestamp: number = 0;
-  private trackCooldownMs: number = 10000; // 10 seconds between tracked pageviews for same path
+  private trackCooldownMs: number = 2000; // 2 seconds between tracked pageviews for same path (reduced from 10s)
   private writesEnabled: boolean = true; // disable writes after permission errors
   private sessionWriteCount: number = 0;
-  private sessionWriteLimit: number = 100; // max writes per session to avoid bursts
+  private sessionWriteLimit: number = 500; // max writes per session to avoid bursts (increased)
   private perPathCounts: Map<string, number> = new Map();
-  private perPathLimit: number = 10; // max writes per path per session
-  private debugEnabled: boolean = false; // set true to enable debug logs
+  private perPathLimit: number = 50; // max writes per path per session (increased)
+  private debugEnabled: boolean = true; // Enable debug logs to troubleshoot
 
   // Helper function to sanitize page paths for Firestore document IDs
   private sanitizePagePath(page: string): string {
@@ -358,12 +382,77 @@ class Analytics {
     const productMatch = url.match(/\/product\/([^\/\?]+)/);
     if (productMatch) {
       const slug = productMatch[1];
-      // Convert slug to readable name
+      
+      // Try to find product in localStorage or sessionStorage
+      try {
+        // First, check sessionStorage for current product (set by ProductDetails page)
+        try {
+          const currentProductJson = sessionStorage.getItem('current_product');
+          if (currentProductJson) {
+            const currentProduct = JSON.parse(currentProductJson);
+            if (currentProduct.id === slug || currentProduct.slug === slug) {
+              return currentProduct.name;
+            }
+          }
+        } catch (e) {
+          // Continue to other methods
+        }
+        
+        // Check zustand persist storage (default key is usually the store name)
+        const possibleKeys = [
+          'shop-storage', // The actual store key
+          'store-storage', 
+          'store', 
+          'products-store',
+          'local_products_fallback',
+          'elhamds-store'
+        ];
+        
+        for (const key of possibleKeys) {
+          try {
+            const stored = localStorage.getItem(key) || sessionStorage.getItem(key);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              // Handle different storage structures
+              const productsArray = parsed?.state?.products || parsed?.products || (Array.isArray(parsed) ? parsed : []);
+              
+              if (Array.isArray(productsArray)) {
+                const product = productsArray.find((p: any) => p.id === slug || p.slug === slug);
+                if (product && product.name) {
+                  return product.name;
+                }
+              }
+            }
+          } catch (e) {
+            // Continue to next key
+            continue;
+          }
+        }
+        
+        // Also check zustand store if available (try to access from window)
+        if (typeof window !== 'undefined' && (window as any).__ZUSTAND_STORE__) {
+          try {
+            const storeState = (window as any).__ZUSTAND_STORE__.getState();
+            if (storeState?.products) {
+              const product = storeState.products.find((p: any) => p.id === slug || p.slug === slug);
+              if (product && product.name) {
+                return product.name;
+              }
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to lookup product name from cache:', e);
+      }
+      
+      // Fallback: Convert slug to readable name
       // e.g., "dell-latitude-5310-intel-core-i7-10610u-13-3-inch-fhd-ssd-256gb"
-      // -> "Dell Latitude 5310 - Intel Core i7"
+      // -> "Dell Latitude 5310 Intel Core i7 10610u 13"
       const words = slug.split('-');
       // Take first meaningful words (usually brand and model)
-      const meaningfulWords = words.slice(0, 6).map(word => 
+      const meaningfulWords = words.slice(0, 8).map(word => 
         word.charAt(0).toUpperCase() + word.slice(1)
       );
       return meaningfulWords.join(' ');
@@ -390,8 +479,15 @@ class Analytics {
       if (!p.startsWith('/')) p = '/' + p;
       // Remove trailing slash unless root
       if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+      
+      // Log normalization for debugging
+      if (this.debugEnabled && path !== p) {
+        console.log('🔧 [Analytics] Normalized path', { original: path, normalized: p });
+      }
+      
       return p;
     } catch (error) {
+      console.warn('⚠️ [Analytics] Error normalizing path', { path, error });
       return path;
     }
   }
@@ -437,7 +533,7 @@ class Analytics {
     }
   }
 
-  async trackPageView(page: string): Promise<void> {
+  async trackPageView(page: string, productNameOverride?: string): Promise<void> {
     if (!page || typeof page !== 'string') {
       console.warn('Invalid page path provided to trackPageView:', page);
       return;
@@ -447,24 +543,52 @@ class Analytics {
     const normalized = this.normalizePath(page);
 
     const nowTs = Date.now();
-    if (this.debugEnabled) console.debug('Analytics.trackPageView called', { page, normalized, nowTs });
+    console.log('🔍 [Analytics] trackPageView called', { 
+      page, 
+      normalized, 
+      nowTs,
+      productNameOverride,
+      lastTrackedPath: this.lastTrackedPath,
+      timeSinceLastTrack: this.lastTrackTimestamp ? nowTs - this.lastTrackTimestamp : 'N/A',
+      sessionWriteCount: this.sessionWriteCount,
+      writesEnabled: this.writesEnabled
+    });
 
     // Basic guards: don't spam same path repeatedly in a tight loop
-    if (this.lastTrackedPath === normalized && (nowTs - this.lastTrackTimestamp) < this.trackCooldownMs) {
-      if (this.debugEnabled) console.debug('Analytics: skipping trackPageView due to cooldown', { normalized, since: nowTs - this.lastTrackTimestamp });
+    // BUT: allow tracking if productNameOverride is provided (more accurate data)
+    const isDuplicatePath = this.lastTrackedPath === normalized;
+    const withinCooldown = (nowTs - this.lastTrackTimestamp) < this.trackCooldownMs;
+    
+    if (isDuplicatePath && withinCooldown && !productNameOverride) {
+      console.log('⚠️ [Analytics] Skipping trackPageView due to cooldown', { 
+        normalized, 
+        since: nowTs - this.lastTrackTimestamp,
+        cooldownMs: this.trackCooldownMs
+      });
       return;
+    }
+
+    // If productNameOverride is provided, allow tracking even if within cooldown (more accurate data)
+    if (isDuplicatePath && withinCooldown && productNameOverride) {
+      console.log('✅ [Analytics] Allowing tracking despite cooldown because productNameOverride provided', {
+        normalized,
+        productName: productNameOverride
+      });
     }
 
     // Prevent excessive writes per session
     if (this.sessionWriteCount >= this.sessionWriteLimit) {
-      // Optionally, disable writes after limit is reached
-      this.writesEnabled = false;
+      console.warn('⚠️ [Analytics] Session write limit reached', {
+        sessionWriteCount: this.sessionWriteCount,
+        sessionWriteLimit: this.sessionWriteLimit
+      });
+      // Don't disable writes, just skip this one
       return;
     }
 
     if (!this.writesEnabled) {
       // Writes have been disabled due to previous permission issues
-      if (this.debugEnabled) console.debug('Analytics: writesDisabled, skipping track for', normalized);
+      console.warn('⚠️ [Analytics] Writes disabled, skipping track for', normalized);
       return;
     }
 
@@ -475,7 +599,8 @@ class Analytics {
     
     const deviceInfo = this.getDeviceModel();
     const connectionInfo = this.getConnectionType();
-    const productName = this.extractProductNameFromUrl(page);
+    // Use override if provided, otherwise extract from URL
+    const productName = productNameOverride || this.extractProductNameFromUrl(page);
     
     // Get demographics from localStorage (if set by user)
     const storedAge = localStorage.getItem('user_age');
@@ -527,15 +652,31 @@ class Analytics {
     }
 
     try {
-      // per-path count guard
+      // per-path count guard - but allow if productNameOverride is provided
       const pathCount = this.perPathCounts.get(normalized) || 0;
-      if (pathCount >= this.perPathLimit) {
-        if (this.debugEnabled) console.debug('Analytics: per-path limit reached, skipping', { normalized, pathCount, perPathLimit: this.perPathLimit });
+      if (pathCount >= this.perPathLimit && !productNameOverride) {
+        console.warn('⚠️ [Analytics] Per-path limit reached, skipping', { 
+          normalized, 
+          pathCount, 
+          perPathLimit: this.perPathLimit 
+        });
         return;
       }
       
-  // Save page view with Timestamp
-  await setDoc(doc(db, 'page_views', pageView.id), pageViewData);
+      console.log('💾 [Analytics] Saving page view to Firebase', {
+        pageViewId: pageView.id,
+        page: pageView.page,
+        productName: pageView.productName,
+        timestamp: pageView.timestamp.toISOString()
+      });
+
+      // Save page view with Timestamp
+      await setDoc(doc(db, 'page_views', pageView.id), pageViewData);
+      
+      console.log('✅ [Analytics] Page view saved successfully', {
+        pageViewId: pageView.id,
+        page: pageView.page
+      });
       
       // Store page view ID for later updates (scroll depth, interactions)
       if (typeof window !== 'undefined') {
@@ -564,21 +705,37 @@ class Analytics {
       await setDoc(pageStatsRef, {
         views: increment(1),
         page,
+        productName: productName || null, // Store product name in page stats too
       }, { merge: true });
 
-  // Count successful write
-  this.sessionWriteCount += 1;
-  this.perPathCounts.set(normalized, pathCount + 1);
-  this.lastTrackedPath = normalized;
-  this.lastTrackTimestamp = nowTs;
-  if (this.debugEnabled) console.debug('Analytics: tracked page view', { normalized, sessionWriteCount: this.sessionWriteCount, perPath: this.perPathCounts.get(normalized) });
+      // Count successful write
+      this.sessionWriteCount += 1;
+      this.perPathCounts.set(normalized, pathCount + 1);
+      this.lastTrackedPath = normalized;
+      this.lastTrackTimestamp = nowTs;
+      
+      console.log('✅ [Analytics] Page view tracking completed successfully', { 
+        normalized, 
+        sessionWriteCount: this.sessionWriteCount, 
+        perPath: this.perPathCounts.get(normalized),
+        productName: pageView.productName
+      });
 
     } catch (error: any) {
-      console.error('Error tracking page view:', error);
+      console.error('❌ [Analytics] Error tracking page view:', error);
+      console.error('Error details:', {
+        page,
+        normalized,
+        productNameOverride,
+        errorMessage: error?.message,
+        errorCode: error?.code,
+        errorStack: error?.stack
+      });
+      
       // If error looks like permission-denied or similar, disable further writes
       const msg = (error && (error.message || error.code || '')).toString().toLowerCase();
       if (msg.includes('permission') || msg.includes('permission-denied') || msg.includes('not allowed') || msg.includes('not-authorized')) {
-        console.warn('Analytics: disabling writes due to permission error');
+        console.warn('⚠️ [Analytics] Disabling writes due to permission error');
         this.writesEnabled = false;
       }
     }
@@ -666,6 +823,12 @@ class Analytics {
       const endTimestamp = Timestamp.fromDate(endDate);
 
       // Get page views in date range - use Timestamp for proper querying
+      console.log('📊 [Analytics] Fetching page views from Firebase', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        days
+      });
+      
       const pageViewsQuery = query(
         collection(db, 'page_views'),
         where('timestamp', '>=', startTimestamp),
@@ -678,6 +841,12 @@ class Analytics {
           ...data,
           timestamp: this.convertToDate(data.timestamp)
         } as PageView;
+      });
+      
+      console.log('📊 [Analytics] Page views fetched', {
+        totalPageViews: pageViews.length,
+        productPagesCount: pageViews.filter(v => v.page?.includes('/product/')).length,
+        samplePages: pageViews.slice(0, 5).map(v => ({ page: v.page, productName: v.productName }))
       });
 
       // Get sessions in date range - use Timestamp for proper querying
@@ -695,6 +864,23 @@ class Analytics {
           endTime: data.endTime ? this.convertToDate(data.endTime) : undefined
         } as VisitorSession;
       });
+
+      // Get orders in date range for conversion tracking
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        where('createdAt', '>=', startTimestamp),
+        where('createdAt', '<=', endTimestamp)
+      );
+      const ordersSnapshot = await getDocs(ordersQuery);
+      const orders: Order[] = ordersSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date(),
+          updatedAt: data.updatedAt?.toDate?.() || data.updatedAt || new Date(),
+        } as Order;
+      }).filter(order => order.status !== 'cancelled'); // Exclude cancelled orders
 
       // Calculate statistics
       const totalVisitors = sessions.length;
@@ -860,6 +1046,21 @@ class Analytics {
         })
         .sort((a, b) => b.views - a.views)
         .slice(0, 10);
+      
+      console.log('📊 [Analytics] Top pages calculated', {
+        topPagesCount: topPages.length,
+        topPages: topPages.map(p => ({ 
+          page: p.page, 
+          views: p.views,
+          uniqueVisitors: (p as any).uniqueVisitors || 0
+        })),
+        allPageDataKeys: Object.keys(pageData),
+        samplePageData: Object.entries(pageData).slice(0, 5).map(([page, data]) => ({
+          page,
+          views: data.views,
+          uniqueVisitors: data.sessionIds.size
+        }))
+      });
 
       // Top referrers with better detection
       const referrerData: { [key: string]: { visits: number; sources: Set<string> } } = {};
@@ -1045,12 +1246,26 @@ class Analytics {
         percentage: totalVisitors > 0 ? ((genderCounts[key] || 0) / totalVisitors) * 100 : 0
       }));
 
-      // Gender by Action (simplified - would need conversion data from orders)
+      // Gender by Action - Calculate conversion rates from actual orders
+      // Map order userIds to sessions for gender matching (simplified - assumes userId correlation)
+      const orderUserIds = new Set(orders.map(o => o.userId));
+      const convertingSessions = sessions.filter(s => {
+        // Try to match sessions with orders (simplified approach)
+        // In production, you'd want to track userId in sessions
+        return orderUserIds.has(s.id); // This is a simplified match
+      });
+      
+      const genderConversions: { [key: string]: number } = {};
+      convertingSessions.forEach(session => {
+        const gender = session.gender || 'not_specified';
+        genderConversions[gender] = (genderConversions[gender] || 0) + 1;
+      });
+
       const genderByAction = {
         conversionRate: {
-          male: 0, // Would need to calculate from actual conversions
-          female: 0,
-          not_specified: 0
+          male: (genderCounts['male'] || 0) > 0 ? ((genderConversions['male'] || 0) / genderCounts['male']) * 100 : 0,
+          female: (genderCounts['female'] || 0) > 0 ? ((genderConversions['female'] || 0) / genderCounts['female']) * 100 : 0,
+          not_specified: (genderCounts['not_specified'] || 0) > 0 ? ((genderConversions['not_specified'] || 0) / genderCounts['not_specified']) * 100 : 0
         },
         avgSessionDuration: {
           male: sessions.filter(s => s.gender === 'male').reduce((sum, s) => sum + (s.totalTime || 0), 0) / (genderCounts['male'] || 1),
@@ -1059,24 +1274,41 @@ class Analytics {
         }
       };
 
-      // Egypt Regions
-      const egyptRegionsData: { [key: string]: { visitors: number; pageViews: string[]; conversions: number } } = {};
+      // Egypt Regions - Enhanced with real order data
+      const egyptRegionsData: { [key: string]: { visitors: Set<string>; pageViews: string[]; orderIds: Set<string>; orderTotal: number } } = {};
       const egyptGovernorates = [
-        'القاهرة', 'الإسكندرية', 'الجيزة', 'الأقصر', 'أسوان', 'الشرقية', 'الدقهلية'
+        'القاهرة', 'الإسكندرية', 'الجيزة', 'الأقصر', 'أسوان', 'الشرقية', 'الدقهلية',
+        'المنيا', 'أسيوط', 'سوهاج', 'قنا', 'البحيرة', 'كفر الشيخ', 'الغربية'
       ];
+      
       pageViews.forEach(view => {
         if (view.region && egyptGovernorates.includes(view.region)) {
           if (!egyptRegionsData[view.region]) {
-            egyptRegionsData[view.region] = { visitors: 0, pageViews: [], conversions: 0 };
+            egyptRegionsData[view.region] = { visitors: new Set(), pageViews: [], orderIds: new Set(), orderTotal: 0 };
           }
           egyptRegionsData[view.region].pageViews.push(view.page);
+          egyptRegionsData[view.region].visitors.add(view.sessionId);
         }
       });
+      
       sessions.forEach(session => {
         if (session.region && egyptRegionsData[session.region]) {
-          egyptRegionsData[session.region].visitors++;
+          egyptRegionsData[session.region].visitors.add(session.id);
         }
       });
+
+      // Link orders to regions through delivery info
+      orders.forEach(order => {
+        const deliveryCity = order.deliveryInfo?.city || '';
+        if (egyptGovernorates.includes(deliveryCity)) {
+          if (!egyptRegionsData[deliveryCity]) {
+            egyptRegionsData[deliveryCity] = { visitors: new Set(), pageViews: [], orderIds: new Set(), orderTotal: 0 };
+          }
+          egyptRegionsData[deliveryCity].orderIds.add(order.id);
+          egyptRegionsData[deliveryCity].orderTotal += order.total;
+        }
+      });
+
       const egyptRegions = Object.entries(egyptRegionsData).map(([region, data]) => {
         const pageCounts: { [key: string]: number } = {};
         data.pageViews.forEach(page => {
@@ -1086,11 +1318,16 @@ class Analytics {
           .map(([page, views]) => ({ page, views }))
           .sort((a, b) => b.views - a.views)
           .slice(0, 5);
+        
+        const uniqueVisitors = data.visitors.size;
+        const conversions = data.orderIds.size;
+        const avgOrderValue = conversions > 0 ? data.orderTotal / conversions : 0;
+        
         return {
           region,
-          visitors: data.visitors,
-          conversionRate: data.visitors > 0 ? (data.conversions / data.visitors) * 100 : 0,
-          avgOrderValue: 0, // Would need order data
+          visitors: uniqueVisitors,
+          conversionRate: uniqueVisitors > 0 ? (conversions / uniqueVisitors) * 100 : 0,
+          avgOrderValue,
           topPages
         };
       }).sort((a, b) => b.visitors - a.visitors);
@@ -1161,7 +1398,32 @@ class Analytics {
             (connectionCounts[type] || 1) > 0 ? views / (connectionCounts[type] || 1) : 0
           ])
         ),
-        conversionRate: {} as { [key: string]: number } // Would need conversion data
+        conversionRate: (() => {
+          // Calculate conversion rates by connection type
+          const connConversions: { [key: string]: number } = {};
+          const connVisitors: { [key: string]: number } = {};
+          
+          sessions.forEach(session => {
+            const connType = session.connectionType || 'unknown';
+            connVisitors[connType] = (connVisitors[connType] || 0) + 1;
+            // Simplified: if session has order, count as conversion
+            // In production, you'd link sessions to orders via userId
+          });
+          
+          // Count orders by connection type (simplified - would need session-order linkage)
+          orders.forEach(order => {
+            // This is a simplified approach - in production, track connectionType in orders
+            // For now, we'll calculate overall conversion and distribute proportionally
+          });
+          
+          const overallConversionRate = totalVisitors > 0 ? (orders.length / totalVisitors) * 100 : 0;
+          
+          return Object.keys(connVisitors).reduce((acc, type) => {
+            // Distribute conversions proportionally (simplified)
+            acc[type] = overallConversionRate;
+            return acc;
+          }, {} as { [key: string]: number });
+        })()
       };
 
       // Phone Models
@@ -1186,7 +1448,12 @@ class Analytics {
           count: data.count,
           percentage: totalVisitors > 0 ? (data.count / totalVisitors) * 100 : 0,
           avgSessionDuration: data.sessions.reduce((sum, s) => sum + (s.totalTime || 0), 0) / data.count,
-          conversionRate: 0, // Would need conversion data
+          conversionRate: (() => {
+            // Calculate conversion rate for this phone model
+            // Simplified: use overall conversion rate
+            // In production, track conversions per device model
+            return totalVisitors > 0 ? (orders.length / totalVisitors) * 100 : 0;
+          })(),
           screenSizes: Array.from(data.screenSizes)
         }))
         .sort((a, b) => b.count - a.count)
@@ -1214,7 +1481,7 @@ class Analytics {
         )
         .sort((a, b) => b.count - a.count);
 
-      // Product Pages Analytics
+      // Product Pages Analytics - Enhanced with real order data
       const productPageData: { [key: string]: {
         productName: string;
         productId: string;
@@ -1222,6 +1489,8 @@ class Analytics {
         timeOnPage: number[];
         bounces: number;
         conversions: number;
+        orderQuantity: number;
+        revenue: number;
         sources: { [key: string]: number };
         timeDistribution: { [key: string]: number };
         scrollDepths: { '25%': number; '50%': number; '75%': number; '100%': number };
@@ -1231,17 +1500,29 @@ class Analytics {
         exits: number;
       } } = {};
       
-      pageViews.filter(v => v.productName).forEach(view => {
-        const productId = view.page.split('/').pop() || '';
-        const key = `${view.productName}::${productId}`;
+      // Extract product IDs from page views
+      pageViews.filter(v => v.productName || v.page.includes('/product/')).forEach(view => {
+        // Extract product ID from URL or use productName
+        let productId = '';
+        if (view.page.includes('/product/')) {
+          const parts = view.page.split('/product/');
+          productId = parts[1]?.split('?')[0]?.split('#')[0] || '';
+        }
+        if (!productId && view.productName) {
+          productId = view.page.split('/').pop() || '';
+        }
+        
+        const key = productId || view.productName || view.page;
         if (!productPageData[key]) {
           productPageData[key] = {
-            productName: view.productName!,
-            productId,
+            productName: view.productName || 'Unknown',
+            productId: productId || '',
             views: 0,
             timeOnPage: [],
             bounces: 0,
             conversions: 0,
+            orderQuantity: 0,
+            revenue: 0,
             sources: {},
             timeDistribution: { '0-30s': 0, '30s-1m': 0, '1-3m': 0, '3-5m': 0, '5m+': 0 },
             scrollDepths: { '25%': 0, '50%': 0, '75%': 0, '100%': 0 },
@@ -1278,6 +1559,26 @@ class Analytics {
         productPageData[key].sources[source] = (productPageData[key].sources[source] || 0) + 1;
       });
 
+      // Link orders to product pages for conversion tracking
+      orders.forEach(order => {
+        order.items.forEach(item => {
+          // Try to match product by ID or name
+          const productKey = Object.keys(productPageData).find(key => {
+            const data = productPageData[key];
+            return data.productId === item.productId || 
+                   data.productName === item.productName ||
+                   key.includes(item.productId) ||
+                   key.includes(item.productName);
+          });
+          
+          if (productKey) {
+            productPageData[productKey].conversions++;
+            productPageData[productKey].orderQuantity += item.quantity;
+            productPageData[productKey].revenue += item.totalPrice;
+          }
+        });
+      });
+
       // Calculate next pages (would need to track this)
       const productPages = Object.entries(productPageData).map(([key, data]) => {
         const sortedTimes = [...data.timeOnPage].sort((a, b) => a - b);
@@ -1310,9 +1611,21 @@ class Analytics {
           interactions: data.interactions,
           previousPages: previousPagesList,
           nextPages: nextPagesList,
-          exitRate: data.views > 0 ? (data.exits / data.views) * 100 : 0
+          exitRate: data.views > 0 ? (data.exits / data.views) * 100 : 0,
+          // Enhanced metrics from orders
+          orderQuantity: data.orderQuantity,
+          revenue: data.revenue,
+          avgOrderValue: data.conversions > 0 ? data.revenue / data.conversions : 0
         };
       }).sort((a, b) => b.views - a.views);
+
+      // Calculate order statistics
+      const totalOrders = orders.length;
+      const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const totalOrderQuantity = orders.reduce((sum, order) => 
+        sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
+      );
 
       return {
         totalVisitors,
@@ -1339,7 +1652,17 @@ class Analytics {
         connectionMetrics,
         phoneModels,
         osBreakdown,
-        productPages
+        productPages,
+        // Order statistics
+        totalOrders,
+        totalRevenue,
+        avgOrderValue,
+        totalOrderQuantity
+      } as AnalyticsData & {
+        totalOrders: number;
+        totalRevenue: number;
+        avgOrderValue: number;
+        totalOrderQuantity: number;
       };
     } catch (error) {
       console.error('Error getting analytics data:', error);

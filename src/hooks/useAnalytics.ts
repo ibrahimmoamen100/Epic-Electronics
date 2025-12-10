@@ -53,16 +53,23 @@ export const useAnalytics = (timeRange: number = 30) => {
 
   // Set up real-time updates
   useEffect(() => {
-    loadRealTimeData();
-    const interval = setInterval(loadRealTimeData, 30000); // Update every 30 seconds
-    return () => clearInterval(interval);
-  }, [loadRealTimeData]);
+    if (timeRange > 0) {
+      loadRealTimeData();
+      const interval = setInterval(loadRealTimeData, 30000); // Update every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [loadRealTimeData, timeRange]);
 
-  // Auto-refresh data every 5 minutes
+  // Auto-refresh data every 2 minutes (more frequent for real-time feel)
   useEffect(() => {
-    const refreshInterval = setInterval(loadData, 5 * 60 * 1000);
-    return () => clearInterval(refreshInterval);
-  }, [loadData]);
+    if (timeRange > 0) {
+      const refreshInterval = setInterval(() => {
+        console.log('[Analytics] Auto-refreshing data...');
+        loadData();
+      }, 2 * 60 * 1000); // Update every 2 minutes
+      return () => clearInterval(refreshInterval);
+    }
+  }, [loadData, timeRange]);
 
   const refreshData = useCallback(() => {
     loadData();

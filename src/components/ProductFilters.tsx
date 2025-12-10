@@ -38,6 +38,10 @@ export function ProductFilters() {
   // State to control accordion sections
   const [accordionValue, setAccordionValue] = useState<string[]>(["price", "category"]);
 
+  const optionRow =
+    "flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2 md:px-4 md:py-2.5 hover:border-border/60 hover:bg-muted/60 transition-colors cursor-pointer";
+  const optionSelected = "border-primary/60 bg-primary/5";
+
   // Get filtered products based on current filters (excluding CPU and GPU filters for dependent filtering)
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -556,17 +560,24 @@ export function ProductFilters() {
               onValueChange={handleCategoryChange}
               className="space-y-2 pt-2"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="all-categories" />
-                <Label htmlFor="all-categories">
-                  {t("filters.allCategories")}
-                </Label>
-              </div>
+              <Label
+                htmlFor="all-categories"
+                className={`${optionRow} ${!filters.category ? optionSelected : ""}`}
+              >
+                <RadioGroupItem value="all" id="all-categories" className="h-4 w-4" />
+                <span>{t("filters.allCategories")}</span>
+              </Label>
               {categories.map((category) => (
-                <div key={category} className="flex items-center space-x-2">
-                  <RadioGroupItem value={category} id={category} />
-                  <Label htmlFor={category}>{category}</Label>
-                </div>
+                <Label
+                  key={category}
+                  htmlFor={category}
+                  className={`${optionRow} ${
+                    filters.category === category ? optionSelected : ""
+                  }`}
+                >
+                  <RadioGroupItem value={category} id={category} className="h-4 w-4" />
+                  <span>{category}</span>
+                </Label>
               ))}
             </RadioGroup>
           </AccordionContent>
@@ -593,20 +604,24 @@ export function ProductFilters() {
                 onValueChange={handleSubcategoryChange}
                 className="space-y-2 pt-2"
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="all" id="all-subcategories" />
-                  <Label htmlFor="all-subcategories">
-                    {t("filters.allSubcategories")}
-                  </Label>
-                </div>
+                <Label
+                  htmlFor="all-subcategories"
+                  className={`${optionRow} ${!filters.subcategory ? optionSelected : ""}`}
+                >
+                  <RadioGroupItem value="all" id="all-subcategories" className="h-4 w-4" />
+                  <span>{t("filters.allSubcategories")}</span>
+                </Label>
                 {subcategories.map((subcategory) => (
-                  <div
+                  <Label
                     key={subcategory}
-                    className="flex items-center space-x-2"
+                    htmlFor={subcategory}
+                    className={`${optionRow} ${
+                      filters.subcategory === subcategory ? optionSelected : ""
+                    }`}
                   >
-                    <RadioGroupItem value={subcategory} id={subcategory} />
-                    <Label htmlFor={subcategory}>{subcategory}</Label>
-                  </div>
+                    <RadioGroupItem value={subcategory} id={subcategory} className="h-4 w-4" />
+                    <span>{subcategory}</span>
+                  </Label>
                 ))}
               </RadioGroup>
             ) : (
@@ -630,20 +645,31 @@ export function ProductFilters() {
               onValueChange={handleBrandChange}
               className="space-y-2 pt-2"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="all-brands" />
-                <Label htmlFor="all-brands">{t("filters.allBrands")}</Label>
-              </div>
+              <Label
+                htmlFor="all-brands"
+                className={`${optionRow} justify-between ${!filters.brand ? optionSelected : ""}`}
+              >
+                <div className="flex items-center gap-3">
+                  <RadioGroupItem value="all" id="all-brands" className="h-4 w-4" />
+                  <span>{t("filters.allBrands")}</span>
+                </div>
+              </Label>
               {brands.map((brand) => {
                 const count = filteredProducts.filter((p) => p.brand === brand).length;
                 return (
-                  <div key={brand} className="flex items-center justify-between w-full">
-                    <div className="flex items-center space-x-2 flex-1">
-                      <RadioGroupItem value={brand} id={brand} />
-                      <Label htmlFor={brand}>{brand}</Label>
+                  <Label
+                    key={brand}
+                    htmlFor={brand}
+                    className={`${optionRow} justify-between ${
+                      filters.brand === brand ? optionSelected : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <RadioGroupItem value={brand} id={brand} className="h-4 w-4" />
+                      <span>{brand}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">({count})</span>
-                  </div>
+                  </Label>
                 );
               })}
             </RadioGroup>
@@ -665,12 +691,19 @@ export function ProductFilters() {
                       ? processorBrand === brand
                       : false;
                   }).length;
+                  const selected = filters.processorBrand?.includes(brand);
                   return (
-                    <div key={brand} className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 flex-1">
+                    <Label
+                      key={brand}
+                      htmlFor={`processor-brand-${brand}`}
+                      className={`${optionRow} justify-between ${
+                        selected ? optionSelected : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
                         <Checkbox
                           id={`processor-brand-${brand}`}
-                          checked={filters.processorBrand?.includes(brand) || false}
+                          checked={selected || false}
                           onCheckedChange={(checked) => {
                             const currentBrands = filters.processorBrand || [];
                             if (checked) {
@@ -688,10 +721,10 @@ export function ProductFilters() {
                             }
                           }}
                         />
-                        <Label htmlFor={`processor-brand-${brand}`}>{brand}</Label>
+                        <span>{brand}</span>
                       </div>
                       <span className="text-xs text-muted-foreground">({count})</span>
-                    </div>
+                    </Label>
                   );
                 })
               ) : (
@@ -722,12 +755,19 @@ export function ProductFilters() {
                     }
                     return true;
                   }).length;
+                  const selected = filters.processorGeneration?.includes(generation);
                   return (
-                    <div key={generation} className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 flex-1">
+                    <Label
+                      key={generation}
+                      htmlFor={`processor-generation-${generation}`}
+                      className={`${optionRow} justify-between ${
+                        selected ? optionSelected : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
                         <Checkbox
                           id={`processor-generation-${generation}`}
-                          checked={filters.processorGeneration?.includes(generation) || false}
+                          checked={selected || false}
                           onCheckedChange={(checked) => {
                             const currentGenerations = filters.processorGeneration || [];
                             if (checked) {
@@ -745,10 +785,10 @@ export function ProductFilters() {
                             }
                           }}
                         />
-                        <Label htmlFor={`processor-generation-${generation}`}>{generation}</Label>
+                        <span>{generation}</span>
                       </div>
                       <span className="text-xs text-muted-foreground">({count})</span>
-                    </div>
+                    </Label>
                   );
                 })
               ) : (
@@ -782,12 +822,19 @@ export function ProductFilters() {
                     }
                     return true;
                   }).length;
+                  const selected = filters.processorSeries?.includes(series);
                   return (
-                    <div key={series} className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 flex-1">
+                    <Label
+                      key={series}
+                      htmlFor={`processor-series-${series}`}
+                      className={`${optionRow} justify-between ${
+                        selected ? optionSelected : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
                         <Checkbox
                           id={`processor-series-${series}`}
-                          checked={filters.processorSeries?.includes(series) || false}
+                          checked={selected || false}
                           onCheckedChange={(checked) => {
                             const currentSeries = filters.processorSeries || [];
                             if (checked) {
@@ -805,10 +852,10 @@ export function ProductFilters() {
                             }
                           }}
                         />
-                        <Label htmlFor={`processor-series-${series}`}>{series}</Label>
+                        <span>{series}</span>
                       </div>
                       <span className="text-xs text-muted-foreground">({count})</span>
-                    </div>
+                    </Label>
                   );
                 })
               ) : (
@@ -845,12 +892,19 @@ export function ProductFilters() {
                     }
                     return true;
                   }).length;
+                  const selected = filters.integratedGpu?.includes(gpu);
                   return (
-                    <div key={gpu} className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 flex-1">
+                    <Label
+                      key={gpu}
+                      htmlFor={`integrated-gpu-${gpu}`}
+                      className={`${optionRow} justify-between ${
+                        selected ? optionSelected : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
                         <Checkbox
                           id={`integrated-gpu-${gpu}`}
-                          checked={filters.integratedGpu?.includes(gpu) || false}
+                          checked={selected || false}
                           onCheckedChange={(checked) => {
                             const currentGpus = filters.integratedGpu || [];
                             if (checked) {
@@ -868,10 +922,10 @@ export function ProductFilters() {
                             }
                           }}
                         />
-                        <Label htmlFor={`integrated-gpu-${gpu}`}>{gpu}</Label>
+                        <span>{gpu}</span>
                       </div>
                       <span className="text-xs text-muted-foreground">({count})</span>
-                    </div>
+                    </Label>
                   );
                 })
               ) : (
@@ -910,10 +964,15 @@ export function ProductFilters() {
               }}
               className="space-y-2 pt-2"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="all-processors" />
-                <Label htmlFor="all-processors">{t("filters.allProcessors")}</Label>
-              </div>
+              <Label
+                htmlFor="all-processors"
+                className={`${optionRow} justify-between ${!filters.processorName ? optionSelected : ""}`}
+              >
+                <div className="flex items-center gap-3">
+                  <RadioGroupItem value="all" id="all-processors" className="h-4 w-4" />
+                  <span>{t("filters.allProcessors")}</span>
+                </div>
+              </Label>
               {processorNames.length > 0 ? (
                 processorNames.map((name) => {
                   const count = filteredProducts.filter((p) => {
@@ -935,14 +994,19 @@ export function ProductFilters() {
                     }
                     return true;
                   }).length;
+                  const selected = filters.processorName === name;
                   return (
-                    <div key={name} className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 flex-1">
-                        <RadioGroupItem value={name} id={name} />
-                        <Label htmlFor={name}>{name}</Label>
+                    <Label
+                      key={name}
+                      htmlFor={name}
+                      className={`${optionRow} justify-between ${selected ? optionSelected : ""}`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <RadioGroupItem value={name} id={name} className="h-4 w-4" />
+                        <span>{name}</span>
                       </div>
                       <span className="text-xs text-muted-foreground">({count})</span>
-                    </div>
+                    </Label>
                   );
                 })
               ) : (
@@ -974,18 +1038,25 @@ export function ProductFilters() {
               }
               className="space-y-2 pt-2"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="all-screen-sizes" />
-                <Label htmlFor="all-screen-sizes">
-                  {t("filters.allScreenSizes")}
-                </Label>
-              </div>
+              <Label
+                htmlFor="all-screen-sizes"
+                className={`${optionRow} ${!filters.screenSize ? optionSelected : ""}`}
+              >
+                <RadioGroupItem value="all" id="all-screen-sizes" className="h-4 w-4" />
+                <span>{t("filters.allScreenSizes")}</span>
+              </Label>
               {screenSizes.length > 0 ? (
                 screenSizes.map((size) => (
-                  <div key={size} className="flex items-center space-x-2">
-                    <RadioGroupItem value={size} id={`screen-${size}`} />
-                    <Label htmlFor={`screen-${size}`}>{size}"</Label>
-                  </div>
+                  <Label
+                    key={size}
+                    htmlFor={`screen-${size}`}
+                    className={`${optionRow} ${
+                      filters.screenSize === size ? optionSelected : ""
+                    }`}
+                  >
+                    <RadioGroupItem value={size} id={`screen-${size}`} className="h-4 w-4" />
+                    <span>{size}"</span>
+                  </Label>
                 ))
               ) : (
                 <div className="text-sm text-muted-foreground py-2">
@@ -1020,16 +1091,25 @@ export function ProductFilters() {
                 }}
                 className="space-y-2 pt-2"
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value={"all"} id={"all-gpus"} />
-                  <Label htmlFor={"all-gpus"}>{t("filters.allGPUs")}</Label>
-                </div>
+                <Label
+                  htmlFor={"all-gpus"}
+                  className={`${optionRow} ${!filters.dedicatedGraphicsName ? optionSelected : ""}`}
+                >
+                  <RadioGroupItem value={"all"} id={"all-gpus"} className="h-4 w-4" />
+                  <span>{t("filters.allGPUs")}</span>
+                </Label>
                 {gpuNames.length > 0 ? (
                   gpuNames.map((name) => (
-                    <div key={name} className="flex items-center space-x-2">
-                      <RadioGroupItem value={name} id={`gpu-${name}`} />
-                      <Label htmlFor={`gpu-${name}`}>{name}</Label>
-                    </div>
+                    <Label
+                      key={name}
+                      htmlFor={`gpu-${name}`}
+                      className={`${optionRow} ${
+                        filters.dedicatedGraphicsName === name ? optionSelected : ""
+                      }`}
+                    >
+                      <RadioGroupItem value={name} id={`gpu-${name}`} className="h-4 w-4" />
+                      <span>{name}</span>
+                    </Label>
                   ))
                 ) : (
                   <div className="text-sm text-muted-foreground py-2">
@@ -1040,8 +1120,10 @@ export function ProductFilters() {
                 )}
               </RadioGroup>
 
-              <div className="flex items-center mt-2">
-                <Label htmlFor="has-gpu">{t("filters.onlyWithGPU")}</Label>
+              <div className={`${optionRow} justify-between`}>
+                <Label htmlFor="has-gpu" className="cursor-pointer">
+                  {t("filters.onlyWithGPU")}
+                </Label>
                 <div className="ml-auto">
                   <input
                     id="has-gpu"
@@ -1148,26 +1230,49 @@ export function ProductFilters() {
               }
               className="space-y-2 pt-2"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="default" id="default-sort" />
-                <Label htmlFor="default-sort">{t("filters.default")}</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="price-asc" id="price-asc" />
-                <Label htmlFor="price-asc">{t("filters.priceAsc")}</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="price-desc" id="price-desc" />
-                <Label htmlFor="price-desc">{t("filters.priceDesc")}</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="name-asc" id="name-asc" />
-                <Label htmlFor="name-asc">{t("filters.nameAsc")}</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="name-desc" id="name-desc" />
-                <Label htmlFor="name-desc">{t("filters.nameDesc")}</Label>
-              </div>
+              <Label
+                htmlFor="default-sort"
+                className={`${optionRow} ${!filters.sortBy ? optionSelected : ""}`}
+              >
+                <RadioGroupItem value="default" id="default-sort" className="h-4 w-4" />
+                <span>{t("filters.default")}</span>
+              </Label>
+              <Label
+                htmlFor="price-asc"
+                className={`${optionRow} ${
+                  filters.sortBy === "price-asc" ? optionSelected : ""
+                }`}
+              >
+                <RadioGroupItem value="price-asc" id="price-asc" className="h-4 w-4" />
+                <span>{t("filters.priceAsc")}</span>
+              </Label>
+              <Label
+                htmlFor="price-desc"
+                className={`${optionRow} ${
+                  filters.sortBy === "price-desc" ? optionSelected : ""
+                }`}
+              >
+                <RadioGroupItem value="price-desc" id="price-desc" className="h-4 w-4" />
+                <span>{t("filters.priceDesc")}</span>
+              </Label>
+              <Label
+                htmlFor="name-asc"
+                className={`${optionRow} ${
+                  filters.sortBy === "name-asc" ? optionSelected : ""
+                }`}
+              >
+                <RadioGroupItem value="name-asc" id="name-asc" className="h-4 w-4" />
+                <span>{t("filters.nameAsc")}</span>
+              </Label>
+              <Label
+                htmlFor="name-desc"
+                className={`${optionRow} ${
+                  filters.sortBy === "name-desc" ? optionSelected : ""
+                }`}
+              >
+                <RadioGroupItem value="name-desc" id="name-desc" className="h-4 w-4" />
+                <span>{t("filters.nameDesc")}</span>
+              </Label>
             </RadioGroup>
           </AccordionContent>
         </AccordionItem>

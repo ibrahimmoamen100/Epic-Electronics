@@ -1085,6 +1085,17 @@ export class FirebaseAttendanceService {
     }
   }
 
+  // Delete salary advance
+  async deleteSalaryAdvance(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, this.advancesCollectionName, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting salary advance:', error);
+      throw error;
+    }
+  }
+
   // Add or update attendance record
   async addOrUpdateAttendanceRecord(
     employee: Employee,

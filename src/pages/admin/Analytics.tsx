@@ -107,7 +107,12 @@ const Analytics = () => {
     return new Intl.NumberFormat('ar-EG').format(num);
   };
 
-  const getPageName = (path: string) => {
+  const getPageName = (path: string, productName?: string) => {
+    // If it's a product page and we have productName from analytics data, use it
+    if (path.startsWith('/product/') && productName) {
+      return productName;
+    }
+    
     const pageNames: { [key: string]: string } = {
       '/': 'الصفحة الرئيسية',
       '/products': 'المنتجات',
@@ -119,6 +124,14 @@ const Analytics = () => {
       '/admin/orders': 'إدارة الطلبات',
       '/admin/analytics': 'إحصائيات الزوار',
     };
+    
+    // For product pages without productName, extract readable name from slug
+    if (path.startsWith('/product/') && !productName) {
+      const slug = path.replace('/product/', '').split('?')[0].split('#')[0];
+      const words = slug.split('-').slice(0, 6);
+      return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || path;
+    }
+    
     return pageNames[path] || path;
   };
 
@@ -219,10 +232,10 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Real-time Visitors */}
+        {/* Real-time Visitors & Data Status */}
         <Card className="mb-8 border-green-200 bg-green-50">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <Activity className="h-8 w-8 text-green-600" />
                 <div>
@@ -230,15 +243,26 @@ const Analytics = () => {
                   <p className="text-sm text-green-600">آخر 5 دقائق</p>
                 </div>
               </div>
-                             <div className="text-right">
-                 <div className="text-3xl font-bold text-green-800">{realTimeVisitors}</div>
-                 <div className="text-sm text-green-600">زائر نشط</div>
-                 {lastUpdated && (
-                   <div className="text-xs text-green-500 mt-1">
-                     آخر تحديث: {lastUpdated.toLocaleTimeString('ar-EG')}
-                   </div>
-                 )}
-               </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold text-green-800">{realTimeVisitors}</div>
+                <div className="text-sm text-green-600">زائر نشط</div>
+                {lastUpdated && (
+                  <div className="text-xs text-green-500 mt-1">
+                    آخر تحديث: {lastUpdated.toLocaleTimeString('ar-EG')}
+                  </div>
+                )}
+              </div>
+              {data && (
+                <div className="flex-1 min-w-[200px]">
+                  <div className="text-xs text-green-700 mb-1">حالة البيانات:</div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-sm text-green-700">
+                      البيانات محدثة • {data.totalVisitors} زائر • {data.pageViews} مشاهدة
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -295,6 +319,58 @@ const Analytics = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Advanced Analytics Cards */}
+        {data && (data as any).totalOrders !== undefined && (
+          <div className="grid gap-6 md:grid-cols-3 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">إجمالي الطلبات</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatNumber((data as any).totalOrders || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  في آخر {timeRange} يوم
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">معدل التحويل الإجمالي</CardTitle>
+                <Target className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {data.totalVisitors > 0 
+                    ? (((data as any).totalOrders || 0) / data.totalVisitors * 100).toFixed(2)
+                    : '0.00'}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  من الزوار إلى عملاء
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">متوسط قيمة الطلب</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatNumber((data as any).avgOrderValue || 0)} جنيه
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  لكل طلب
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="grid gap-8 md:grid-cols-2">
           {/* Top Pages */}
@@ -1001,24 +1077,40 @@ const Analytics = () => {
                         <TableHead>متوسط الوقت</TableHead>
                         <TableHead>معدل الارتداد</TableHead>
                         <TableHead>معدل التحويل</TableHead>
+                        <TableHead>الكمية المباعة</TableHead>
+                        <TableHead>الإيرادات</TableHead>
                         <TableHead>المصدر الأساسي</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {data?.productPages.length > 0 ? (
                         data.productPages.map((product) => (
-                          <TableRow key={product.productId}>
+                          <TableRow key={product.productId || product.productName}>
                             <TableCell className="font-medium">{product.productName}</TableCell>
                             <TableCell>{formatNumber(product.views)}</TableCell>
                             <TableCell>{formatDuration(product.avgTimeOnPage)}</TableCell>
-                            <TableCell>{product.bounceRate.toFixed(1)}%</TableCell>
-                            <TableCell>{product.conversionRate.toFixed(1)}%</TableCell>
+                            <TableCell>
+                              <Badge variant={product.bounceRate > 50 ? "destructive" : "secondary"}>
+                                {product.bounceRate.toFixed(1)}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={product.conversionRate > 5 ? "default" : "outline"}>
+                                {product.conversionRate.toFixed(1)}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-semibold text-green-600">
+                              {formatNumber((product as any).orderQuantity || 0)}
+                            </TableCell>
+                            <TableCell className="font-semibold text-green-700">
+                              {formatNumber((product as any).revenue || 0)} جنيه
+                            </TableCell>
                             <TableCell className="text-sm text-muted-foreground">{product.topSource}</TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                             لا توجد بيانات عن صفحات المنتجات
                           </TableCell>
                         </TableRow>

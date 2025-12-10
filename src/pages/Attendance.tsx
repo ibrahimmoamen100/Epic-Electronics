@@ -449,6 +449,25 @@ export default function Attendance() {
     },
   });
 
+  // Delete salary advance mutation
+  const deleteSalaryAdvanceMutation = useMutation({
+    mutationFn: async (advanceId: string) => {
+      return attendanceService.deleteSalaryAdvance(advanceId);
+    },
+    onSuccess: (_, advanceId) => {
+      // Find the advance to get employeeId and month for invalidation
+      const deletedAdvance = salaryAdvances.find((adv) => adv.id === advanceId);
+      if (deletedAdvance) {
+        queryClient.invalidateQueries({ queryKey: ['salaryAdvances'] });
+        queryClient.invalidateQueries({ queryKey: ['monthlySummary', deletedAdvance.employeeId, deletedAdvance.month] });
+      }
+      toast.success('تم حذف السلفة بنجاح');
+    },
+    onError: (error: any) => {
+      toast.error('حدث خطأ: ' + (error.message || 'تعذر حذف السلفة'));
+    },
+  });
+
   const resetEmployeeForm = () => {
     setEmployeeForm({
       name: '',
@@ -1501,18 +1520,33 @@ export default function Attendance() {
                     {salaryAdvances.map((adv) => (
                       <div
                         key={adv.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between border rounded-lg p-3"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between border rounded-lg p-3 gap-3"
                       >
-                        <div className="space-y-1">
+                        <div className="space-y-1 flex-1">
                           <p className="font-semibold">{adv.employeeName}</p>
                           <p className="text-xs text-muted-foreground">{adv.month}</p>
                           {adv.note && <p className="text-sm text-muted-foreground">ملاحظة: {adv.note}</p>}
                         </div>
-                        <div className="text-right mt-2 sm:mt-0">
-                          <p className="text-lg font-bold text-red-600">-{adv.amount.toFixed(2)} جنيه</p>
-                          <p className="text-xs text-muted-foreground">
-                            {adv.createdAt ? new Date(adv.createdAt).toLocaleString() : ''}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-red-600">-{adv.amount.toFixed(2)} جنيه</p>
+                            <p className="text-xs text-muted-foreground">
+                              {adv.createdAt ? new Date(adv.createdAt).toLocaleString() : ''}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`هل أنت متأكد من حذف السلفة بقيمة ${adv.amount.toFixed(2)} جنيه؟`)) {
+                                deleteSalaryAdvanceMutation.mutate(adv.id);
+                              }
+                            }}
+                            disabled={deleteSalaryAdvanceMutation.isPending}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     ))}
