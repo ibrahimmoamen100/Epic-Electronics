@@ -4,7 +4,8 @@ import { z } from "zod";
 export const ProductSizeSchema = z.object({
   id: z.string(),
   label: z.string(),
-  price: z.number(),
+  extraPrice: z.number().optional().default(0), // Extra cost added to base price
+  price: z.number(), // Final price (Base + Extra)
 });
 
 // Addon schema for products

@@ -51,7 +51,7 @@ const integratedGraphicsOptions = [
   "Intel UHD Graphics 620",
   "Intel Iris Xe Graphics",
   "AMD Radeon Graphics",
-  "AMD Radeon Vega 6","AMD Radeon Vega 8","AMD Radeon Vega 10" , "AMD Radeon Vega 11",
+  "AMD Radeon Vega 6", "AMD Radeon Vega 8", "AMD Radeon Vega 10", "AMD Radeon Vega 11",
   "لا يوجد"
 ];
 
@@ -65,9 +65,9 @@ const graphicsCardOptions = [
   "RX 5700 XT", "RX 5600 XT",
   "MX930", "MX950", "MX960", "MX970", "MX980", "MX990",
   "RTX A2000", "RTX A3000", "RTX A4000", "RTX A5000", "RTX A6000", "RTX A7000", "RTX A8000",
-  "P1000", "P1200", "P2000", "P3000", "P4000", 
-  "M1000", "M1200", "M2000", "M3000", "M4000", 
-  "T1000", "T1200", "T2000", "T3000", "T4000", 
+  "P1000", "P1200", "P2000", "P3000", "P4000",
+  "M1000", "M1200", "M2000", "M3000", "M4000",
+  "T1000", "T1200", "T2000", "T3000", "T4000",
 ];
 
 // Graphics card manufacturers
@@ -87,13 +87,13 @@ const powerConnectorOptions = ["6-pin", "8-pin", "12-pin", "16-pin", "لا يت�
 
 // Available ports options
 const availablePortsOptions = [
-  "HDMI 2.1", "DisplayPort 1.4", "DisplayPort 2.1", 
+  "HDMI 2.1", "DisplayPort 1.4", "DisplayPort 2.1",
   "DVI-D", "USB-C", "VGA"
 ];
 
 // Gaming technologies options
 const gamingTechnologiesOptions = [
-  "Ray Tracing", "DLSS", "FSR", "G-Sync Compatible", 
+  "Ray Tracing", "DLSS", "FSR", "G-Sync Compatible",
   "FreeSync", "DirectX 12 Ultimate"
 ];
 
@@ -112,7 +112,7 @@ export function EditProductModal({
 }: EditProductModalProps) {
   const { products } = useStore();
   const { t } = useTranslation();
-  const [formData, setFormData] = useState<Product | null>(null);
+  const [formData, setFormData] = useState<any>(null);
   const [colors, setColors] = useState<string[]>([]);
   const [sizes, setSizes] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
@@ -135,7 +135,8 @@ export function EditProductModal({
     const newSize = {
       id: crypto.randomUUID(),
       label: "",
-      price: 0,
+      price: formData.price || 0,
+      extraPrice: 0,
     };
     setFormData({
       ...formData,
@@ -143,13 +144,44 @@ export function EditProductModal({
     });
   };
 
-  const updateSize = (index: number, field: 'label' | 'price', value: string | number) => {
+  // Update size prices when base price changes
+  useEffect(() => {
+    if (formData?.sizes && formData.sizes.length > 0) {
+      const basePrice = Number(formData.price) || 0;
+      const updatedSizes = formData.sizes.map(size => {
+        const extra = Number(size.extraPrice) || 0;
+        const newPrice = basePrice + extra;
+        if (size.price !== newPrice) {
+          return { ...size, price: newPrice };
+        }
+        return size;
+      });
+
+      // Only update if changes detected to avoid infinite loop
+      if (JSON.stringify(updatedSizes) !== JSON.stringify(formData.sizes)) {
+        setFormData(prev => prev ? ({ ...prev, sizes: updatedSizes }) : null);
+      }
+    }
+  }, [formData?.price]);
+
+  const updateSize = (index: number, field: 'label' | 'extraPrice', value: string | number) => {
     if (!formData) return;
+
+    const newSizes = [...(formData.sizes || [])];
+    const size = { ...newSizes[index] };
+
+    if (field === 'extraPrice') {
+      size.extraPrice = Number(value);
+      size.price = (Number(formData.price) || 0) + size.extraPrice;
+    } else if (field === 'label') {
+      size.label = String(value);
+    }
+
+    newSizes[index] = size;
+
     setFormData({
       ...formData,
-      sizes: (formData.sizes || []).map((size, i) => 
-        i === index ? { ...size, [field]: value } : size
-      )
+      sizes: newSizes
     });
   };
 
@@ -179,7 +211,7 @@ export function EditProductModal({
     if (!formData) return;
     setFormData({
       ...formData,
-      addons: (formData.addons || []).map((addon, i) => 
+      addons: (formData.addons || []).map((addon, i) =>
         i === index ? { ...addon, [field]: value } : addon
       )
     });
@@ -225,87 +257,95 @@ export function EditProductModal({
       // Normalize processor fields
       const normalizedProcessor = product.processor
         ? {
-            ...product.processor,
-            processorBrand: product.processor.processorBrand || undefined,
-            processorGeneration: product.processor.processorGeneration || "",
-            processorSeries: product.processor.processorSeries || "",
-            processorSeriesSelect: product.processor.processorSeries || "",
-            customProcessorSeries: "",
-            integratedGpu: product.processor.integratedGpu || "",
-            integratedGpuSelect: product.processor.integratedGpu || "",
-            customIntegratedGpu: "",
-            // Normalize cacheMemory
-            cacheMemorySelect: cacheMemoryOptions.includes(product.processor.cacheMemory || '')
-              ? (product.processor.cacheMemory || '')
-              : (product.processor.cacheMemory ? 'custom' : ''),
-            customCacheMemory: cacheMemoryOptions.includes(product.processor.cacheMemory || '')
-              ? ''
-              : (product.processor.cacheMemory || ''),
-            // Normalize integratedGraphics
-            integratedGraphicsSelect: integratedGraphicsOptions.includes(product.processor.integratedGraphics || '')
-              ? (product.processor.integratedGraphics || '')
-              : (product.processor.integratedGraphics ? 'custom' : ''),
-            customIntegratedGraphics: integratedGraphicsOptions.includes(product.processor.integratedGraphics || '')
-              ? ''
-              : (product.processor.integratedGraphics || ''),
-          }
+          ...product.processor,
+          processorBrand: product.processor.processorBrand || undefined,
+          processorGeneration: product.processor.processorGeneration || "",
+          processorSeries: product.processor.processorSeries || "",
+          processorSeriesSelect: product.processor.processorSeries || "",
+          customProcessorSeries: "",
+          integratedGpu: product.processor.integratedGpu || "",
+          integratedGpuSelect: product.processor.integratedGpu || "",
+          customIntegratedGpu: "",
+          // Normalize cacheMemory
+          cacheMemorySelect: cacheMemoryOptions.includes(product.processor.cacheMemory || '')
+            ? (product.processor.cacheMemory || '')
+            : (product.processor.cacheMemory ? 'custom' : ''),
+          customCacheMemory: cacheMemoryOptions.includes(product.processor.cacheMemory || '')
+            ? ''
+            : (product.processor.cacheMemory || ''),
+          // Normalize integratedGraphics
+          integratedGraphicsSelect: integratedGraphicsOptions.includes(product.processor.integratedGraphics || '')
+            ? (product.processor.integratedGraphics || '')
+            : (product.processor.integratedGraphics ? 'custom' : ''),
+          customIntegratedGraphics: integratedGraphicsOptions.includes(product.processor.integratedGraphics || '')
+            ? ''
+            : (product.processor.integratedGraphics || ''),
+        }
         : undefined;
 
       // Normalize dedicatedGraphics so edit form uses nameSelect/customName
       const normalizedDedicatedGraphics = product.dedicatedGraphics
         ? {
-            ...product.dedicatedGraphics,
-            dedicatedGpuBrand: product.dedicatedGraphics.dedicatedGpuBrand || undefined,
-            dedicatedGpuModel: product.dedicatedGraphics.dedicatedGpuModel || "",
-            // If the saved name matches one of the known options, keep it in nameSelect.
-            // Otherwise mark as 'custom' and store the actual name in customName.
-            nameSelect: graphicsCardOptions.includes(product.dedicatedGraphics.name)
-              ? product.dedicatedGraphics.name
-              : 'custom',
-            customName: graphicsCardOptions.includes(product.dedicatedGraphics.name)
-              ? ''
-              : (product.dedicatedGraphics.name || ''),
-            // Normalize vram
-            vramSelect: vramOptions.includes(Number(product.dedicatedGraphics.vram))
-              ? (product.dedicatedGraphics.vram?.toString() || '')
-              : (product.dedicatedGraphics.vram ? 'custom' : ''),
-            customVram: vramOptions.includes(Number(product.dedicatedGraphics.vram))
-              ? ''
-              : (product.dedicatedGraphics.vram?.toString() || ''),
-            // Normalize memoryBusWidth
-            memoryBusWidthSelect: memoryBusWidthOptions.includes(Number(product.dedicatedGraphics.memoryBusWidth))
-              ? (product.dedicatedGraphics.memoryBusWidth?.toString() || '')
-              : (product.dedicatedGraphics.memoryBusWidth ? 'custom' : ''),
-            customMemoryBusWidth: memoryBusWidthOptions.includes(Number(product.dedicatedGraphics.memoryBusWidth))
-              ? ''
-              : (product.dedicatedGraphics.memoryBusWidth?.toString() || ''),
-          }
+          ...product.dedicatedGraphics,
+          dedicatedGpuBrand: product.dedicatedGraphics.dedicatedGpuBrand || undefined,
+          dedicatedGpuModel: product.dedicatedGraphics.dedicatedGpuModel || "",
+          // If the saved name matches one of the known options, keep it in nameSelect.
+          // Otherwise mark as 'custom' and store the actual name in customName.
+          nameSelect: graphicsCardOptions.includes(product.dedicatedGraphics.name)
+            ? product.dedicatedGraphics.name
+            : 'custom',
+          customName: graphicsCardOptions.includes(product.dedicatedGraphics.name)
+            ? ''
+            : (product.dedicatedGraphics.name || ''),
+          // Normalize vram
+          vramSelect: vramOptions.includes(Number(product.dedicatedGraphics.vram))
+            ? (product.dedicatedGraphics.vram?.toString() || '')
+            : (product.dedicatedGraphics.vram ? 'custom' : ''),
+          customVram: vramOptions.includes(Number(product.dedicatedGraphics.vram))
+            ? ''
+            : (product.dedicatedGraphics.vram?.toString() || ''),
+          // Normalize memoryBusWidth
+          memoryBusWidthSelect: memoryBusWidthOptions.includes(Number(product.dedicatedGraphics.memoryBusWidth))
+            ? (product.dedicatedGraphics.memoryBusWidth?.toString() || '')
+            : (product.dedicatedGraphics.memoryBusWidth ? 'custom' : ''),
+          customMemoryBusWidth: memoryBusWidthOptions.includes(Number(product.dedicatedGraphics.memoryBusWidth))
+            ? ''
+            : (product.dedicatedGraphics.memoryBusWidth?.toString() || ''),
+        }
         : undefined;
 
       const normalizedDisplay = product.display
         ? {
-            sizeInches: product.display.sizeInches,
-            resolution: product.display.resolution || "",
-            panelType: product.display.panelType || "",
-            refreshRate: product.display.refreshRate,
-          }
+          sizeInches: product.display.sizeInches,
+          resolution: product.display.resolution || "",
+          panelType: product.display.panelType || "",
+          refreshRate: product.display.refreshRate,
+        }
         : undefined;
 
       // Reset all form state with normalized data
+      setSizes(product.size ? product.size.split(",") : []);
+
+      // Normalize sizes to ensure extraPrice exists
+      const normalizedSizes = (product.sizes || []).map(size => ({
+        ...size,
+        extraPrice: typeof size.extraPrice === 'number' ? size.extraPrice : (size.price - product.price),
+        price: size.price // Ensure price is set
+      }));
+
       setFormData({
         ...product,
+        sizes: normalizedSizes,
         processor: normalizedProcessor,
         dedicatedGraphics: normalizedDedicatedGraphics,
         display: normalizedDisplay,
         wholesaleInfo: product.wholesaleInfo
           ? {
-              ...product.wholesaleInfo,
-              supplierLocation: product.wholesaleInfo.supplierLocation || "",
-            }
+            ...product.wholesaleInfo,
+            supplierLocation: product.wholesaleInfo.supplierLocation || "",
+          }
           : undefined,
       });
-      setColors(product.color ? product.color.split(",") : []);
-      setSizes(product.size ? product.size.split(",") : []);
       setOfferEndDate(
         product.offerEndsAt ? new Date(product.offerEndsAt) : undefined
       );
@@ -863,8 +903,8 @@ export function EditProductModal({
                         disabled={colors.includes(color.value)}
                         className={cn(
                           "relative h-10 w-10 rounded-full border-2 transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed",
-                          colors.includes(color.value) 
-                            ? "border-primary ring-2 ring-primary/20" 
+                          colors.includes(color.value)
+                            ? "border-primary ring-2 ring-primary/20"
                             : "border-gray-300 hover:border-gray-400"
                         )}
                         style={{ backgroundColor: color.value }}
@@ -892,8 +932,8 @@ export function EditProductModal({
                         disabled={colors.includes(color.value)}
                         className={cn(
                           "relative h-10 w-10 rounded-full border-2 transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed",
-                          colors.includes(color.value) 
-                            ? "border-primary ring-2 ring-primary/20" 
+                          colors.includes(color.value)
+                            ? "border-primary ring-2 ring-primary/20"
                             : "border-gray-300 hover:border-gray-400"
                         )}
                         style={{ backgroundColor: color.value }}
@@ -921,8 +961,8 @@ export function EditProductModal({
                         disabled={colors.includes(color.value)}
                         className={cn(
                           "relative h-10 w-10 rounded-full border-2 transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed",
-                          colors.includes(color.value) 
-                            ? "border-primary ring-2 ring-primary/20" 
+                          colors.includes(color.value)
+                            ? "border-primary ring-2 ring-primary/20"
                             : "border-gray-300 hover:border-gray-400"
                         )}
                         style={{ backgroundColor: color.value }}
@@ -950,8 +990,8 @@ export function EditProductModal({
                         disabled={colors.includes(color.value)}
                         className={cn(
                           "relative h-10 w-10 rounded-full border-2 transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed",
-                          colors.includes(color.value) 
-                            ? "border-primary ring-2 ring-primary/20" 
+                          colors.includes(color.value)
+                            ? "border-primary ring-2 ring-primary/20"
                             : "border-gray-300 hover:border-gray-400"
                         )}
                         style={{ backgroundColor: color.value }}
@@ -1015,8 +1055,8 @@ export function EditProductModal({
                       disabled={colors.includes(color.value)}
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 rounded-full border text-sm transition-all hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed",
-                        colors.includes(color.value) 
-                          ? "bg-primary text-primary-foreground border-primary" 
+                        colors.includes(color.value)
+                          ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background hover:border-primary/50"
                       )}
                     >
@@ -1470,7 +1510,7 @@ export function EditProductModal({
             {formData?.sizes && formData.sizes.length > 0 && (
               <div className="space-y-3">
                 {formData.sizes.map((size, index) => (
-                  <div key={size.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border rounded-lg">
+                  <div key={size.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 border rounded-lg">
                     <div>
                       <label className="text-sm font-medium">اسم الحجم *</label>
                       <Input
@@ -1480,14 +1520,25 @@ export function EditProductModal({
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium">السعر (ج.م) *</label>
+                      <label className="text-sm font-medium">
+                        {index === 0 ? "السعر الأساسي" : "سعر إضافي (+/-)"}
+                      </label>
                       <Input
                         type="number"
-                        min="0"
                         step="0.01"
                         placeholder="0.00"
+                        value={index === 0 ? 0 : size.extraPrice}
+                        disabled={index === 0}
+                        onChange={(e) => updateSize(index, 'extraPrice', e.target.value)}
+                        className={index === 0 ? "bg-muted" : ""}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">السعر النهائي</label>
+                      <Input
                         value={size.price}
-                        onChange={(e) => updateSize(index, 'price', parseFloat(e.target.value) || 0)}
+                        disabled
+                        className="bg-muted"
                       />
                     </div>
                     <div className="flex items-end">
@@ -1893,7 +1944,7 @@ export function EditProductModal({
                     maxLength={100}
                   />
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium">ذاكرة التخزين المؤقت</label>
                   <Select
