@@ -109,6 +109,13 @@ const availablePortsOptions = [
   "DVI-D", "USB-C", "VGA"
 ];
 
+// Processor generation options
+const processorGenerationOptions = [
+  "1st Generation", "2nd Generation", "3rd Generation", "4th Generation", "5th Generation",
+  "6th Generation", "7th Generation", "8th Generation", "9th Generation", "10th Generation",
+  "11th Generation", "12th Generation", "13th Generation", "14th Generation", "15th Generation"
+];
+
 // Gaming technologies options
 const gamingTechnologiesOptions = [
   "Ray Tracing", "DLSS", "FSR", "G-Sync Compatible",
@@ -1670,6 +1677,18 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       cores: "",
                       threads: "",
                       integratedGraphics: "",
+                      processorBrand: "AMD",
+                      processorGeneration: "",
+                      processorSeries: "",
+                      processorSeriesSelect: "",
+                      customProcessorSeries: "",
+                      cacheMemorySelect: "",
+                      customCacheMemory: "",
+                      integratedGraphicsSelect: "",
+                      customIntegratedGraphics: "",
+                      integratedGpu: "",
+                      integratedGpuSelect: "",
+                      customIntegratedGpu: ""
                     },
                   });
                 } else if (!formData.processor) {
@@ -1683,6 +1702,18 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       cores: "",
                       threads: "",
                       integratedGraphics: "",
+                      processorBrand: "AMD",
+                      processorGeneration: "",
+                      processorSeries: "",
+                      processorSeriesSelect: "",
+                      customProcessorSeries: "",
+                      cacheMemorySelect: "",
+                      customCacheMemory: "",
+                      integratedGraphicsSelect: "",
+                      customIntegratedGraphics: "",
+                      integratedGpu: "",
+                      integratedGpuSelect: "",
+                      customIntegratedGpu: ""
                     },
                   });
                 }
@@ -1725,20 +1756,29 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
 
               <div>
                 <label className="text-sm font-medium">جيل المعالج</label>
-                <Input
+                <Select
                   value={formData.processor.processorGeneration}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setFormData({
                       ...formData,
                       processor: {
                         ...formData.processor,
-                        processorGeneration: e.target.value,
+                        processorGeneration: value,
                       },
                     })
                   }
-                  placeholder="مثال: الجيل السابع، 7th Gen، الجيل الثاني عشر"
-                  maxLength={50}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر جيل المعالج" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {processorGenerationOptions.map((gen) => (
+                      <SelectItem key={gen} value={gen}>
+                        {gen}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {formData.processor.processorBrand && (
@@ -1982,6 +2022,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                     {formData.processor.processorBrand === "AMD" && (
                       <>
                         <SelectItem value="AMD Radeon Integrated">AMD Radeon Integrated</SelectItem>
+                        <SelectItem value="AMD Radeon Integrated">AMD Radeon Integrated</SelectItem>
                         <SelectItem value="custom">قيمة مخصصة</SelectItem>
                       </>
                     )}
@@ -2044,6 +2085,12 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       powerConnectors: [],
                       availablePorts: [],
                       gamingTechnologies: [],
+                      dedicatedGpuBrand: "NVIDIA",
+                      dedicatedGpuModel: "",
+                      vramSelect: "",
+                      customVram: "",
+                      memoryBusWidthSelect: "",
+                      customMemoryBusWidth: ""
                     },
                   });
                 } else if (!formData.dedicatedGraphics) {
@@ -2065,6 +2112,12 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       powerConnectors: [],
                       availablePorts: [],
                       gamingTechnologies: [],
+                      dedicatedGpuBrand: "NVIDIA",
+                      dedicatedGpuModel: "",
+                      vramSelect: "",
+                      customVram: "",
+                      memoryBusWidthSelect: "",
+                      customMemoryBusWidth: ""
                     },
                   });
                 }

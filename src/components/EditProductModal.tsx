@@ -97,6 +97,13 @@ const gamingTechnologiesOptions = [
   "FreeSync", "DirectX 12 Ultimate"
 ];
 
+// Processor generation options
+const processorGenerationOptions = [
+  "1st Generation", "2nd Generation", "3rd Generation", "4th Generation", "5th Generation",
+  "6th Generation", "7th Generation", "8th Generation", "9th Generation", "10th Generation",
+  "11th Generation", "12th Generation", "13th Generation", "14th Generation", "15th Generation"
+];
+
 interface EditProductModalProps {
   product: Product | null;
   open: boolean;
@@ -1846,20 +1853,29 @@ export function EditProductModal({
 
                 <div>
                   <label className="text-sm font-medium">جيل المعالج</label>
-                  <Input
+                  <Select
                     value={formData.processor.processorGeneration || ""}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       setFormData(formData ? {
                         ...formData,
                         processor: {
                           ...formData.processor,
-                          processorGeneration: e.target.value,
+                          processorGeneration: value,
                         },
                       } : null)
                     }
-                    placeholder="مثال: الجيل السابع، 7th Gen، الجيل الثاني عشر"
-                    maxLength={50}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر جيل المعالج" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {processorGenerationOptions.map((gen) => (
+                        <SelectItem key={gen} value={gen}>
+                          {gen}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {formData.processor.processorBrand && (
