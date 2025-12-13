@@ -152,10 +152,13 @@ export function EditProductModal({
   };
 
   // Update size prices when base price changes
+  // Update size prices when base price, special offer, or discount price changes
   useEffect(() => {
     if (formData?.sizes && formData.sizes.length > 0) {
-      const basePrice = Number(formData.price) || 0;
-      const updatedSizes = formData.sizes.map(size => {
+      const basePrice = formData.specialOffer && formData.discountPrice
+        ? Number(formData.discountPrice)
+        : (Number(formData.price) || 0);
+      const updatedSizes = formData.sizes.map((size: any) => {
         const extra = Number(size.extraPrice) || 0;
         const newPrice = basePrice + extra;
         if (size.price !== newPrice) {
@@ -166,10 +169,10 @@ export function EditProductModal({
 
       // Only update if changes detected to avoid infinite loop
       if (JSON.stringify(updatedSizes) !== JSON.stringify(formData.sizes)) {
-        setFormData(prev => prev ? ({ ...prev, sizes: updatedSizes }) : null);
+        setFormData((prev: any) => prev ? ({ ...prev, sizes: updatedSizes }) : null);
       }
     }
-  }, [formData?.price]);
+  }, [formData?.price, formData?.specialOffer, formData?.discountPrice]);
 
   const updateSize = (index: number, field: 'label' | 'extraPrice', value: string | number) => {
     if (!formData) return;
@@ -179,7 +182,10 @@ export function EditProductModal({
 
     if (field === 'extraPrice') {
       size.extraPrice = Number(value);
-      size.price = (Number(formData.price) || 0) + size.extraPrice;
+      const basePrice = formData.specialOffer && formData.discountPrice
+        ? Number(formData.discountPrice)
+        : (Number(formData.price) || 0);
+      size.price = basePrice + size.extraPrice;
     } else if (field === 'label') {
       size.label = String(value);
     }
@@ -691,15 +697,16 @@ export function EditProductModal({
               {formData.price && (
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">
-                    {formatPrice(Number(formData.price))} جنيه
+                    {formData.specialOffer && formData.discountPrice ? (
+                      <>
+                        <span className="line-through mx-1">{formatPrice(Number(formData.price))}</span>
+                        <span className="text-green-600 font-bold">{formatPrice(Number(formData.discountPrice))}</span>
+                        {' '}جنيه
+                      </>
+                    ) : (
+                      `${formatPrice(Number(formData.price))} جنيه`
+                    )}
                   </p>
-                  {formData.specialOffer && formData.discountPrice && (
-                    <p className="text-sm text-red-600">
-                      بعد الخصم:{" "}
-                      {formatPrice(Number(formData.discountPrice))}{" "}
-                      جنيه
-                    </p>
-                  )}
                 </div>
               )}
             </div>
@@ -1713,7 +1720,7 @@ export function EditProductModal({
             {formData?.addons && formData.addons.length > 0 && (
               <div className="space-y-3">
                 {formData.addons.map((addon, index) => (
-                  <div key={addon.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border rounded-lg">
+                  <div key={addon.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 border rounded-lg">
                     <div>
                       <label className="text-sm font-medium">اسم الإضافة *</label>
                       <Input
@@ -1731,6 +1738,18 @@ export function EditProductModal({
                         placeholder="0.00"
                         value={addon.price_delta}
                         onChange={(e) => updateAddon(index, 'price_delta', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">السعر النهائي</label>
+                      <Input
+                        value={(
+                          (formData.specialOffer && formData.discountPrice
+                            ? Number(formData.discountPrice)
+                            : Number(formData.price)) + (Number(addon.price_delta) || 0)
+                        ).toString()}
+                        disabled
+                        className="bg-muted"
                       />
                     </div>
                     <div className="flex items-end">

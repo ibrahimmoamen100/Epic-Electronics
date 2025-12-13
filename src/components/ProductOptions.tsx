@@ -9,10 +9,10 @@ import { formatCurrency } from '@/utils/format';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Ruler, 
-  Plus, 
-  Check, 
+import {
+  Ruler,
+  Plus,
+  Check,
   ShoppingBag,
   Tag,
   Sparkles
@@ -32,16 +32,35 @@ export function ProductOptions({ product, onSelectionChange }: ProductOptionsPro
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
 
-  // Calculate final price based on selections (without applying special offer discount)
-  // The special offer discount is already applied in ProductDetails component
-  const calculateFinalPrice = useCallback((sizeId: string | null, addonIds: string[]) => {
-    let basePrice = product.price; // Base price
+  const isSpecialOfferActive = product.specialOffer &&
+    product.offerEndsAt &&
+    new Date(product.offerEndsAt) > new Date();
 
-    // If sizes are available and one is selected, use that price instead of base price
+  // Helper to get effective base price (Discount Price if offer active, else Base Price)
+  const getEffectiveBasePrice = useCallback(() => {
+    if (isSpecialOfferActive && product.discountPrice) {
+      return product.discountPrice;
+    }
+    // If discount percentage exists but no discount price, calculate it
+    if (isSpecialOfferActive && product.discountPercentage) {
+      return product.price - (product.price * product.discountPercentage / 100);
+    }
+    return product.price;
+  }, [product, isSpecialOfferActive]);
+
+  const calculateFinalPrice = useCallback((sizeId: string | null, addonIds: string[]) => {
+    let price = getEffectiveBasePrice();
+
+    // Add size extra price
     if (product.sizes && product.sizes.length > 0 && sizeId) {
       const selectedSize = product.sizes.find(size => size.id === sizeId);
       if (selectedSize) {
-        basePrice = selectedSize.price;
+        // Prefer extraPrice if available, otherwise calculate it
+        const extraPrice = typeof selectedSize.extraPrice === 'number'
+          ? selectedSize.extraPrice
+          : (selectedSize.price - product.price);
+
+        price += extraPrice;
       }
     }
 
@@ -49,27 +68,26 @@ export function ProductOptions({ product, onSelectionChange }: ProductOptionsPro
     if (product.addons && addonIds.length > 0) {
       const selectedAddons = product.addons.filter(addon => addonIds.includes(addon.id));
       selectedAddons.forEach(addon => {
-        basePrice += addon.price_delta;
+        price += addon.price_delta;
       });
     }
 
-    // Return the calculated price without applying special offer discount
-    // The discount will be applied in ProductDetails component
-    return basePrice;
-  }, [product.price, product.sizes, product.addons]);
+    return price;
+  }, [product, getEffectiveBasePrice]);
 
   // Update parent component when selections change
   useEffect(() => {
-    const selectedSize = selectedSizeId && product.sizes 
+    const selectedSize = selectedSizeId && product.sizes
       ? product.sizes.find(size => size.id === selectedSizeId) || null
       : null;
-    
-    const selectedAddons = product.addons 
+
+    const selectedAddons = product.addons
       ? product.addons.filter(addon => selectedAddonIds.includes(addon.id))
       : [];
 
     const finalPrice = calculateFinalPrice(selectedSizeId, selectedAddonIds);
-    
+
+    // Pass the fully calculated final price (including discount)
     onSelectionChange(selectedSize, selectedAddons, finalPrice);
   }, [selectedSizeId, selectedAddonIds, product.sizes, product.addons, calculateFinalPrice, onSelectionChange]);
 
@@ -114,34 +132,41 @@ export function ProductOptions({ product, onSelectionChange }: ProductOptionsPro
               <p className="text-sm text-gray-500">اختر الحجم المناسب لك</p>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {product.sizes!.map((size) => (
-              <button
-                key={size.id}
-                onClick={() => handleSizeChange(size.id)}
-                className={`relative group p-4 rounded-xl border-2 transition-all duration-200 ${
-                  selectedSizeId === size.id 
-                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <div className="text-center space-y-2">
-                  <div className="text-lg font-bold text-gray-900">
-                    {size.label}
+            {product.sizes!.map((size) => {
+              // Calculate specific price for this size
+              const extraPrice = typeof size.extraPrice === 'number'
+                ? size.extraPrice
+                : (size.price - product.price);
+              const sizePrice = getEffectiveBasePrice() + extraPrice;
+
+              return (
+                <button
+                  key={size.id}
+                  onClick={() => handleSizeChange(size.id)}
+                  className={`relative group p-4 rounded-xl border-2 transition-all duration-200 ${selectedSizeId === size.id
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                >
+                  <div className="text-center space-y-2">
+                    <div className="text-lg font-bold text-gray-900">
+                      {size.label}
+                    </div>
+                    <div className="text-sm font-semibold text-primary">
+                      {formatCurrency(sizePrice, 'جنيه')}
+                    </div>
                   </div>
-                  <div className="text-sm font-semibold text-primary">
-                    {formatCurrency(size.price, 'جنيه')}
-                  </div>
-                </div>
-                
-                {selectedSizeId === size.id && (
-                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                    <Check className="h-3 w-3 text-white" />
-                  </div>
-                )}
-              </button>
-            ))}
+
+                  {selectedSizeId === size.id && (
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -158,25 +183,23 @@ export function ProductOptions({ product, onSelectionChange }: ProductOptionsPro
               <p className="text-sm text-gray-500">اختر الإضافات التي تريدها</p>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 gap-3">
             {product.addons!.map((addon) => (
               <button
                 key={addon.id}
                 onClick={() => handleAddonToggle(addon.id, !selectedAddonIds.includes(addon.id))}
-                className={`relative group p-4 rounded-xl border-2 transition-all duration-200 ${
-                  selectedAddonIds.includes(addon.id)
-                    ? 'border-green-500 bg-green-50 ring-2 ring-green-200' 
+                className={`relative group p-4 rounded-xl border-2 transition-all duration-200 ${selectedAddonIds.includes(addon.id)
+                    ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                      selectedAddonIds.includes(addon.id)
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${selectedAddonIds.includes(addon.id)
                         ? 'border-green-500 bg-green-500'
                         : 'border-gray-300'
-                    }`}>
+                      }`}>
                       {selectedAddonIds.includes(addon.id) && (
                         <Check className="h-3 w-3 text-white" />
                       )}
@@ -215,11 +238,11 @@ export function ProductOptions({ product, onSelectionChange }: ProductOptionsPro
               {formatCurrency(calculateFinalPrice(selectedSizeId, selectedAddonIds), 'جنيه')}
             </div>
             <div className="text-sm text-gray-500 mt-1">
-              قبل الخصم
+              {isSpecialOfferActive ? "شامل الخصم" : "قبل الخصم"}
             </div>
           </div>
         </div>
-        
+
         {/* Selected Options Summary */}
         {(selectedSizeId || selectedAddonIds.length > 0) && (
           <>
@@ -240,7 +263,7 @@ export function ProductOptions({ product, onSelectionChange }: ProductOptionsPro
                     {selectedAddonIds.map((addonId) => {
                       const addon = product.addons?.find(a => a.id === addonId);
                       if (!addon) return null;
-                      
+
                       return (
                         <div key={addonId} className="flex items-center justify-between text-sm bg-green-50 px-3 py-2 rounded-lg border border-green-200">
                           <span className="font-medium text-gray-900">{addon.label}</span>

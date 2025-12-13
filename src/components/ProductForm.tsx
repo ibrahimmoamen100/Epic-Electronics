@@ -255,12 +255,15 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
   };
 
   // Update size prices when base price changes
+  // Update size prices when base price, special offer, or discount price changes
   useEffect(() => {
     if (formData.sizes.length > 0) {
       setFormData(prev => ({
         ...prev,
         sizes: prev.sizes.map(size => {
-          const basePrice = Number(prev.price) || 0;
+          const basePrice = prev.specialOffer && prev.discountPrice
+            ? Number(prev.discountPrice)
+            : (Number(prev.price) || 0);
           const extra = Number(size.extraPrice) || 0;
           return {
             ...size,
@@ -269,7 +272,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
         })
       }));
     }
-  }, [formData.price]);
+  }, [formData.price, formData.specialOffer, formData.discountPrice]);
 
   const updateSize = (index: number, field: 'label' | 'extraPrice', value: string) => {
     setFormData(prev => {
@@ -278,7 +281,9 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
 
       if (field === 'extraPrice') {
         size.extraPrice = value;
-        const basePrice = Number(prev.price) || 0;
+        const basePrice = prev.specialOffer && prev.discountPrice
+          ? Number(prev.discountPrice)
+          : (Number(prev.price) || 0);
         const extra = Number(value) || 0;
         size.price = (basePrice + extra).toString();
       } else {
@@ -711,7 +716,15 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             />
             {formData.price && (
               <p className="text-sm text-muted-foreground mt-1">
-                {formatPrice(Number(formData.price))} جنيه
+                {formData.specialOffer && formData.discountPrice ? (
+                  <>
+                    <span className="line-through mx-1">{formatPrice(Number(formData.price))}</span>
+                    <span className="text-green-600 font-bold">{formatPrice(Number(formData.discountPrice))}</span>
+                    {' '}جنيه
+                  </>
+                ) : (
+                  `${formatPrice(Number(formData.price))} جنيه`
+                )}
               </p>
             )}
           </div>
@@ -1599,7 +1612,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
           {formData.addons.length > 0 && (
             <div className="space-y-3">
               {formData.addons.map((addon, index) => (
-                <div key={addon.id} className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border rounded-lg">
+                <div key={addon.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 border rounded-lg">
                   <div>
                     <label className="text-sm font-medium">اسم الإضافة *</label>
                     <Input
@@ -1617,6 +1630,18 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                       placeholder="0.00"
                       value={addon.price_delta}
                       onChange={(e) => updateAddon(index, 'price_delta', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">السعر النهائي</label>
+                    <Input
+                      value={(
+                        (formData.specialOffer && formData.discountPrice
+                          ? Number(formData.discountPrice)
+                          : Number(formData.price)) + (Number(addon.price_delta) || 0)
+                      ).toString()}
+                      disabled
+                      className="bg-muted"
                     />
                   </div>
                   <div className="flex items-end">

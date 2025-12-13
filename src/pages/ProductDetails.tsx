@@ -65,7 +65,7 @@ const ProductDetails = () => {
   const [finalPrice, setFinalPrice] = useState(0);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const products = useStore((state) => state.products);
   const loading = useStore((state) => state.loading);
   const cart = useStore((state) => state.cart);
@@ -90,7 +90,7 @@ const ProductDetails = () => {
       // Products are loaded, check if current product exists
       if (product) {
         setIsLoading(false);
-        
+
         // Store product info in sessionStorage for analytics to access
         // This helps extractProductNameFromUrl find the product name
         try {
@@ -102,7 +102,7 @@ const ProductDetails = () => {
         } catch (e) {
           console.warn('Failed to store product in sessionStorage:', e);
         }
-        
+
         // Track page view with actual product name
         // This ensures we track with the correct product name, not just from URL slug
         const currentPath = window.location.pathname;
@@ -113,7 +113,7 @@ const ProductDetails = () => {
             productId: product.id,
             productFound: !!product
           });
-          
+
           // Longer delay to ensure analytics system is ready and locationchange event has fired
           const trackTimeout = setTimeout(() => {
             console.log('[ProductDetails] 📊 Calling trackPageView with product name...');
@@ -132,7 +132,7 @@ const ProductDetails = () => {
               });
             });
           }, 500); // Increased delay to ensure locationchange event has processed
-          
+
           return () => clearTimeout(trackTimeout);
         }
       } else {
@@ -143,7 +143,7 @@ const ProductDetails = () => {
       }
     }
   }, [products, product, navigate, id]);
-  
+
   // Create mapping between colors and images
   const colorImageMapping = useMemo(() => {
     const mapping: { [key: string]: string } = {};
@@ -154,7 +154,7 @@ const ProductDetails = () => {
     });
     return mapping;
   }, [availableColors, product?.images]);
-  
+
   // Get current image based on selected color or selected image index
   const currentImage = useMemo(() => {
     if (availableColors.length > 1 && selectedColor && colorImageMapping[selectedColor]) {
@@ -164,9 +164,9 @@ const ProductDetails = () => {
   }, [selectedColor, colorImageMapping, selectedImage, product?.images, availableColors.length]);
 
   // Check if product is in cart (considering selected size and color)
-  const cartItem = cart.find((item) => 
-    item.product && 
-    item.product.id === id && 
+  const cartItem = cart.find((item) =>
+    item.product &&
+    item.product.id === id &&
     (selectedSize ? item.selectedSize?.id === selectedSize.id : !item.selectedSize) &&
     (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor)
   );
@@ -183,29 +183,32 @@ const ProductDetails = () => {
 
   useEffect(() => {
     if (product) {
-      // Initialize final price with base price or first size price
-      let basePrice = product.price;
-      if (product.sizes && product.sizes.length > 0) {
-        basePrice = product.sizes[0].price;
-      }
-      
-      // Apply special offer discount to the calculated base price
-      let finalPrice = basePrice;
-      if (product.specialOffer && 
-          product.offerEndsAt &&
-          new Date(product.offerEndsAt) > new Date()) {
+      const isSpecialOfferActive = product.specialOffer &&
+        product.offerEndsAt &&
+        new Date(product.offerEndsAt) > new Date();
+
+      // Calculate effective base price
+      let effectiveBasePrice = product.price;
+      if (isSpecialOfferActive) {
         if (product.discountPrice) {
-          // Use discountPrice directly if available (same logic as ProductCard)
-          finalPrice = product.discountPrice;
+          effectiveBasePrice = product.discountPrice;
         } else if (product.discountPercentage) {
-          // Calculate discount percentage on the current base price
-          const discountAmount = (basePrice * product.discountPercentage) / 100;
-          finalPrice = basePrice - discountAmount;
+          effectiveBasePrice = product.price - (product.price * product.discountPercentage / 100);
         }
       }
-      
-      setFinalPrice(finalPrice);
-      
+
+      // Calculate initial price with first size if available
+      let price = effectiveBasePrice;
+      if (product.sizes && product.sizes.length > 0) {
+        const firstSize = product.sizes[0];
+        const extraPrice = typeof firstSize.extraPrice === 'number'
+          ? firstSize.extraPrice
+          : (firstSize.price - product.price);
+        price = effectiveBasePrice + extraPrice;
+      }
+
+      setFinalPrice(price);
+
       // Set first color as default if available and no color is selected
       if (availableColors.length > 0 && !selectedColor) {
         setSelectedColor(availableColors[0]);
@@ -221,24 +224,9 @@ const ProductDetails = () => {
   ) => {
     setSelectedSize(newSelectedSize);
     setSelectedAddons(newSelectedAddons);
-    
-    // Apply special offer discount to the calculated price (including sizes and addons)
-    let finalPrice = calculatedPrice;
-    if (product?.specialOffer && 
-        product.offerEndsAt &&
-        new Date(product.offerEndsAt) > new Date()) {
-      if (product.discountPrice) {
-        // Use discountPrice directly if available (same logic as ProductCard)
-        finalPrice = product.discountPrice;
-      } else if (product.discountPercentage) {
-        // Calculate discount percentage on the calculated price (including sizes and addons)
-        const discountAmount = (calculatedPrice * product.discountPercentage) / 100;
-        finalPrice = calculatedPrice - discountAmount;
-      }
-    }
-    
-    setFinalPrice(finalPrice);
-  }, [product]);
+    // The calculatedPrice from ProductOptions already includes all discounts and extras
+    setFinalPrice(calculatedPrice);
+  }, []);
 
   // Show loading state while data is being loaded
   if (isLoading) {
@@ -299,10 +287,10 @@ const ProductDetails = () => {
       return;
     }
 
-         try {
-       // Use the updated addToCart function with options (quantity = 1)
-       await addToCart(product, 1, selectedSize, selectedAddons, selectedColor);
-      
+    try {
+      // Use the updated addToCart function with options (quantity = 1)
+      await addToCart(product, 1, selectedSize, selectedAddons, selectedColor);
+
       toast.success(
         `${t("cart.productAdded")}: ${product.name}${selectedSize ? ` - ${selectedSize.label}` : ''}${selectedColor ? ` - ${getColorByName(selectedColor).name}` : ''}`,
         {
@@ -345,7 +333,7 @@ const ProductDetails = () => {
   };
 
   const handleShare = () => {
-  const productUrl = `${window.location.origin}/product/${product.id}`;
+    const productUrl = `${window.location.origin}/product/${product.id}`;
 
     // Build selection info
     const selectionInfo = [];
@@ -365,7 +353,7 @@ const ProductDetails = () => {
       ...selectionInfo,
       `💰 السعر النهائي: ${formatCurrency(finalPrice, 'جنيه')}`,
       product.specialOffer &&
-      new Date(product.offerEndsAt as string) > new Date()
+        new Date(product.offerEndsAt as string) > new Date()
         ? `🎉 ${t("products.specialOffer")}`
         : null,
       product.description
@@ -477,14 +465,14 @@ const ProductDetails = () => {
                   transition={{ duration: 0.3 }}
                 />
               </AnimatePresence>
-              
+
               {/* Wishlist Button */}
               <button
                 onClick={toggleWishlist}
                 className="absolute top-4 right-4 p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-white transition-all duration-200"
               >
-                <Heart 
-                  className={`h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
+                <Heart
+                  className={`h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
                 />
               </button>
 
@@ -530,7 +518,7 @@ const ProductDetails = () => {
                 </>
               )}
             </div>
-            
+
             {/* Thumbnails - Show all images */}
             {product.images && product.images.length > 1 && (
               <div className="space-y-3">
@@ -540,21 +528,21 @@ const ProductDetails = () => {
                     {product.images.length} صورة
                   </span>
                 </div>
-                
+
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                   {product.images.map((image, index) => {
-                    const isSelected = availableColors.length > 1 
-                      ? (selectedColor && colorImageMapping[selectedColor] === image) || 
-                        (!selectedColor && index === selectedImage)
+                    const isSelected = availableColors.length > 1
+                      ? (selectedColor && colorImageMapping[selectedColor] === image) ||
+                      (!selectedColor && index === selectedImage)
                       : index === selectedImage;
-                    
+
                     return (
                       <motion.button
                         key={index}
                         onClick={() => {
                           if (availableColors.length > 1) {
                             // Find the color that corresponds to this image
-                            const correspondingColor = availableColors.find(color => 
+                            const correspondingColor = availableColors.find(color =>
                               colorImageMapping[color] === image
                             );
                             if (correspondingColor) {
@@ -564,11 +552,10 @@ const ProductDetails = () => {
                             setSelectedImage(index);
                           }
                         }}
-                        className={`group relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-200 ${
-                          isSelected
+                        className={`group relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-200 ${isSelected
                             ? "border-primary ring-1 ring-primary/30 shadow-md"
                             : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
-                        }`}
+                          }`}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
@@ -577,10 +564,10 @@ const ProductDetails = () => {
                           alt={`${product.name} - صورة ${index + 1}`}
                           className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                         />
-                        
+
                         {/* Selection indicator */}
                         {isSelected && (
-                          <motion.div 
+                          <motion.div
                             className="absolute inset-0 bg-primary/20 flex items-center justify-center"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -591,18 +578,18 @@ const ProductDetails = () => {
                             </div>
                           </motion.div>
                         )}
-                        
+
                         {/* Color indicator overlay - only show if multiple colors */}
                         {availableColors.length > 1 && (
                           <div className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-white shadow-sm"
-                               style={{ backgroundColor: availableColors[index] || '#ccc' }} />
+                            style={{ backgroundColor: availableColors[index] || '#ccc' }} />
                         )}
-                        
+
                         {/* Image number badge - smaller and more subtle */}
                         <div className="absolute top-1 left-1 w-4 h-4 bg-black/60 text-white text-xs rounded-full flex items-center justify-center font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           {index + 1}
                         </div>
-                        
+
                         {/* Hover overlay */}
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all duration-200" />
                       </motion.button>
@@ -633,7 +620,7 @@ const ProductDetails = () => {
                     {product.brand}
                   </p>
                 </div>
-                
+
                 {/* Rating */}
                 <div className="flex items-center gap-1">
                   <div className="flex">
@@ -648,7 +635,7 @@ const ProductDetails = () => {
               {/* Price */}
               <div className="space-y-2">
                 {product.specialOffer &&
-                new Date(product.offerEndsAt as string) > new Date() ? (
+                  new Date(product.offerEndsAt as string) > new Date() ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <span className="text-3xl font-bold text-red-600">
@@ -692,48 +679,47 @@ const ProductDetails = () => {
 
             <Separator />
 
-                         {/* Color Selection */}
-             {availableColors.length > 0 && (
-               <div className="space-y-4">
-                 <div className="flex items-center justify-between">
-                   <h3 className="text-lg font-semibold text-gray-900">اختر اللون</h3>
-                   <span className="text-sm text-gray-500">
-                     {selectedColor ? getColorByName(selectedColor).name : 'اختر لوناً'}
-                   </span>
-                 </div>
-                 <div className="flex gap-3">
-                   {availableColors.map((color) => {
-                     const colorInfo = getColorByName(color);
-                     
-                     return (
-                       <button
-                         key={color}
-                         onClick={() => setSelectedColor(color)}
-                         className={`relative group ${
-                           selectedColor === color 
-                             ? 'ring-2 ring-primary ring-offset-2' 
-                             : 'ring-1 ring-gray-200 hover:ring-gray-300'
-                         } rounded-full p-1 transition-all duration-200`}
-                         title={colorInfo.name}
-                       >
-                         <div
-                           className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
-                           style={{ backgroundColor: color }}
-                         />
-                         {selectedColor === color && (
-                           <div className="absolute inset-0 flex items-center justify-center">
-                             <div className="w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                           </div>
-                         )}
-                       </button>
-                     );
-                   })}
-                 </div>
-               </div>
-             )}
+            {/* Color Selection */}
+            {availableColors.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">اختر اللون</h3>
+                  <span className="text-sm text-gray-500">
+                    {selectedColor ? getColorByName(selectedColor).name : 'اختر لوناً'}
+                  </span>
+                </div>
+                <div className="flex gap-3">
+                  {availableColors.map((color) => {
+                    const colorInfo = getColorByName(color);
 
-                           {/* Available Quantity Display */}
-              {/* <div className="space-y-4">
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={`relative group ${selectedColor === color
+                            ? 'ring-2 ring-primary ring-offset-2'
+                            : 'ring-1 ring-gray-200 hover:ring-gray-300'
+                          } rounded-full p-1 transition-all duration-200`}
+                        title={colorInfo.name}
+                      >
+                        <div
+                          className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
+                          style={{ backgroundColor: color }}
+                        />
+                        {selectedColor === color && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Available Quantity Display */}
+            {/* <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <Package className="h-5 w-5 text-blue-600" />
@@ -756,8 +742,8 @@ const ProductDetails = () => {
               </div> */}
 
             {/* Product Options */}
-            <ProductOptions 
-              product={product} 
+            <ProductOptions
+              product={product}
               onSelectionChange={handleSelectionChange}
             />
 
@@ -765,97 +751,97 @@ const ProductDetails = () => {
 
 
 
-                         {/* Action Buttons */}
-             <div className="space-y-4">
-               {cartItem ? (
-                 <div className="space-y-4">
-                   <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                     <div className="flex items-center gap-3">
-                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                       <span className="text-sm font-medium text-green-800">
-                         تم إضافة المنتج إلى السلة
-                       </span>
-                     </div>
-                     <div className="flex items-center gap-2">
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         onClick={() => handleUpdateQuantity(cartItem.quantity - 1)}
-                         disabled={cartItem.quantity <= 1}
-                       >
-                         <Minus className="h-4 w-4" />
-                       </Button>
-                       <span className="w-12 text-center font-bold text-lg text-gray-900">
-                         {cartItem.quantity}
-                       </span>
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         onClick={() => handleUpdateQuantity(cartItem.quantity + 1)}
-                         disabled={cartItem.quantity >= (product.wholesaleInfo?.quantity || 999)}
-                       >
-                         <Plus className="h-4 w-4" />
-                       </Button>
-                     </div>
-                   </div>
-                   
-                   <div className="flex gap-3">
-                     <Button
-                       size="lg"
-                       className="flex-1 bg-primary hover:bg-primary/90"
-                       onClick={() => navigate("/cart")}
-                     >
-                       <ShoppingCart className="mr-2 h-5 w-5" />
-                       الذهاب إلى السلة ({cartItem.quantity})
-                     </Button>
-                     <Button
-                       size="lg"
-                       variant="outline"
-                       onClick={handleShare}
-                     >
-                       <Share2 className="mr-2 h-5 w-5" />
-                       مشاركة
-                     </Button>
-                   </div>
-                 </div>
-               ) : (
-                 <div className="space-y-4">
-                                       <Button
+            {/* Action Buttons */}
+            <div className="space-y-4">
+              {cartItem ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium text-green-800">
+                        تم إضافة المنتج إلى السلة
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpdateQuantity(cartItem.quantity - 1)}
+                        disabled={cartItem.quantity <= 1}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="w-12 text-center font-bold text-lg text-gray-900">
+                        {cartItem.quantity}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpdateQuantity(cartItem.quantity + 1)}
+                        disabled={cartItem.quantity >= (product.wholesaleInfo?.quantity || 999)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
                       size="lg"
-                      className="w-full h-14 text-lg bg-primary hover:bg-primary/90"
-                      onClick={handleAddToCart}
-                      disabled={!selectedColor && availableColors.length > 0}
+                      className="flex-1 bg-primary hover:bg-primary/90"
+                      onClick={() => navigate("/cart")}
                     >
-                      <ShoppingCart className="mr-2 h-6 w-6" />
-                      إضافة إلى السلة
+                      <ShoppingCart className="mr-2 h-5 w-5" />
+                      الذهاب إلى السلة ({cartItem.quantity})
                     </Button>
-                   
-                   <div className="flex gap-3">
-                     <Button
-                       size="lg"
-                       variant="outline"
-                       className="flex-1"
-                       onClick={handleShare}
-                     >
-                       <Share2 className="mr-2 h-5 w-5" />
-                       مشاركة
-                     </Button>
-                     <Button
-                       size="lg"
-                       variant="outline"
-                       onClick={toggleWishlist}
-                     >
-                       <Heart className={`mr-2 h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
-                       المفضلة
-                     </Button>
-                   </div>
-                 </div>
-               )}
-             </div>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={handleShare}
+                    >
+                      <Share2 className="mr-2 h-5 w-5" />
+                      مشاركة
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Button
+                    size="lg"
+                    className="w-full h-14 text-lg bg-primary hover:bg-primary/90"
+                    onClick={handleAddToCart}
+                    disabled={!selectedColor && availableColors.length > 0}
+                  >
+                    <ShoppingCart className="mr-2 h-6 w-6" />
+                    إضافة إلى السلة
+                  </Button>
+
+                  <div className="flex gap-3">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={handleShare}
+                    >
+                      <Share2 className="mr-2 h-5 w-5" />
+                      مشاركة
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={toggleWishlist}
+                    >
+                      <Heart className={`mr-2 h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
+                      المفضلة
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Product Features */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6">
-              <motion.div 
+              <motion.div
                 className="group relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
                 whileHover={{ y: -2 }}
                 initial={{ opacity: 0, y: 20 }}
@@ -876,7 +862,7 @@ const ProductDetails = () => {
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 role="button"
                 tabIndex={0}
                 onClick={() => setIsBatteryModalOpen(true)}
@@ -901,7 +887,7 @@ const ProductDetails = () => {
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 className="group relative overflow-hidden bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100 rounded-xl p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
                 whileHover={{ y: -2 }}
                 initial={{ opacity: 0, y: 20 }}
@@ -922,7 +908,7 @@ const ProductDetails = () => {
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 className="group relative overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-xl p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
                 whileHover={{ y: -2 }}
                 initial={{ opacity: 0, y: 20 }}
@@ -983,7 +969,7 @@ const ProductDetails = () => {
                       <p className="text-lg font-semibold text-gray-900">{product.processor.name}</p>
                     </div>
                   )}
-                  
+
                   {product.processor.processorBrand && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">  نوع المعالج</h3>
@@ -1010,35 +996,35 @@ const ProductDetails = () => {
                       <p className="text-lg font-semibold text-gray-900">{product.processor.cacheMemory}</p>
                     </div>
                   )}
-                  
+
                   {product.processor.baseClockSpeed && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">السرعة الأساسية</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.processor.baseClockSpeed} GHz</p>
                     </div>
                   )}
-                  
+
                   {product.processor.maxTurboSpeed && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">أقصى سرعة تيربو</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.processor.maxTurboSpeed} GHz</p>
                     </div>
                   )}
-                  
+
                   {product.processor.cores && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">عدد النوى</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.processor.cores}</p>
                     </div>
                   )}
-                  
+
                   {product.processor.threads && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">عدد الخيوط</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.processor.threads}</p>
                     </div>
                   )}
-                  
+
                   {product.processor.integratedGraphics && (
                     <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                       <h3 className="text-sm font-medium text-gray-500">كرت الشاشة الداخلي</h3>
@@ -1065,63 +1051,63 @@ const ProductDetails = () => {
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.name}</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.manufacturer && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">الشركة المصنعة</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.manufacturer}</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.vram && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">ذاكرة كرت الشاشة</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.vram} GB</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.memoryType && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">نوع الذاكرة</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.memoryType}</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.memorySpeed && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">سرعة الذاكرة</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.memorySpeed} MHz</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.memoryBusWidth && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">عرض ناقل الذاكرة</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.memoryBusWidth} bit</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.baseClock && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">التردد الأساسي</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.baseClock} MHz</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.boostClock && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">تردد التعزيز</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.boostClock} MHz</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.powerConsumption && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">استهلاك الطاقة</h3>
                       <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.powerConsumption} W</p>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.powerConnectors && product.dedicatedGraphics.powerConnectors.length > 0 && (
                     <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                       <h3 className="text-sm font-medium text-gray-500">موصلات الطاقة المطلوبة</h3>
@@ -1134,7 +1120,7 @@ const ProductDetails = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.availablePorts && product.dedicatedGraphics.availablePorts.length > 0 && (
                     <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                       <h3 className="text-sm font-medium text-gray-500">المنافذ المتوفرة</h3>
@@ -1147,7 +1133,7 @@ const ProductDetails = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   {product.dedicatedGraphics.gamingTechnologies && product.dedicatedGraphics.gamingTechnologies.length > 0 && (
                     <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                       <h3 className="text-sm font-medium text-gray-500">تقنيات الألعاب المدعومة</h3>
@@ -1165,7 +1151,7 @@ const ProductDetails = () => {
             </div>
           </div>
         )}
-        
+
 
         {/* Processor Specifications */}
         {product.display && (
@@ -1181,21 +1167,21 @@ const ProductDetails = () => {
                       <p className="text-lg font-semibold text-gray-900">  {product.display.sizeInches} Inch </p>
                     </div>
                   )}
-                  
+
                   {product.display.resolution && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500"> الدقه  </h3>
                       <p className="text-lg font-semibold text-gray-900">{product.display.resolution} </p>
                     </div>
                   )}
-                  
+
                   {product.display.panelType && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500">نوع الشاشه</h3>
                       <p className="text-lg font-semibold text-gray-900"> Panel: {product.display.panelType} </p>
                     </div>
                   )}
-                  
+
                   {product.display.refreshRate && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-gray-500"> التردد المتردد   </h3>
@@ -1222,7 +1208,7 @@ const ProductDetails = () => {
               اكتشف المزيد من المنتجات المميزة
             </p>
           </div>
-          
+
           {suggestedProducts.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {suggestedProducts.map((product) => (
