@@ -10,7 +10,7 @@ interface LayoutProps {
 
 export function Layout({ children, showNavbar = true, showTopbar = true }: LayoutProps) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background text-foreground">
       {showTopbar && <Topbar />}
       {showNavbar && <Navbar />}
       <main className="flex-1">

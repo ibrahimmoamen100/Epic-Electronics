@@ -37,8 +37,8 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-auto items-center justify-between py-1 px-4 md:px-8">
         <div className="flex items-center gap-2">
-          <Link to="/" className="text-3xl  font-bold">
-            <img src='/logo.png' alt={STORE_LOGO_TEXT} className="w-auto h-16" />
+          <Link to="/" className="text-3xl font-bold">
+            <img src='/logo-epic.png' alt={STORE_LOGO_TEXT} className="w-auto h-16 object-contain" />
           </Link>
         </div>
 
