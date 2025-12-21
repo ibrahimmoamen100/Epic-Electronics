@@ -1039,10 +1039,10 @@ const ProductDetails = () => {
                     </div>
                   )}
                   
-                  {product.processor.integratedGraphics && (
+                  {product.processor.integratedGpu && (
                     <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                       <h3 className="text-sm font-medium text-gray-500">كرت الشاشة الداخلي</h3>
-                      <p className="text-lg font-semibold text-gray-900">{product.processor.integratedGraphics}</p>
+                      <p className="text-lg font-semibold text-gray-900">{product.processor.integratedGpu}</p>
                     </div>
                   )}
                 </div>
