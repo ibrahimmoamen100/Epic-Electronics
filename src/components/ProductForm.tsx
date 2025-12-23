@@ -242,10 +242,14 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
 
   // Functions to manage sizes
   const addSize = () => {
+    const basePrice = (formData.specialOffer && formData.discountPrice)
+      ? Number(formData.discountPrice)
+      : (Number(formData.price) || 0);
+
     const newSize = {
       id: crypto.randomUUID(),
       label: "",
-      price: formData.price || "0",
+      price: basePrice.toString(),
       extraPrice: "0",
     };
     setFormData(prev => ({
@@ -257,19 +261,24 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
   // Update size prices when base price changes
   useEffect(() => {
     if (formData.sizes.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        sizes: prev.sizes.map(size => {
-          const basePrice = Number(prev.price) || 0;
-          const extra = Number(size.extraPrice) || 0;
-          return {
-            ...size,
-            price: (basePrice + extra).toString()
-          };
-        })
-      }));
+      setFormData(prev => {
+        const basePrice = (prev.specialOffer && prev.discountPrice)
+          ? Number(prev.discountPrice)
+          : (Number(prev.price) || 0);
+
+        return {
+          ...prev,
+          sizes: prev.sizes.map(size => {
+            const extra = Number(size.extraPrice) || 0;
+            return {
+              ...size,
+              price: (basePrice + extra).toString()
+            };
+          })
+        };
+      });
     }
-  }, [formData.price]);
+  }, [formData.price, formData.specialOffer, formData.discountPrice]);
 
   const updateSize = (index: number, field: 'label' | 'extraPrice', value: string) => {
     setFormData(prev => {
@@ -278,7 +287,9 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
 
       if (field === 'extraPrice') {
         size.extraPrice = value;
-        const basePrice = Number(prev.price) || 0;
+        const basePrice = (prev.specialOffer && prev.discountPrice)
+          ? Number(prev.discountPrice)
+          : (Number(prev.price) || 0);
         const extra = Number(value) || 0;
         size.price = (basePrice + extra).toString();
       } else {

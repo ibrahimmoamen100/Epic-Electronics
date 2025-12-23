@@ -139,10 +139,15 @@ export function EditProductModal({
   // Functions to manage sizes
   const addSize = () => {
     if (!formData) return;
+
+    const basePrice = (formData.specialOffer && formData.discountPrice)
+      ? Number(formData.discountPrice)
+      : (Number(formData.price) || 0);
+
     const newSize = {
       id: crypto.randomUUID(),
       label: "",
-      price: formData.price || 0,
+      price: basePrice,
       extraPrice: 0,
     };
     setFormData({
@@ -154,7 +159,10 @@ export function EditProductModal({
   // Update size prices when base price changes
   useEffect(() => {
     if (formData?.sizes && formData.sizes.length > 0) {
-      const basePrice = Number(formData.price) || 0;
+      const basePrice = (formData.specialOffer && formData.discountPrice)
+        ? Number(formData.discountPrice)
+        : (Number(formData.price) || 0);
+
       const updatedSizes = formData.sizes.map(size => {
         const extra = Number(size.extraPrice) || 0;
         const newPrice = basePrice + extra;
@@ -169,7 +177,7 @@ export function EditProductModal({
         setFormData(prev => prev ? ({ ...prev, sizes: updatedSizes }) : null);
       }
     }
-  }, [formData?.price]);
+  }, [formData?.price, formData?.specialOffer, formData?.discountPrice]);
 
   const updateSize = (index: number, field: 'label' | 'extraPrice', value: string | number) => {
     if (!formData) return;
@@ -179,7 +187,10 @@ export function EditProductModal({
 
     if (field === 'extraPrice') {
       size.extraPrice = Number(value);
-      size.price = (Number(formData.price) || 0) + size.extraPrice;
+      const basePrice = (formData.specialOffer && formData.discountPrice)
+        ? Number(formData.discountPrice)
+        : (Number(formData.price) || 0);
+      size.price = basePrice + size.extraPrice;
     } else if (field === 'label') {
       size.label = String(value);
     }
