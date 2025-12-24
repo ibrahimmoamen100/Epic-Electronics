@@ -101,24 +101,24 @@ export type ProductAddon = z.infer<typeof ProductAddonSchema>;
 
 export const FilterSchema = z.object({
   search: z.string().optional(),
-  category: z.string().optional(),
-  subcategory: z.string().optional(),
-  brand: z.string().optional(),
-  color: z.string().optional(),
-  size: z.string().optional(),
+  category: z.array(z.string()).optional(),
+  subcategory: z.array(z.string()).optional(),
+  brand: z.array(z.string()).optional(),
+  color: z.array(z.string()).optional(),
+  size: z.array(z.string()).optional(),
   minPrice: z.number().optional(),
   maxPrice: z.number().optional(),
-  supplier: z.string().optional(),
-  processorName: z.string().optional(),
+  supplier: z.array(z.string()).optional(),
+  processorName: z.array(z.string()).optional(),
   processorBrand: z.array(z.enum(["Intel", "AMD", "Other"])).optional(), // Multiple selection
   processorGeneration: z.array(z.string()).optional(), // Multiple selection
   processorSeries: z.array(z.string()).optional(), // Multiple selection
   integratedGpu: z.array(z.string()).optional(), // Multiple selection
-  dedicatedGraphicsName: z.string().optional(),
+  dedicatedGraphicsName: z.array(z.string()).optional(),
   dedicatedGpuBrand: z.array(z.enum(["NVIDIA", "AMD", "Intel", "Custom"])).optional(), // Multiple selection
   dedicatedGpuModel: z.array(z.string()).optional(), // Multiple selection
   hasDedicatedGraphics: z.boolean().optional(),
-  screenSize: z.string().optional(),
+  screenSize: z.array(z.string()).optional(),
   sortBy: z
     .enum(["price-asc", "price-desc", "name-asc", "name-desc"])
     .optional(),

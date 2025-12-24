@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { useMemo } from "react";
+import { Filter } from "@/types/product";
+import { Button } from "@/components/ui/button";
 
 interface ActiveFilter {
   key: string;
   label: string;
-  value: string | string[];
+  value: string;
   removeHandler: () => void;
 }
 
@@ -18,7 +20,7 @@ export function ActiveFilters() {
   const setFilters = useStore((state) => state.setFilters);
   const products = useStore((state) => state.products) || [];
 
-  // Calculate filtered products count
+  // Calculate filtered products count - mirrored logic from Products.tsx
   const filteredProductsCount = useMemo(() => {
     return products.filter((product) => {
       // Exclude archived products
@@ -33,45 +35,41 @@ export function ActiveFilters() {
         }
       }
 
-      // Category filter
-      if (filters.category && product.category !== filters.category) {
-        return false;
+      // Category filter (Array)
+      if (filters.category && filters.category.length > 0) {
+        if (!filters.category.includes(product.category)) return false;
       }
 
-      // Subcategory filter
-      if (filters.subcategory && product.subcategory !== filters.subcategory) {
-        return false;
+      // Subcategory filter (Array)
+      if (filters.subcategory && filters.subcategory.length > 0) {
+        if (!filters.subcategory.includes(product.subcategory || "")) return false;
       }
 
-      // Brand filter
-      if (filters.brand && product.brand !== filters.brand) {
-        return false;
+      // Brand filter (Array)
+      if (filters.brand && filters.brand.length > 0) {
+        if (!filters.brand.includes(product.brand)) return false;
       }
 
-      // Color filter
-      if (filters.color) {
-        const matchesColor = product.color
-          ?.split(",")
-          .some((c) => c.trim() === filters.color);
-        if (!matchesColor) return false;
+      // Color filter (Array check against Comma-Separated-Values in product)
+      if (filters.color && filters.color.length > 0) {
+        const productColors = product.color?.split(",").map(c => c.trim()) || [];
+        if (!filters.color.some(c => productColors.includes(c))) return false;
       }
 
-      // Size filter
-      if (filters.size) {
-        const matchesSize = product.size
-          ?.split(",")
-          .some((s) => s.trim() === filters.size);
-        if (!matchesSize) return false;
+      // Size filter (Array)
+      if (filters.size && filters.size.length > 0) {
+        const productSizes = product.size?.split(",").map(s => s.trim()) || [];
+        if (!filters.size.some(s => productSizes.includes(s))) return false;
       }
 
-      // Processor Name filter
-      if (filters.processorName && product.processor?.name !== filters.processorName) {
-        return false;
+      // Processor Name filter (Array)
+      if (filters.processorName && filters.processorName.length > 0) {
+        if (!filters.processorName.includes(product.processor?.name || "")) return false;
       }
 
       // Processor Brand filter
       if (filters.processorBrand && filters.processorBrand.length > 0) {
-        if (!filters.processorBrand.includes(product.processor?.processorBrand || "")) {
+        if (!filters.processorBrand.includes(product.processor?.processorBrand as any)) {
           return false;
         }
       }
@@ -97,9 +95,9 @@ export function ActiveFilters() {
         }
       }
 
-      // Dedicated Graphics Name filter
-      if (filters.dedicatedGraphicsName && product.dedicatedGraphics?.name !== filters.dedicatedGraphicsName) {
-        return false;
+      // Dedicated Graphics Name filter (Array)
+      if (filters.dedicatedGraphicsName && filters.dedicatedGraphicsName.length > 0) {
+        if (!filters.dedicatedGraphicsName.includes(product.dedicatedGraphics?.name || "")) return false;
       }
 
       // Has Dedicated Graphics filter
@@ -109,18 +107,15 @@ export function ActiveFilters() {
         }
       }
 
-      // Screen Size filter
-      if (filters.screenSize) {
-        const screenSizeMatch =
-          product.display?.sizeInches !== undefined
-            ? String(product.display.sizeInches) === filters.screenSize
-            : false;
-        if (!screenSizeMatch) return false;
+      // Screen Size filter (Array)
+      if (filters.screenSize && filters.screenSize.length > 0) {
+        const productScreenSize = product.display?.sizeInches !== undefined ? String(product.display.sizeInches) : "";
+        if (!filters.screenSize.includes(productScreenSize)) return false;
       }
 
       // Dedicated GPU Brand filter
       if (filters.dedicatedGpuBrand && filters.dedicatedGpuBrand.length > 0) {
-        if (!filters.dedicatedGpuBrand.includes(product.dedicatedGraphics?.dedicatedGpuBrand || "")) {
+        if (!filters.dedicatedGpuBrand.includes(product.dedicatedGraphics?.dedicatedGpuBrand as any)) {
           return false;
         }
       }
@@ -144,6 +139,13 @@ export function ActiveFilters() {
     }).length;
   }, [products, filters]);
 
+  // Helper to remove item from array filter
+  const removeFromArray = (key: keyof Filter, value: any) => {
+    const currentValues = (filters[key] as any[]) || [];
+    const newValues = currentValues.filter((v) => v !== value);
+    setFilters({ ...filters, [key]: newValues.length > 0 ? newValues : undefined });
+  };
+
   // Get all active filters
   const getActiveFilters = (): ActiveFilter[] => {
     const activeFilters: ActiveFilter[] = [];
@@ -161,195 +163,157 @@ export function ActiveFilters() {
     }
 
     // Category filter
-    if (filters.category) {
-      activeFilters.push({
-        key: "category",
-        label: t("filters.category"),
-        value: filters.category,
-        removeHandler: () => {
-          const newFilters = { ...filters, category: undefined, subcategory: undefined };
-          setFilters(newFilters);
-          navigate('/products');
-        },
+    if (filters.category && filters.category.length > 0) {
+      filters.category.forEach(cat => {
+        activeFilters.push({
+          key: `category-${cat}`,
+          label: t("filters.category"),
+          value: cat,
+          removeHandler: () => removeFromArray('category', cat),
+        });
       });
     }
 
     // Subcategory filter
-    if (filters.subcategory) {
-      activeFilters.push({
-        key: "subcategory",
-        label: t("filters.subcategory"),
-        value: filters.subcategory,
-        removeHandler: () => {
-          setFilters({ ...filters, subcategory: undefined });
-        },
+    if (filters.subcategory && filters.subcategory.length > 0) {
+      filters.subcategory.forEach(sub => {
+        activeFilters.push({
+          key: `subcat-${sub}`,
+          label: t("filters.subcategory"),
+          value: sub,
+          removeHandler: () => removeFromArray('subcategory', sub),
+        });
       });
     }
 
     // Brand filter
-    if (filters.brand) {
-      activeFilters.push({
-        key: "brand",
-        label: t("filters.brand"),
-        value: filters.brand,
-        removeHandler: () => {
-          setFilters({ ...filters, brand: undefined });
-        },
+    if (filters.brand && filters.brand.length > 0) {
+      filters.brand.forEach(b => {
+        activeFilters.push({
+          key: `brand-${b}`,
+          label: t("filters.brand"),
+          value: b,
+          removeHandler: () => removeFromArray('brand', b),
+        });
       });
     }
 
     // Color filter
-    if (filters.color) {
-      activeFilters.push({
-        key: "color",
-        label: t("filters.color"),
-        value: filters.color,
-        removeHandler: () => {
-          setFilters({ ...filters, color: undefined });
-        },
+    if (filters.color && filters.color.length > 0) {
+      filters.color.forEach(c => {
+        activeFilters.push({
+          key: `color-${c}`,
+          label: t("filters.color"),
+          value: c,
+          removeHandler: () => removeFromArray('color', c),
+        });
       });
     }
 
     // Size filter
-    if (filters.size) {
-      activeFilters.push({
-        key: "size",
-        label: t("filters.size"),
-        value: filters.size,
-        removeHandler: () => {
-          setFilters({ ...filters, size: undefined });
-        },
+    if (filters.size && filters.size.length > 0) {
+      filters.size.forEach(s => {
+        activeFilters.push({
+          key: `size-${s}`,
+          label: t("filters.size"),
+          value: s,
+          removeHandler: () => removeFromArray('size', s),
+        });
       });
     }
 
     // Processor Name filter
-    if (filters.processorName) {
-      activeFilters.push({
-        key: "processorName",
-        label: `${t("filters.processor")}: ${filters.processorName}`,
-        value: filters.processorName,
-        removeHandler: () => {
-          setFilters({ ...filters, processorName: undefined });
-        },
+    if (filters.processorName && filters.processorName.length > 0) {
+      filters.processorName.forEach(name => {
+        activeFilters.push({
+          key: `processorName-${name}`,
+          label: t("filters.processor"),
+          value: name,
+          removeHandler: () => removeFromArray('processorName', name),
+        });
       });
     }
 
-    // Processor Brand filter (array)
+    // Processor Brand filter
     if (filters.processorBrand && filters.processorBrand.length > 0) {
       filters.processorBrand.forEach((brand, index) => {
         activeFilters.push({
           key: `processorBrand-${index}`,
           label: `${t("filters.processor")} - ${t("filters.brand")}`,
           value: brand,
-          removeHandler: () => {
-            const newBrands = filters.processorBrand?.filter((b) => b !== brand);
-            setFilters({
-              ...filters,
-              processorBrand: newBrands && newBrands.length > 0 ? newBrands : undefined,
-            });
-          },
+          removeHandler: () => removeFromArray('processorBrand', brand),
         });
       });
     }
 
-    // Processor Generation filter (array)
+    // Processor Generation filter
     if (filters.processorGeneration && filters.processorGeneration.length > 0) {
       filters.processorGeneration.forEach((gen, index) => {
         activeFilters.push({
           key: `processorGeneration-${index}`,
           label: `${t("filters.processor")} - ${t("filters.processorGeneration") || "الجيل"}`,
           value: gen,
-          removeHandler: () => {
-            const newGens = filters.processorGeneration?.filter((g) => g !== gen);
-            setFilters({
-              ...filters,
-              processorGeneration: newGens && newGens.length > 0 ? newGens : undefined,
-            });
-          },
+          removeHandler: () => removeFromArray('processorGeneration', gen),
         });
       });
     }
 
-    // Processor Series filter (array)
+    // Processor Series filter
     if (filters.processorSeries && filters.processorSeries.length > 0) {
       filters.processorSeries.forEach((series, index) => {
         activeFilters.push({
           key: `processorSeries-${index}`,
           label: `${t("filters.processor")} - ${t("filters.processorSeries") || "السلسلة"}`,
           value: series,
-          removeHandler: () => {
-            const newSeries = filters.processorSeries?.filter((s) => s !== series);
-            setFilters({
-              ...filters,
-              processorSeries: newSeries && newSeries.length > 0 ? newSeries : undefined,
-            });
-          },
+          removeHandler: () => removeFromArray('processorSeries', series),
         });
       });
     }
 
-    // Integrated GPU filter (array)
+    // Integrated GPU filter
     if (filters.integratedGpu && filters.integratedGpu.length > 0) {
       filters.integratedGpu.forEach((gpu, index) => {
         activeFilters.push({
           key: `integratedGpu-${index}`,
           label: `${t("filters.processor")} - ${t("filters.integratedGpu") || "معالج رسومي مدمج"}`,
           value: gpu,
-          removeHandler: () => {
-            const newGpus = filters.integratedGpu?.filter((g) => g !== gpu);
-            setFilters({
-              ...filters,
-              integratedGpu: newGpus && newGpus.length > 0 ? newGpus : undefined,
-            });
-          },
+          removeHandler: () => removeFromArray('integratedGpu', gpu),
         });
       });
     }
 
     // Dedicated Graphics Name filter
-    if (filters.dedicatedGraphicsName) {
-      activeFilters.push({
-        key: "dedicatedGraphicsName",
-        label: `${t("filters.dedicatedGraphics")}: ${filters.dedicatedGraphicsName}`,
-        value: filters.dedicatedGraphicsName,
-        removeHandler: () => {
-          setFilters({ ...filters, dedicatedGraphicsName: undefined });
-        },
+    if (filters.dedicatedGraphicsName && filters.dedicatedGraphicsName.length > 0) {
+      filters.dedicatedGraphicsName.forEach(name => {
+        activeFilters.push({
+          key: `gpuName-${name}`,
+          label: t("filters.dedicatedGraphics"),
+          value: name,
+          removeHandler: () => removeFromArray('dedicatedGraphicsName', name),
+        });
       });
     }
 
-    // Dedicated GPU Brand filter (array)
+    // Dedicated GPU Brand filter
     if (filters.dedicatedGpuBrand && filters.dedicatedGpuBrand.length > 0) {
       filters.dedicatedGpuBrand.forEach((brand, index) => {
         activeFilters.push({
           key: `dedicatedGpuBrand-${index}`,
           label: `${t("filters.dedicatedGraphics")} - ${t("filters.brand")}`,
           value: brand,
-          removeHandler: () => {
-            const newBrands = filters.dedicatedGpuBrand?.filter((b) => b !== brand);
-            setFilters({
-              ...filters,
-              dedicatedGpuBrand: newBrands && newBrands.length > 0 ? newBrands : undefined,
-            });
-          },
+          removeHandler: () => removeFromArray('dedicatedGpuBrand', brand),
         });
       });
     }
 
-    // Dedicated GPU Model filter (array)
+    // Dedicated GPU Model filter
     if (filters.dedicatedGpuModel && filters.dedicatedGpuModel.length > 0) {
       filters.dedicatedGpuModel.forEach((model, index) => {
         activeFilters.push({
           key: `dedicatedGpuModel-${index}`,
           label: `${t("filters.dedicatedGraphics")} - ${t("filters.model") || "الموديل"}`,
           value: model,
-          removeHandler: () => {
-            const newModels = filters.dedicatedGpuModel?.filter((m) => m !== model);
-            setFilters({
-              ...filters,
-              dedicatedGpuModel: newModels && newModels.length > 0 ? newModels : undefined,
-            });
-          },
+          removeHandler: () => removeFromArray('dedicatedGpuModel', model),
         });
       });
     }
@@ -369,14 +333,14 @@ export function ActiveFilters() {
     }
 
     // Screen Size filter
-    if (filters.screenSize) {
-      activeFilters.push({
-        key: "screenSize",
-        label: `${t("filters.screenSize")}: ${filters.screenSize}"`,
-        value: filters.screenSize,
-        removeHandler: () => {
-          setFilters({ ...filters, screenSize: undefined });
-        },
+    if (filters.screenSize && filters.screenSize.length > 0) {
+      filters.screenSize.forEach(size => {
+        activeFilters.push({
+          key: `screen-${size}`,
+          label: t("filters.screenSize"),
+          value: `${size}"`,
+          removeHandler: () => removeFromArray('screenSize', size),
+        });
       });
     }
 
@@ -386,8 +350,8 @@ export function ActiveFilters() {
         filters.minPrice !== undefined && filters.maxPrice !== undefined
           ? `${filters.minPrice} - ${filters.maxPrice} ${t("common.currency")}`
           : filters.minPrice !== undefined
-          ? `من ${filters.minPrice} ${t("common.currency")}`
-          : `حتى ${filters.maxPrice} ${t("common.currency")}`;
+            ? `من ${filters.minPrice} ${t("common.currency")}`
+            : `حتى ${filters.maxPrice} ${t("common.currency")}`;
 
       activeFilters.push({
         key: "priceRange",
@@ -431,13 +395,8 @@ export function ActiveFilters() {
             className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm border border-primary/20"
           >
             <span className="font-medium">
-              {typeof filter.value === "string" ? (
-                <>
-                  <span className="text-muted-foreground">{filter.label}:</span> {filter.value}
-                </>
-              ) : (
-                filter.label
-              )}
+              <span className="text-muted-foreground ml-1">{filter.label}:</span>
+              {filter.value}
             </span>
             <button
               onClick={filter.removeHandler}
@@ -448,8 +407,37 @@ export function ActiveFilters() {
             </button>
           </div>
         ))}
+        {activeFilters.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => {
+            setFilters({
+              search: undefined,
+              category: undefined,
+              subcategory: undefined,
+              brand: undefined,
+              color: undefined,
+              size: undefined,
+              minPrice: undefined,
+              maxPrice: undefined,
+              supplier: undefined,
+              processorName: undefined,
+              processorBrand: undefined,
+              processorGeneration: undefined,
+              processorSeries: undefined,
+              integratedGpu: undefined,
+              dedicatedGraphicsName: undefined,
+              dedicatedGpuBrand: undefined,
+              dedicatedGpuModel: undefined,
+              hasDedicatedGraphics: undefined,
+              screenSize: undefined,
+            });
+            if (window.location.pathname.includes('/products/')) {
+              navigate('/products');
+            }
+          }} className="text-xs text-muted-foreground hover:text-red-500">
+            {t("filters.clearAll")}
+          </Button>
+        )}
       </div>
     </div>
   );
 }
-

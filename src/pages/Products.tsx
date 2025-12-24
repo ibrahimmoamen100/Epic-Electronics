@@ -59,17 +59,20 @@ export default function Products() {
     if (categoryParam) {
       // Decode the category parameter (handle Arabic text)
       const decodedCategory = decodeURIComponent(categoryParam);
-      if (decodedCategory !== filters.category) {
+      const currentCategories = filters.category || [];
+      const isSame = currentCategories.length === 1 && currentCategories[0] === decodedCategory;
+
+      if (!isSame) {
         setFilters({
           ...filters,
-          category: decodedCategory,
+          category: [decodedCategory],
           subcategory: undefined, // Reset subcategory when category changes
           brand: undefined, // Reset brand when category changes
           color: undefined, // Reset color when category changes
           size: undefined, // Reset size when category changes
         });
       }
-    } else if (filters.category) {
+    } else if (filters.category && filters.category.length > 0) {
       // If no category in URL but filters has category, clear it
       setFilters({
         ...filters,
@@ -80,7 +83,7 @@ export default function Products() {
         size: undefined,
       });
     }
-  }, [categoryParam, filters.category, setFilters]);
+  }, [categoryParam, setFilters]);
 
   // Apply filters to products
   const filteredProducts = products?.filter((product) => {
@@ -93,7 +96,7 @@ export default function Products() {
     let matchesSize = true;
     let matchesSupplier = true;
     let matchesProcessorName = true;
-  let matchesDedicatedGraphicsName = true;
+    let matchesDedicatedGraphicsName = true;
     let matchesHasDedicatedGraphics = true;
     let matchesScreenSize = true;
     let matchesProcessorBrand = true;
@@ -114,16 +117,16 @@ export default function Products() {
         .includes(filters.search.toLowerCase());
     }
 
-    if (filters.category) {
-      matchesCategory = product.category === filters.category;
+    if (filters.category && filters.category.length > 0) {
+      matchesCategory = filters.category.includes(product.category);
     }
 
-    if (filters.subcategory) {
-      matchesSubcategory = product.subcategory === filters.subcategory;
+    if (filters.subcategory && filters.subcategory.length > 0) {
+      matchesSubcategory = filters.subcategory.includes(product.subcategory || "");
     }
 
-    if (filters.brand) {
-      matchesBrand = product.brand === filters.brand;
+    if (filters.brand && filters.brand.length > 0) {
+      matchesBrand = filters.brand.includes(product.brand);
     }
 
     if (filters.minPrice !== undefined) {
@@ -134,34 +137,32 @@ export default function Products() {
       matchesPrice = matchesPrice && product.price <= filters.maxPrice;
     }
 
-    if (filters.color) {
-      matchesColor = product.color
-        ?.split(",")
-        .some((c) => c.trim() === filters.color);
+    if (filters.color && filters.color.length > 0) {
+      const productColors = product.color?.split(",").map(c => c.trim()) || [];
+      matchesColor = filters.color.some(c => productColors.includes(c));
     }
 
-    if (filters.processorName) {
-      matchesProcessorName = product.processor?.name === filters.processorName;
+    if (filters.processorName && filters.processorName.length > 0) {
+      matchesProcessorName = filters.processorName.includes(product.processor?.name || "");
     }
 
-    if (filters.dedicatedGraphicsName) {
-      matchesDedicatedGraphicsName = product.dedicatedGraphics?.name === filters.dedicatedGraphicsName;
+    if (filters.dedicatedGraphicsName && filters.dedicatedGraphicsName.length > 0) {
+      matchesDedicatedGraphicsName = filters.dedicatedGraphicsName.includes(product.dedicatedGraphics?.name || "");
     }
 
     if (filters.hasDedicatedGraphics !== undefined) {
       matchesHasDedicatedGraphics = !!product.dedicatedGraphics === filters.hasDedicatedGraphics;
     }
 
-    if (filters.size) {
-      matchesSize = product.size
-        ?.split(",")
-        .some((s) => s.trim() === filters.size);
+    if (filters.size && filters.size.length > 0) {
+      const productSizes = product.size?.split(",").map(s => s.trim()) || [];
+      matchesSize = filters.size.some(s => productSizes.includes(s));
     }
 
-    if (filters.screenSize) {
+    if (filters.screenSize && filters.screenSize.length > 0) {
       matchesScreenSize =
         product.display?.sizeInches !== undefined
-          ? String(product.display.sizeInches) === filters.screenSize
+          ? filters.screenSize.includes(String(product.display.sizeInches))
           : false;
     }
 
@@ -277,7 +278,7 @@ export default function Products() {
 
   return (
     <div className="min-h-screen flex flex-col">
-        <div className="container py-8">
+      <div className="container py-8">
 
 
         <ActiveFilters />
@@ -288,7 +289,7 @@ export default function Products() {
             onChange={(value) => setFilters({ ...filters, search: value })}
           />
         </div>
-        
+
         <div className="flex flex-col md:flex-row gap-6">
           {/* Mobile Filter Button - Opens from bottom */}
           <div className="md:hidden mb-4">

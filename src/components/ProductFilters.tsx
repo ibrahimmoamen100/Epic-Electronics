@@ -8,18 +8,13 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { useState, useMemo, useEffect } from "react";
-import { DEFAULT_SUPPLIER } from "@/constants/supplier";
+import { useState, useMemo } from "react";
 import { formatCurrency } from "@/utils/format";
-
-const DEFAULT_SUPPLIER_NAME = "spark";
-const DEFAULT_SUPPLIER_PHONE = "01025423389";
+import { Filter, Product } from "@/types/product";
 
 export function ProductFilters() {
   const filters = useStore((state) => state.filters) || {};
@@ -27,489 +22,274 @@ export function ProductFilters() {
   const products = useStore((state) => state.products) || [];
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [expandedSections, setExpandedSections] = useState({
-    price: true,
-    category: true,
-    brand: false,
-    color: false,
-    size: false,
-  });
 
   // State to control accordion sections
-  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "category"]);
+  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "category", "subcategory"]);
 
   const optionRow =
-    "flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2 md:px-4 md:py-2.5 hover:border-border/60 hover:bg-muted/60 transition-colors cursor-pointer";
+    "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 hover:border-border/60 hover:bg-muted/60 transition-colors cursor-pointer text-sm";
   const optionSelected = "border-primary/60 bg-primary/5";
 
-  // Get filtered products based on current filters (excluding CPU and GPU filters for dependent filtering)
-  const filteredProducts = useMemo(() => {
+  // Helper to toggle array filters
+  const toggleFilter = (key: keyof Filter, value: any) => {
+    const currentValues = (filters[key] as any[]) || [];
+    const isSelected = currentValues.includes(value);
+
+    let newValues;
+    if (isSelected) {
+      newValues = currentValues.filter((v) => v !== value);
+    } else {
+      newValues = [...currentValues, value];
+    }
+
+    setFilters({
+      ...filters,
+      [key]: newValues.length > 0 ? newValues : undefined
+    });
+  };
+
+  /**
+   * Core filtering logic reused for count calculations.
+   * excludesKey: The filter key to ignore (for calculating potential results within a group).
+   */
+  const getFilteredProducts = (excludeKey?: keyof Filter) => {
     return products.filter((product) => {
       // Exclude archived products
-      if (product.isArchived) {
-        return false;
+      if (product.isArchived) return false;
+
+      // Search
+      if (filters.search && excludeKey !== 'search') {
+        if (!product.name.toLowerCase().includes(filters.search.toLowerCase())) return false;
       }
-      // Category filter
-      if (filters.category && product.category !== filters.category) {
-        return false;
+
+      // Price
+      if (excludeKey !== 'minPrice' && excludeKey !== 'maxPrice') { // grouping price
+        if (filters.minPrice !== undefined && product.price < filters.minPrice) return false;
+        if (filters.maxPrice !== undefined && product.price > filters.maxPrice) return false;
       }
-      // Subcategory filter
-      if (filters.subcategory && product.subcategory !== filters.subcategory) {
-        return false;
+
+      // Arrays Logic
+      const checkArray = (key: keyof Filter, productVal: any) => {
+        if (key === excludeKey) return true;
+        const filterVals = filters[key] as any[];
+        if (filterVals && filterVals.length > 0) {
+          if (!filterVals.includes(productVal)) return false;
+        }
+        return true;
+      };
+
+      if (!checkArray('category', product.category)) return false;
+      if (!checkArray('subcategory', product.subcategory || "")) return false;
+      if (!checkArray('brand', product.brand)) return false;
+
+      // Color - custom logic because product.color is comma separated string
+      if (excludeKey !== 'color' && filters.color && filters.color.length > 0) {
+        const productColors = product.color?.split(",").map(c => c.trim()) || [];
+        if (!filters.color.some(c => productColors.includes(c))) return false;
       }
-      // Brand filter
-      if (filters.brand && product.brand !== filters.brand) {
-        return false;
+
+      // Size - custom logic
+      if (excludeKey !== 'size' && filters.size && filters.size.length > 0) {
+        const productSizes = product.size?.split(",").map(s => s.trim()) || [];
+        if (!filters.size.some(s => productSizes.includes(s))) return false;
       }
+
+      if (!checkArray('processorName', product.processor?.name || "")) return false;
+      if (!checkArray('processorBrand', product.processor?.processorBrand)) return false;
+      if (!checkArray('processorGeneration', product.processor?.processorGeneration || "")) return false;
+      if (!checkArray('processorSeries', product.processor?.processorSeries || "")) return false;
+      if (!checkArray('integratedGpu', product.processor?.integratedGpu || "")) return false;
+      if (!checkArray('dedicatedGraphicsName', product.dedicatedGraphics?.name || "")) return false;
+      if (!checkArray('dedicatedGpuBrand', product.dedicatedGraphics?.dedicatedGpuBrand)) return false;
+      if (!checkArray('dedicatedGpuModel', product.dedicatedGraphics?.dedicatedGpuModel || "")) return false;
+
+      // Screen Size
+      if (excludeKey !== 'screenSize' && filters.screenSize && filters.screenSize.length > 0) {
+        const pSize = product.display?.sizeInches;
+        if (pSize === undefined || !filters.screenSize.includes(String(pSize))) return false;
+      }
+
+      // Has Dedicated GPU
+      if (excludeKey !== 'hasDedicatedGraphics' && filters.hasDedicatedGraphics !== undefined) {
+        if (!!product.dedicatedGraphics !== filters.hasDedicatedGraphics) return false;
+      }
+
       return true;
     });
-  }, [products, filters.category, filters.subcategory, filters.brand]);
+  };
 
-  // Get unique values for filters based on filtered products
-  const categories = useMemo(() => {
-    // If a brand is selected, show all categories for that brand
-    if (filters.brand) {
-      return Array.from(
-        new Set(
-          products
-            ?.filter((p) => p.brand === filters.brand)
-            .map((p) => p.category)
-            .filter(Boolean) || []
-        )
-      ) as string[];
-    }
-    // Otherwise show all categories
-    return Array.from(
-      new Set(products?.map((p) => p.category).filter(Boolean) || [])
-    ) as string[];
-  }, [products, filters.brand]);
+  // Memoize Counts
+  const categoryCounts = useMemo(() => {
+    const p = getFilteredProducts('category');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      if (prod.category) counts[prod.category] = (counts[prod.category] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
 
-  // Get unique subcategories for the selected category
+  const subcategoryCounts = useMemo(() => {
+    const p = getFilteredProducts('subcategory');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      if (prod.subcategory) counts[prod.subcategory] = (counts[prod.subcategory] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const brandCounts = useMemo(() => {
+    const p = getFilteredProducts('brand');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      if (prod.brand) counts[prod.brand] = (counts[prod.brand] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const processorBrandCounts = useMemo(() => {
+    const p = getFilteredProducts('processorBrand');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      const v = prod.processor?.processorBrand;
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const processorGenCounts = useMemo(() => {
+    const p = getFilteredProducts('processorGeneration');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      const v = prod.processor?.processorGeneration;
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const processorSeriesCounts = useMemo(() => {
+    const p = getFilteredProducts('processorSeries');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      const v = prod.processor?.processorSeries;
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const integratedGpuCounts = useMemo(() => {
+    const p = getFilteredProducts('integratedGpu');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      const v = prod.processor?.integratedGpu;
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const processorNameCounts = useMemo(() => {
+    const p = getFilteredProducts('processorName');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      const v = prod.processor?.name;
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const screenSizeCounts = useMemo(() => {
+    const p = getFilteredProducts('screenSize');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      const v = prod.display?.sizeInches;
+      if (v !== undefined) counts[String(v)] = (counts[String(v)] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const gpuNameCounts = useMemo(() => {
+    const p = getFilteredProducts('dedicatedGraphicsName');
+    const counts: Record<string, number> = {};
+    p.forEach(prod => {
+      const v = prod.dedicatedGraphics?.name;
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+
+  // OPTIONS LISTS
+  const categories = useMemo(() => Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort(), [products]);
+
   const subcategories = useMemo(() => {
-    if (!filters.category) return [];
-
-    // If a brand is selected, show only subcategories that have that brand
-    if (filters.brand) {
-      return Array.from(
-        new Set(
-          products
-            ?.filter(
-              (p) =>
-                p.category === filters.category && p.brand === filters.brand
-            )
-            .map((p) => p.subcategory)
-            .filter(Boolean) || []
-        )
-      ) as string[];
+    // If categories are selected, limit subcategories to those.
+    // Otherwise allow all.
+    let list = products;
+    if (filters.category && filters.category.length > 0) {
+      list = products.filter(p => filters.category?.includes(p.category));
     }
+    return Array.from(new Set(list.map(p => p.subcategory).filter(Boolean))).sort();
+  }, [products, filters.category]);
 
-    // Otherwise show all subcategories for the selected category
-    return Array.from(
-      new Set(
-        products
-          ?.filter((p) => p.category === filters.category)
-          .map((p) => p.subcategory)
-          .filter(Boolean) || []
-      )
-    ) as string[];
+  const brands = useMemo(() => Array.from(new Set(products.map(p => p.brand).filter(Boolean))).sort(), [products]);
+
+  // Show filtered options or all? Usually "Available Options" are based on other filters.
+  // Using global list for now for most sections to "Keep option visible" even if 0 count?
+  // Let's use the full list of potential options from products, but filter irrelevant ones (like Processor X if we are looking at Monitors?)
+  // For simplicty and robustness, I will use unique values from the products that match the TOP LEVEL context (Category/Brand).
+  const topLevelContextProducts = useMemo(() => {
+    return products.filter(p => {
+      if (productIsArchived(p)) return false;
+      // Apply Category and Brand filters to decide which deep specs are available
+      if (filters.category?.length && !filters.category.includes(p.category)) return false;
+      if (filters.brand?.length && !filters.brand.includes(p.brand)) return false;
+      return true;
+    });
   }, [products, filters.category, filters.brand]);
 
-  const suppliers = useMemo(() => {
-    // Removed supplier filtering for customers
-    return [];
-  }, []);
+  function productIsArchived(p: Product) { return p.isArchived; }
 
-  const brands = useMemo(() => {
-    // If a subcategory is selected, show only brands that have that subcategory
-    if (filters.subcategory) {
-      return Array.from(
-        new Set(
-          products
-            ?.filter(
-              (p) =>
-                p.category === filters.category &&
-                p.subcategory === filters.subcategory
-            )
-            .map((p) => p.brand)
-            .filter(Boolean) || []
-        )
-      ) as string[];
-    }
+  const processorBrands = useMemo(() => Array.from(new Set(topLevelContextProducts.map(p => p.processor?.processorBrand).filter(Boolean))) as string[], [topLevelContextProducts]);
+  const processorGenerations = useMemo(() => Array.from(new Set(topLevelContextProducts.map(p => p.processor?.processorGeneration).filter(Boolean))).sort(), [topLevelContextProducts]);
+  const processorSeries = useMemo(() => Array.from(new Set(topLevelContextProducts.map(p => p.processor?.processorSeries).filter(Boolean))).sort(), [topLevelContextProducts]);
+  const integratedGpus = useMemo(() => Array.from(new Set(topLevelContextProducts.map(p => p.processor?.integratedGpu).filter(Boolean))).sort(), [topLevelContextProducts]);
+  const processorNames = useMemo(() => Array.from(new Set(topLevelContextProducts.map(p => p.processor?.name).filter(Boolean))).sort(), [topLevelContextProducts]);
+  const screenSizes = useMemo(() => Array.from(new Set(topLevelContextProducts.map(p => p.display?.sizeInches).filter(v => typeof v === 'number'))).sort((a, b) => a! - b!).map(String), [topLevelContextProducts]);
+  const gpuNames = useMemo(() => Array.from(new Set(topLevelContextProducts.map(p => p.dedicatedGraphics?.name).filter(Boolean))).sort(), [topLevelContextProducts]);
 
-    // If a category is selected, show all brands for that category
-    if (filters.category) {
-      return Array.from(
-        new Set(
-          products
-            ?.filter((p) => p.category === filters.category)
-            .map((p) => p.brand)
-            .filter(Boolean) || []
-        )
-      ) as string[];
-    }
-
-    // Otherwise show all brands
-    return Array.from(
-      new Set(products?.map((p) => p.brand).filter(Boolean) || [])
-    ) as string[];
-  }, [products, filters.category, filters.subcategory]);
-
-  // Processor brands derived from filtered products
-  const processorBrands = useMemo(() => {
-    return Array.from(
-      new Set(
-        filteredProducts
-          .map((p) => p.processor?.processorBrand)
-          .filter((brand): brand is "Intel" | "AMD" | "Other" => 
-            brand === "Intel" || brand === "AMD" || brand === "Other"
-          )
-      )
-    );
-  }, [filteredProducts]);
-
-  // Processor generations derived from filtered products, filtered by processor brand if selected
-  const processorGenerations = useMemo(() => {
-    let productsToConsider = filteredProducts;
-    
-    // Filter by processor brand if selected
-    if (filters.processorBrand && filters.processorBrand.length > 0) {
-      productsToConsider = productsToConsider.filter((p) => {
-        const processorBrand = p.processor?.processorBrand;
-        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-        return filters.processorBrand?.includes(processorBrand) || false;
-      });
-    }
-    
-    return Array.from(
-      new Set(
-        productsToConsider
-          .map((p) => p.processor?.processorGeneration)
-          .filter(Boolean) as string[]
-      )
-    ).sort();
-  }, [filteredProducts, filters.processorBrand]);
-
-  // Processor series derived from filtered products, filtered by processor brand and generation if selected
-  const processorSeries = useMemo(() => {
-    let productsToConsider = filteredProducts;
-    
-    // Filter by processor brand if selected
-    if (filters.processorBrand && filters.processorBrand.length > 0) {
-      productsToConsider = productsToConsider.filter((p) => {
-        const processorBrand = p.processor?.processorBrand;
-        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-        return filters.processorBrand?.includes(processorBrand) || false;
-      });
-    }
-    
-    // Filter by processor generation if selected
-    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
-      productsToConsider = productsToConsider.filter((p) =>
-        filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
-      );
-    }
-    
-    return Array.from(
-      new Set(
-        productsToConsider
-          .map((p) => p.processor?.processorSeries)
-          .filter(Boolean) as string[]
-      )
-    ).sort();
-  }, [filteredProducts, filters.processorBrand, filters.processorGeneration]);
-
-  // Integrated GPUs derived from filtered products, filtered by processor brand, generation, and series if selected
-  const integratedGpus = useMemo(() => {
-    let productsToConsider = filteredProducts;
-    
-    // Filter by processor brand if selected
-    if (filters.processorBrand && filters.processorBrand.length > 0) {
-      productsToConsider = productsToConsider.filter((p) => {
-        const processorBrand = p.processor?.processorBrand;
-        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-        return filters.processorBrand?.includes(processorBrand) || false;
-      });
-    }
-    
-    // Filter by processor generation if selected
-    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
-      productsToConsider = productsToConsider.filter((p) =>
-        filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
-      );
-    }
-    
-    // Filter by processor series if selected
-    if (filters.processorSeries && filters.processorSeries.length > 0) {
-      productsToConsider = productsToConsider.filter((p) =>
-        filters.processorSeries?.includes(p.processor?.processorSeries || "")
-      );
-    }
-    
-    return Array.from(
-      new Set(
-        productsToConsider
-          .map((p) => p.processor?.integratedGpu)
-          .filter(Boolean) as string[]
-      )
-    ).sort();
-  }, [filteredProducts, filters.processorBrand, filters.processorGeneration, filters.processorSeries]);
-
-  // Dedicated GPU brands derived from filtered products
-  const dedicatedGpuBrands = useMemo(() => {
-    return Array.from(
-      new Set(
-        filteredProducts
-          .map((p) => p.dedicatedGraphics?.dedicatedGpuBrand)
-          .filter((brand): brand is "NVIDIA" | "AMD" | "Intel" | "Custom" => 
-            brand === "NVIDIA" || brand === "AMD" || brand === "Intel" || brand === "Custom"
-          )
-      )
-    );
-  }, [filteredProducts]);
-
-  // Dedicated GPU models derived from filtered products
-  const dedicatedGpuModels = useMemo(() => {
-    return Array.from(
-      new Set(
-        filteredProducts
-          .map((p) => p.dedicatedGraphics?.dedicatedGpuModel)
-          .filter(Boolean) as string[]
-      )
-    ).sort();
-  }, [filteredProducts]);
-
-  // Processor names derived from filtered products and dependent on processor filters (brand, generation, series, integratedGpu) and GPU filter
-  const processorNames = useMemo(() => {
-    let productsToConsider = filteredProducts;
-    
-    // Filter by processor brand if selected
-    if (filters.processorBrand && filters.processorBrand.length > 0) {
-      productsToConsider = productsToConsider.filter((p) => {
-        const processorBrand = p.processor?.processorBrand;
-        if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-        return filters.processorBrand?.includes(processorBrand) || false;
-      });
-    }
-    
-    // Filter by processor generation if selected
-    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
-      productsToConsider = productsToConsider.filter((p) =>
-        filters.processorGeneration?.includes(p.processor?.processorGeneration || "")
-      );
-    }
-    
-    // Filter by processor series if selected
-    if (filters.processorSeries && filters.processorSeries.length > 0) {
-      productsToConsider = productsToConsider.filter((p) =>
-        filters.processorSeries?.includes(p.processor?.processorSeries || "")
-      );
-    }
-    
-    // Filter by integrated GPU if selected
-    if (filters.integratedGpu && filters.integratedGpu.length > 0) {
-      productsToConsider = productsToConsider.filter((p) =>
-        filters.integratedGpu?.includes(p.processor?.integratedGpu || "")
-      );
-    }
-    
-    // If a GPU is selected, only show processors that exist in products with that GPU
-    if (filters.dedicatedGraphicsName) {
-      productsToConsider = productsToConsider.filter(
-        (p) => p.dedicatedGraphics?.name === filters.dedicatedGraphicsName
-      );
-    }
-    
-    return Array.from(
-      new Set(
-        productsToConsider
-          .map((p) => p.processor?.name)
-          .filter(Boolean) as string[]
-      )
-    );
-  }, [filteredProducts, filters.processorBrand, filters.processorGeneration, filters.processorSeries, filters.integratedGpu, filters.dedicatedGraphicsName]);
-
-  // Dedicated GPU names derived from filtered products and dependent on CPU filter
-  const gpuNames = useMemo(() => {
-    let productsToConsider = filteredProducts;
-    
-    // If a processor is selected, only show GPUs that exist in products with that processor
-    if (filters.processorName) {
-      productsToConsider = productsToConsider.filter(
-        (p) => p.processor?.name === filters.processorName
-      );
-    }
-    
-    return Array.from(
-      new Set(
-        productsToConsider
-          .map((p) => p.dedicatedGraphics?.name)
-          .filter(Boolean) as string[]
-      )
-    );
-  }, [filteredProducts, filters.processorName]);
-
-  const screenSizes = useMemo(() => {
-    return Array.from(
-      new Set(
-        filteredProducts
-          ?.map((p) => p.display?.sizeInches)
-          .filter((size): size is number => typeof size === "number")
-      ) || []
-    )
-      .sort((a, b) => a - b)
-      .map((size) => size.toString());
-  }, [filteredProducts]);
-
-  // Validate and reset incompatible filters when available options change
-  useEffect(() => {
-    // Only reset if we have available options and the current filter is not in the list
-    // This happens when GPU filter changes and the selected processor is no longer compatible
-    if (processorNames.length > 0 && filters.processorName && !processorNames.includes(filters.processorName)) {
-      // Processor is no longer available (e.g., due to GPU filter change), reset it
-      setFilters({
-        ...filters,
-        processorName: undefined,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [processorNames.join(',')]); // Use join to create a stable dependency
-
-  useEffect(() => {
-    // Only reset if we have available options and the current filter is not in the list
-    // This happens when processor filter changes and the selected GPU is no longer compatible
-    if (gpuNames.length > 0 && filters.dedicatedGraphicsName && !gpuNames.includes(filters.dedicatedGraphicsName)) {
-      // GPU is no longer available (e.g., due to processor filter change), reset it
-      setFilters({
-        ...filters,
-        dedicatedGraphicsName: undefined,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gpuNames.join(',')]); // Use join to create a stable dependency
-
-  const colors = useMemo(() => {
-    return Array.from(
-      new Set(
-        filteredProducts
-          ?.map((p) => p.color)
-          .filter(Boolean)
-          .flatMap((color) => color.split(","))
-      ) || []
-    ).map((color) => {
-      // Map color codes to color names
-      const colorMap: { [key: string]: string } = {
-        "#000000": "Black",
-        "#FFFFFF": "White",
-        "#FF0000": "Red",
-        "#008000": "Green",
-        "#0000FF": "Blue",
-        "#FFFF00": "Yellow",
-        "#800080": "Purple",
-        "#FFA500": "Orange",
-        "#FFC0CB": "Pink",
-        "#808080": "Gray",
-        "#A52A2A": "Brown",
-        "#F5F5DC": "Beige",
-        "#000080": "Navy",
-        "#800000": "Maroon",
-        "#008080": "Teal",
-        "#FFD700": "Gold",
-        "#C0C0C0": "Silver",
-      };
-      return {
-        code: color as string,
-        name: colorMap[color as string] || color as string,
-      };
-    });
-  }, [filteredProducts]);
-
-  const sizes = useMemo(() => {
-    return Array.from(
-      new Set(
-        filteredProducts
-          ?.map((p) => p.size)
-          .filter(Boolean)
-          .flatMap((size) => size.split(","))
-      ) || []
-    );
-  }, [filteredProducts]);
-
-  // Get min and max prices for the price range slider based on filtered products
-  const prices = useMemo(() => {
-    return filteredProducts?.map((p) => p.price) || [];
-  }, [filteredProducts]);
-
+  // Price Range
+  const prices = useMemo(() => products.map(p => p.price), [products]);
   const hasPrices = prices.length > 0;
-  const minPrice = hasPrices ? Math.min(...prices) : 0;
-  const maxPrice = hasPrices ? Math.max(...prices) : 0;
+  const minPriceLimit = hasPrices ? Math.min(...prices) : 0;
+  const maxPriceLimit = hasPrices ? Math.max(...prices) : 0;
   const priceRange: [number, number] = [
-    filters.minPrice ?? minPrice,
-    filters.maxPrice ?? maxPrice,
+    filters.minPrice ?? minPriceLimit,
+    filters.maxPrice ?? maxPriceLimit,
   ];
 
-  // Reset dependent filters when category changes
-  const handleCategoryChange = (value: string) => {
-    const newCategory = value === "all" ? undefined : value;
-    
-    setFilters({
-      ...filters,
-      category: newCategory,
-      subcategory: undefined, // Reset subcategory when category changes
-      brand: undefined, // Reset brand when category changes
-      color: undefined, // Reset color when category changes
-      size: undefined, // Reset size when category changes
-    });
-
-    // Auto-open subcategory section when a category is selected
-    if (newCategory) {
-      setAccordionValue(prev => {
-        if (!prev.includes("subcategory")) {
-          return [...prev, "subcategory"];
-        }
-        return prev;
-      });
-    }
-
-    // Update URL
-    if (newCategory) {
-      const encodedCategory = encodeURIComponent(newCategory);
-      navigate(`/products/category/${encodedCategory}`);
-    } else {
-      navigate('/products');
-    }
-  };
-
-  // Reset dependent filters when subcategory changes
-  const handleSubcategoryChange = (value: string) => {
-    setFilters({
-      ...filters,
-      subcategory: value === "all" ? undefined : value,
-      brand: undefined, // Reset brand when subcategory changes
-      color: undefined, // Reset color when subcategory changes
-      size: undefined, // Reset size when subcategory changes
-    });
-  };
-
-  // Reset dependent filters when brand changes
-  const handleBrandChange = (value: string) => {
-    setFilters({
-      ...filters,
-      brand: value === "all" ? undefined : value,
-      subcategory: undefined, // Reset subcategory when brand changes
-      color: undefined, // Reset color when brand changes
-      size: undefined, // Reset size when brand changes
-    });
-
-    // Auto-open subcategory section when a brand is selected (if category is also selected)
-    if (value !== "all" && filters.category) {
-      setAccordionValue(prev => {
-        if (!prev.includes("subcategory")) {
-          return [...prev, "subcategory"];
-        }
-        return prev;
-      });
-    }
-  };
+  const renderCheckboxOption = (
+    idPrefix: string,
+    label: string,
+    isSelected: boolean,
+    count: number,
+    onChange: () => void
+  ) => (
+    <Label
+      key={idPrefix}
+      htmlFor={idPrefix}
+      className={`${optionRow} space-x-reverse justify-between ${isSelected ? optionSelected : ""}`}
+    >
+      <div className="flex items-center gap-2 overflow-hidden">
+        <Checkbox
+          id={idPrefix}
+          checked={isSelected}
+          onCheckedChange={onChange}
+          className="shrink-0"
+        />
+        <span className="truncate" title={label}>{label}</span>
+      </div>
+      <span className="text-xs text-muted-foreground shrink-0 tabular-nums">({count})</span>
+    </Label>
+  );
 
   return (
     <div className="w-full space-y-4">
@@ -523,20 +303,19 @@ export function ProductFilters() {
         <AccordionItem value="price">
           <AccordionTrigger>{t("filters.priceRange")}</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-4 pt-2">
+            <div className="space-y-4 pt-2 px-1">
               <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   {formatCurrency(priceRange[1], 'جنيه')}{" "}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {formatCurrency(priceRange[0], 'جنيه')}{" "}
                 </span>
-
               </div>
               <Slider
                 value={priceRange}
-                min={minPrice}
-                max={maxPrice}
+                min={minPriceLimit}
+                max={maxPriceLimit}
                 step={1}
                 disabled={!hasPrices}
                 onValueChange={(value) =>
@@ -555,730 +334,180 @@ export function ProductFilters() {
         <AccordionItem value="category">
           <AccordionTrigger>{t("filters.category")}</AccordionTrigger>
           <AccordionContent>
-            <RadioGroup
-              value={filters.category || "all"}
-              onValueChange={handleCategoryChange}
-              className="space-y-2 pt-2"
-            >
-              <Label
-                htmlFor="all-categories"
-                className={`${optionRow} ${!filters.category ? optionSelected : ""}`}
-              >
-                <RadioGroupItem value="all" id="all-categories" className="h-4 w-4" />
-                <span>{t("filters.allCategories")}</span>
-              </Label>
-              {categories.map((category) => (
-                <Label
-                  key={category}
-                  htmlFor={category}
-                  className={`${optionRow} ${
-                    filters.category === category ? optionSelected : ""
-                  }`}
-                >
-                  <RadioGroupItem value={category} id={category} className="h-4 w-4" />
-                  <span>{category}</span>
-                </Label>
-              ))}
-            </RadioGroup>
+            <div className="space-y-1 pt-2">
+              {categories.map((category) => {
+                const isSelected = filters.category?.includes(category) || false;
+                const count = categoryCounts[category] || 0;
+                return renderCheckboxOption(
+                  `category-${category}`,
+                  category,
+                  isSelected,
+                  count,
+                  () => toggleFilter('category', category)
+                );
+              })}
+            </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Subcategory Filter - Always show but disable when no category is selected */}
+        {/* Subcategory Filter - Always Visible */}
         <AccordionItem value="subcategory">
-          <AccordionTrigger
-            className={!filters.category ? "text-muted-foreground" : ""}
-            disabled={!filters.category}
-          >
+          <AccordionTrigger>
             {t("filters.subcategory")}
-            {filters.brand && ` | (${filters.brand})`}
-            {!filters.category && (
-              <span className="text-xs text-muted-foreground ml-2">
-                ({t("filters.selectCategoryFirst")})
-              </span>
-            )}
           </AccordionTrigger>
           <AccordionContent>
-            {filters.category ? (
-              <RadioGroup
-                value={filters.subcategory || "all"}
-                onValueChange={handleSubcategoryChange}
-                className="space-y-2 pt-2"
-              >
-                <Label
-                  htmlFor="all-subcategories"
-                  className={`${optionRow} ${!filters.subcategory ? optionSelected : ""}`}
-                >
-                  <RadioGroupItem value="all" id="all-subcategories" className="h-4 w-4" />
-                  <span>{t("filters.allSubcategories")}</span>
-                </Label>
-                {subcategories.map((subcategory) => (
-                  <Label
-                    key={subcategory}
-                    htmlFor={subcategory}
-                    className={`${optionRow} ${
-                      filters.subcategory === subcategory ? optionSelected : ""
-                    }`}
-                  >
-                    <RadioGroupItem value={subcategory} id={subcategory} className="h-4 w-4" />
-                    <span>{subcategory}</span>
-                  </Label>
-                ))}
-              </RadioGroup>
-            ) : (
-              <div className="text-sm text-muted-foreground py-2">
-                {t("filters.selectCategoryFirst")}
-              </div>
-            )}
+            <div className="space-y-1 pt-2">
+              {subcategories.map((subcategory) => {
+                const isSelected = filters.subcategory?.includes(subcategory) || false;
+                const count = subcategoryCounts[subcategory] || 0;
+                return renderCheckboxOption(
+                  `subcat-${subcategory}`,
+                  subcategory,
+                  isSelected,
+                  count,
+                  () => toggleFilter('subcategory', subcategory)
+                );
+              })}
+            </div>
           </AccordionContent>
         </AccordionItem>
 
         {/* Brand Filter */}
         <AccordionItem value="brand">
-          <AccordionTrigger className="text-sm font-medium ">
-            {t("filters.brand")} | {filters.category && `(${filters.category}`}
-            {filters.subcategory && ` > ${filters.subcategory})`}
-            {filters.category && !filters.subcategory && `)`}
-          </AccordionTrigger>
+          <AccordionTrigger>{t("filters.brand")}</AccordionTrigger>
           <AccordionContent>
-            <RadioGroup
-              value={filters.brand || "all"}
-              onValueChange={handleBrandChange}
-              className="space-y-2 pt-2"
-            >
-              <Label
-                htmlFor="all-brands"
-                className={`${optionRow} justify-between ${!filters.brand ? optionSelected : ""}`}
-              >
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="all" id="all-brands" className="h-4 w-4" />
-                  <span>{t("filters.allBrands")}</span>
-                </div>
-              </Label>
+            <div className="space-y-1 pt-2">
               {brands.map((brand) => {
-                const count = filteredProducts.filter((p) => p.brand === brand).length;
-                return (
-                  <Label
-                    key={brand}
-                    htmlFor={brand}
-                    className={`${optionRow} justify-between ${
-                      filters.brand === brand ? optionSelected : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value={brand} id={brand} className="h-4 w-4" />
-                      <span>{brand}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">({count})</span>
-                  </Label>
-                );
+                const isSelected = filters.brand?.includes(brand) || false;
+                const count = brandCounts[brand] || 0;
+                return renderCheckboxOption(`brand-${brand}`, brand, isSelected, count, () => toggleFilter('brand', brand));
               })}
-            </RadioGroup>
+            </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Processor Brand Filter - First */}
+        {/* Processor Brand Filter */}
         <AccordionItem value="processor-brand">
-          <AccordionTrigger className="text-sm font-medium">
-            نوع المعالج *
-          </AccordionTrigger>
+          <AccordionTrigger>{t("filters.processorBrand") || "نوع المعالج"}</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {processorBrands.length > 0 ? (
-                processorBrands.map((brand) => {
-                  const count = filteredProducts.filter((p) => {
-                    const processorBrand = p.processor?.processorBrand;
-                    return processorBrand === "Intel" || processorBrand === "AMD" || processorBrand === "Other"
-                      ? processorBrand === brand
-                      : false;
-                  }).length;
-                  const selected = filters.processorBrand?.includes(brand);
-                  return (
-                    <Label
-                      key={brand}
-                      htmlFor={`processor-brand-${brand}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <Checkbox
-                          id={`processor-brand-${brand}`}
-                          checked={selected || false}
-                          onCheckedChange={(checked) => {
-                            const currentBrands = filters.processorBrand || [];
-                            if (checked) {
-                              setFilters({
-                                ...filters,
-                                processorBrand: [...currentBrands, brand],
-                                processorName: undefined, // Reset processor name when brand changes
-                              });
-                            } else {
-                              setFilters({
-                                ...filters,
-                                processorBrand: currentBrands.filter((b) => b !== brand),
-                                processorName: undefined, // Reset processor name when brand changes
-                              });
-                            }
-                          }}
-                        />
-                        <span>{brand}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">({count})</span>
-                    </Label>
-                  );
-                })
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد أنواع معالجات متاحة حالياً
-                </div>
-              )}
+            <div className="space-y-1 pt-2">
+              {processorBrands.map((brand) => {
+                const isSelected = filters.processorBrand?.includes(brand) || false;
+                const count = processorBrandCounts[brand] || 0;
+                return renderCheckboxOption(`proc-brand-${brand}`, brand, isSelected, count, () => toggleFilter('processorBrand', brand));
+              })}
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Processor Generation Filter - Second */}
-        <AccordionItem value="processor-generation">
-          <AccordionTrigger className="text-sm font-medium">
-            جيل المعالج
-          </AccordionTrigger>
+        {/* Processor Generation */}
+        <AccordionItem value="processor-gen">
+          <AccordionTrigger>جيل المعالج</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {processorGenerations.length > 0 ? (
-                processorGenerations.map((generation) => {
-                  // Count products with this generation that match other processor filters
-                  const count = filteredProducts.filter((p) => {
-                    if (p.processor?.processorGeneration !== generation) return false;
-                    if (filters.processorBrand && filters.processorBrand.length > 0) {
-                      const processorBrand = p.processor?.processorBrand;
-                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-                      if (!filters.processorBrand.includes(processorBrand)) return false;
-                    }
-                    return true;
-                  }).length;
-                  const selected = filters.processorGeneration?.includes(generation);
-                  return (
-                    <Label
-                      key={generation}
-                      htmlFor={`processor-generation-${generation}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <Checkbox
-                          id={`processor-generation-${generation}`}
-                          checked={selected || false}
-                          onCheckedChange={(checked) => {
-                            const currentGenerations = filters.processorGeneration || [];
-                            if (checked) {
-                              setFilters({
-                                ...filters,
-                                processorGeneration: [...currentGenerations, generation],
-                                processorName: undefined, // Reset processor name when generation changes
-                              });
-                            } else {
-                              setFilters({
-                                ...filters,
-                                processorGeneration: currentGenerations.filter((g) => g !== generation),
-                                processorName: undefined, // Reset processor name when generation changes
-                              });
-                            }
-                          }}
-                        />
-                        <span>{generation}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">({count})</span>
-                    </Label>
-                  );
-                })
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد أجيال معالجات متاحة حالياً
-                </div>
-              )}
+            <div className="space-y-1 pt-2">
+              {processorGenerations.map(gen => (
+                renderCheckboxOption(`proc-gen-${gen}`, gen, filters.processorGeneration?.includes(gen) || false, processorGenCounts[gen] || 0, () => toggleFilter('processorGeneration', gen))
+              ))}
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Processor Series Filter - Third */}
         <AccordionItem value="processor-series">
-          <AccordionTrigger className="text-sm font-medium">
-            فئة المعالج *
-          </AccordionTrigger>
+          <AccordionTrigger>فئة المعالج</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {processorSeries.length > 0 ? (
-                processorSeries.map((series) => {
-                  // Count products with this series that match other processor filters
-                  const count = filteredProducts.filter((p) => {
-                    if (p.processor?.processorSeries !== series) return false;
-                    if (filters.processorBrand && filters.processorBrand.length > 0) {
-                      const processorBrand = p.processor?.processorBrand;
-                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-                      if (!filters.processorBrand.includes(processorBrand)) return false;
-                    }
-                    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
-                      if (!filters.processorGeneration.includes(p.processor?.processorGeneration || "")) return false;
-                    }
-                    return true;
-                  }).length;
-                  const selected = filters.processorSeries?.includes(series);
-                  return (
-                    <Label
-                      key={series}
-                      htmlFor={`processor-series-${series}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <Checkbox
-                          id={`processor-series-${series}`}
-                          checked={selected || false}
-                          onCheckedChange={(checked) => {
-                            const currentSeries = filters.processorSeries || [];
-                            if (checked) {
-                              setFilters({
-                                ...filters,
-                                processorSeries: [...currentSeries, series],
-                                processorName: undefined, // Reset processor name when series changes
-                              });
-                            } else {
-                              setFilters({
-                                ...filters,
-                                processorSeries: currentSeries.filter((s) => s !== series),
-                                processorName: undefined, // Reset processor name when series changes
-                              });
-                            }
-                          }}
-                        />
-                        <span>{series}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">({count})</span>
-                    </Label>
-                  );
-                })
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد فئات معالجات متاحة حالياً
-                </div>
-              )}
+            <div className="space-y-1 pt-2">
+              {processorSeries.map(series => (
+                renderCheckboxOption(`proc-series-${series}`, series, filters.processorSeries?.includes(series) || false, processorSeriesCounts[series] || 0, () => toggleFilter('processorSeries', series))
+              ))}
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Integrated GPU Filter - Fourth */}
         <AccordionItem value="integrated-gpu">
-          <AccordionTrigger className="text-sm font-medium">
-            كرت الشاشة الداخلي المدمج في المعالج
-          </AccordionTrigger>
+          <AccordionTrigger>كرت الشاشة المدمج</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-2 pt-2">
-              {integratedGpus.length > 0 ? (
-                integratedGpus.map((gpu) => {
-                  // Count products with this integrated GPU that match other processor filters
-                  const count = filteredProducts.filter((p) => {
-                    if (p.processor?.integratedGpu !== gpu) return false;
-                    if (filters.processorBrand && filters.processorBrand.length > 0) {
-                      const processorBrand = p.processor?.processorBrand;
-                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-                      if (!filters.processorBrand.includes(processorBrand)) return false;
-                    }
-                    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
-                      if (!filters.processorGeneration.includes(p.processor?.processorGeneration || "")) return false;
-                    }
-                    if (filters.processorSeries && filters.processorSeries.length > 0) {
-                      if (!filters.processorSeries.includes(p.processor?.processorSeries || "")) return false;
-                    }
-                    return true;
-                  }).length;
-                  const selected = filters.integratedGpu?.includes(gpu);
-                  return (
-                    <Label
-                      key={gpu}
-                      htmlFor={`integrated-gpu-${gpu}`}
-                      className={`${optionRow} justify-between ${
-                        selected ? optionSelected : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <Checkbox
-                          id={`integrated-gpu-${gpu}`}
-                          checked={selected || false}
-                          onCheckedChange={(checked) => {
-                            const currentGpus = filters.integratedGpu || [];
-                            if (checked) {
-                              setFilters({
-                                ...filters,
-                                integratedGpu: [...currentGpus, gpu],
-                                processorName: undefined, // Reset processor name when integrated GPU changes
-                              });
-                            } else {
-                              setFilters({
-                                ...filters,
-                                integratedGpu: currentGpus.filter((g) => g !== gpu),
-                                processorName: undefined, // Reset processor name when integrated GPU changes
-                              });
-                            }
-                          }}
-                        />
-                        <span>{gpu}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">({count})</span>
-                    </Label>
-                  );
-                })
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  لا توجد كروت شاشة داخلية متاحة حالياً
-                </div>
-              )}
+            <div className="space-y-1 pt-2">
+              {integratedGpus.map(gpu => (
+                renderCheckboxOption(`int-gpu-${gpu}`, gpu, filters.integratedGpu?.includes(gpu) || false, integratedGpuCounts[gpu] || 0, () => toggleFilter('integratedGpu', gpu))
+              ))}
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Processor Filter - Last, depends on previous filters */}
-        <AccordionItem value="processor">
-          <AccordionTrigger className="text-sm font-medium">
-            {t("filters.processor")}
-            {(filters.processorBrand || filters.processorGeneration || filters.processorSeries || filters.integratedGpu) && (
-              <span className="text-xs text-muted-foreground ml-2">
-                (مُصفى حسب التصفيات السابقة)
-              </span>
-            )}
-            {filters.dedicatedGraphicsName && (
-              <span className="text-xs text-muted-foreground ml-2">
-                ({t("filters.compatibleWith")} {filters.dedicatedGraphicsName})
-              </span>
-            )}
-          </AccordionTrigger>
+        {/* Specific Processor Name */}
+        <AccordionItem value="processor-name">
+          <AccordionTrigger>{t("filters.processor")}</AccordionTrigger>
           <AccordionContent>
-            <RadioGroup
-              value={filters.processorName || "all"}
-              onValueChange={(value) => {
-                const newProcessorName = value === "all" ? undefined : value;
-                setFilters({ 
-                  ...filters, 
-                  processorName: newProcessorName
-                });
-              }}
-              className="space-y-2 pt-2"
-            >
-              <Label
-                htmlFor="all-processors"
-                className={`${optionRow} justify-between ${!filters.processorName ? optionSelected : ""}`}
-              >
-                <div className="flex items-center gap-3">
-                  <RadioGroupItem value="all" id="all-processors" className="h-4 w-4" />
-                  <span>{t("filters.allProcessors")}</span>
-                </div>
-              </Label>
-              {processorNames.length > 0 ? (
-                processorNames.map((name) => {
-                  const count = filteredProducts.filter((p) => {
-                    if (p.processor?.name !== name) return false;
-                    // Match all processor filters
-                    if (filters.processorBrand && filters.processorBrand.length > 0) {
-                      const processorBrand = p.processor?.processorBrand;
-                      if (processorBrand !== "Intel" && processorBrand !== "AMD" && processorBrand !== "Other") return false;
-                      if (!filters.processorBrand.includes(processorBrand)) return false;
-                    }
-                    if (filters.processorGeneration && filters.processorGeneration.length > 0) {
-                      if (!filters.processorGeneration.includes(p.processor?.processorGeneration || "")) return false;
-                    }
-                    if (filters.processorSeries && filters.processorSeries.length > 0) {
-                      if (!filters.processorSeries.includes(p.processor?.processorSeries || "")) return false;
-                    }
-                    if (filters.integratedGpu && filters.integratedGpu.length > 0) {
-                      if (!filters.integratedGpu.includes(p.processor?.integratedGpu || "")) return false;
-                    }
-                    return true;
-                  }).length;
-                  const selected = filters.processorName === name;
-                  return (
-                    <Label
-                      key={name}
-                      htmlFor={name}
-                      className={`${optionRow} justify-between ${selected ? optionSelected : ""}`}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <RadioGroupItem value={name} id={name} className="h-4 w-4" />
-                        <span>{name}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">({count})</span>
-                    </Label>
-                  );
-                })
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  {filters.dedicatedGraphicsName 
-                    ? t("filters.noCompatibleProcessors") 
-                    : (filters.processorBrand || filters.processorGeneration || filters.processorSeries || filters.integratedGpu)
-                    ? "لا توجد معالجات متاحة مع التصفيات المحددة"
-                    : t("filters.noProcessorsAvailable")}
-                </div>
-              )}
-            </RadioGroup>
+            <div className="space-y-1 pt-2">
+              {processorNames.map(name => (
+                renderCheckboxOption(`proc-name-${name}`, name, filters.processorName?.includes(name) || false, processorNameCounts[name] || 0, () => toggleFilter('processorName', name))
+              ))}
+              {processorNames.length === 0 && <div className="text-sm text-muted-foreground">{t("filters.noProcessorsAvailable")}</div>}
+            </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Screen Size Filter */}
+        {/* Screen Size */}
         <AccordionItem value="screen-size">
-          <AccordionTrigger className="text-sm font-medium">
-            {t("filters.screenSize")}
-          </AccordionTrigger>
+          <AccordionTrigger>{t("filters.screenSize")}</AccordionTrigger>
           <AccordionContent>
-            <RadioGroup
-              value={filters.screenSize || "all"}
-              onValueChange={(value) =>
-                setFilters({
-                  ...filters,
-                  screenSize: value === "all" ? undefined : value,
-                })
-              }
-              className="space-y-2 pt-2"
-            >
-              <Label
-                htmlFor="all-screen-sizes"
-                className={`${optionRow} ${!filters.screenSize ? optionSelected : ""}`}
-              >
-                <RadioGroupItem value="all" id="all-screen-sizes" className="h-4 w-4" />
-                <span>{t("filters.allScreenSizes")}</span>
-              </Label>
-              {screenSizes.length > 0 ? (
-                screenSizes.map((size) => (
-                  <Label
-                    key={size}
-                    htmlFor={`screen-${size}`}
-                    className={`${optionRow} ${
-                      filters.screenSize === size ? optionSelected : ""
-                    }`}
-                  >
-                    <RadioGroupItem value={size} id={`screen-${size}`} className="h-4 w-4" />
-                    <span>{size}"</span>
-                  </Label>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground py-2">
-                  {t("filters.noScreenSizesAvailable")}
-                </div>
-              )}
-            </RadioGroup>
+            <div className="space-y-1 pt-2">
+              {screenSizes.map(size => (
+                renderCheckboxOption(`screen-${size}`, size + '"', filters.screenSize?.includes(size) || false, screenSizeCounts[size] || 0, () => toggleFilter('screenSize', size))
+              ))}
+            </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Dedicated GPU Filter */}
+        {/* Dedicated GPU */}
         <AccordionItem value="gpu">
-          <AccordionTrigger className="text-sm font-medium">
-            {t("filters.dedicatedGraphics")}
-            {filters.processorName && (
-              <span className="text-xs text-muted-foreground ml-2">
-                ({t("filters.compatibleWith")} {filters.processorName})
-              </span>
-            )}
-          </AccordionTrigger>
+          <AccordionTrigger>{t("filters.dedicatedGraphics")}</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-2 pt-2">
-              <RadioGroup
-                value={filters.dedicatedGraphicsName || "all"}
-                onValueChange={(value) => {
-                  const newGpuName = value === "all" ? undefined : value;
-                  // When GPU changes, keep processor filter but it will be automatically filtered to show only compatible processors
-                  setFilters({ 
-                    ...filters, 
-                    dedicatedGraphicsName: newGpuName
-                  });
-                }}
-                className="space-y-2 pt-2"
-              >
-                <Label
-                  htmlFor={"all-gpus"}
-                  className={`${optionRow} ${!filters.dedicatedGraphicsName ? optionSelected : ""}`}
-                >
-                  <RadioGroupItem value={"all"} id={"all-gpus"} className="h-4 w-4" />
-                  <span>{t("filters.allGPUs")}</span>
-                </Label>
-                {gpuNames.length > 0 ? (
-                  gpuNames.map((name) => (
-                    <Label
-                      key={name}
-                      htmlFor={`gpu-${name}`}
-                      className={`${optionRow} ${
-                        filters.dedicatedGraphicsName === name ? optionSelected : ""
-                      }`}
-                    >
-                      <RadioGroupItem value={name} id={`gpu-${name}`} className="h-4 w-4" />
-                      <span>{name}</span>
-                    </Label>
-                  ))
-                ) : (
-                  <div className="text-sm text-muted-foreground py-2">
-                    {filters.processorName 
-                      ? t("filters.noCompatibleGPUs") 
-                      : t("filters.noGPUsAvailable")}
-                  </div>
-                )}
-              </RadioGroup>
-
-              <div className={`${optionRow} justify-between`}>
-                <Label htmlFor="has-gpu" className="cursor-pointer">
-                  {t("filters.onlyWithGPU")}
-                </Label>
-                <div className="ml-auto">
-                  <input
-                    id="has-gpu"
-                    type="checkbox"
-                    checked={!!filters.hasDedicatedGraphics}
-                    onChange={(e) => setFilters({ ...filters, hasDedicatedGraphics: e.target.checked ? true : undefined })}
-                  />
-                </div>
+            <div className="space-y-1 pt-2">
+              {gpuNames.map(name => (
+                renderCheckboxOption(`gpu-name-${name}`, name, filters.dedicatedGraphicsName?.includes(name) || false, gpuNameCounts[name] || 0, () => toggleFilter('dedicatedGraphicsName', name))
+              ))}
+              <div className={`${optionRow} justify-between mt-2`}>
+                <Label htmlFor="has-gpu">{t("filters.onlyWithGPU")}</Label>
+                <Checkbox
+                  id="has-gpu"
+                  checked={!!filters.hasDedicatedGraphics}
+                  onCheckedChange={(checked) => setFilters({ ...filters, hasDedicatedGraphics: checked ? true : undefined })}
+                />
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
-        {/* Color Filter */}
-        {/* <AccordionItem value="color">
-          <AccordionTrigger className="text-sm font-medium">
-            {t("filters.color")} {filters.category && `(${filters.category})`}{" "}
-            {filters.brand && `(${filters.brand})`}
-          </AccordionTrigger>
-          <AccordionContent>
-            <RadioGroup
-              value={filters.color || "all"}
-              onValueChange={(value) =>
-                setFilters({
-                  ...filters,
-                  color: value === "all" ? undefined : value,
-                })
-              }
-              className="space-y-2 pt-2"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="all-colors" />
-                <Label htmlFor="all-colors">{t("filters.allColors")}</Label>
-              </div>
-              {colors.map((color) => (
-                <div key={color.code} className="flex items-center space-x-2">
-                  <RadioGroupItem value={color.code} id={color.code} />
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-4 w-4 rounded-full border"
-                      style={{ backgroundColor: color.code }}
-                    />
-                    <Label htmlFor={color.code}>
-                      {t(`colors.${color.name}`)}
-                    </Label>
-                  </div>
-                </div>
-              ))}
-            </RadioGroup>
-          </AccordionContent>
-        </AccordionItem> */}
-
-        {/* Size Filter */}
-        {/* <AccordionItem value="size">
-          <AccordionTrigger className="text-sm font-medium">
-            {t("filters.size")} {filters.category && `(${filters.category})`}{" "}
-            {filters.brand && `(${filters.brand})`}
-          </AccordionTrigger>
-          <AccordionContent>
-            <RadioGroup
-              value={filters.size || "all"}
-              onValueChange={(value) =>
-                setFilters({
-                  ...filters,
-                  size: value === "all" ? undefined : value,
-                })
-              }
-              className="space-y-2 pt-2"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="all-sizes" />
-                <Label htmlFor="all-sizes">{t("filters.allSizes")}</Label>
-              </div>
-              {sizes.map((size) => (
-                <div key={size} className="flex items-center space-x-2">
-                  <RadioGroupItem value={size} id={size} />
-                  <Label htmlFor={size}>{size}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </AccordionContent>
-        </AccordionItem> */}
-
-        {/* Sort Filter */}
+        {/* Sort (Single) */}
         <AccordionItem value="sort">
-          <AccordionTrigger className="text-sm font-medium">
-            {t("filters.sortBy")}
-          </AccordionTrigger>
+          <AccordionTrigger>{t("filters.sortBy")}</AccordionTrigger>
           <AccordionContent>
             <RadioGroup
               value={filters.sortBy || "default"}
-              onValueChange={(
-                value:
-                  | "default"
-                  | "price-asc"
-                  | "price-desc"
-                  | "name-asc"
-                  | "name-desc"
-              ) =>
-                setFilters({
-                  ...filters,
-                  sortBy: value === "default" ? undefined : value,
-                })
+              onValueChange={(value: any) =>
+                setFilters({ ...filters, sortBy: value === "default" ? undefined : value })
               }
-              className="space-y-2 pt-2"
+              className="space-y-1 pt-2"
             >
-              <Label
-                htmlFor="default-sort"
-                className={`${optionRow} ${!filters.sortBy ? optionSelected : ""}`}
-              >
-                <RadioGroupItem value="default" id="default-sort" className="h-4 w-4" />
-                <span>{t("filters.default")}</span>
-              </Label>
-              <Label
-                htmlFor="price-asc"
-                className={`${optionRow} ${
-                  filters.sortBy === "price-asc" ? optionSelected : ""
-                }`}
-              >
-                <RadioGroupItem value="price-asc" id="price-asc" className="h-4 w-4" />
-                <span>{t("filters.priceAsc")}</span>
-              </Label>
-              <Label
-                htmlFor="price-desc"
-                className={`${optionRow} ${
-                  filters.sortBy === "price-desc" ? optionSelected : ""
-                }`}
-              >
-                <RadioGroupItem value="price-desc" id="price-desc" className="h-4 w-4" />
-                <span>{t("filters.priceDesc")}</span>
-              </Label>
-              <Label
-                htmlFor="name-asc"
-                className={`${optionRow} ${
-                  filters.sortBy === "name-asc" ? optionSelected : ""
-                }`}
-              >
-                <RadioGroupItem value="name-asc" id="name-asc" className="h-4 w-4" />
-                <span>{t("filters.nameAsc")}</span>
-              </Label>
-              <Label
-                htmlFor="name-desc"
-                className={`${optionRow} ${
-                  filters.sortBy === "name-desc" ? optionSelected : ""
-                }`}
-              >
-                <RadioGroupItem value="name-desc" id="name-desc" className="h-4 w-4" />
-                <span>{t("filters.nameDesc")}</span>
-              </Label>
+              {[
+                { val: 'default', text: t("filters.default") },
+                { val: 'price-asc', text: t("filters.priceAsc") },
+                { val: 'price-desc', text: t("filters.priceDesc") },
+                { val: 'name-asc', text: t("filters.nameAsc") },
+                { val: 'name-desc', text: t("filters.nameDesc") }
+              ].map(({ val, text }) => (
+                <Label key={val} className={`${optionRow} ${filters.sortBy === val || (!filters.sortBy && val === 'default') ? optionSelected : ""}`}>
+                  <RadioGroupItem value={val} className="h-4 w-4" />
+                  <span>{text}</span>
+                </Label>
+              ))}
             </RadioGroup>
           </AccordionContent>
         </AccordionItem>
+
       </Accordion>
 
-      {/* Clear Filters Button */}
       <Button
         variant="outline"
         className="w-full"
@@ -1305,7 +534,6 @@ export function ProductFilters() {
             hasDedicatedGraphics: undefined,
             screenSize: undefined,
           });
-          // Navigate back to products page to clear URL parameters
           navigate('/products');
         }}
       >
