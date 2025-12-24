@@ -24,6 +24,7 @@
     "subcategory": "الفئة الفرعية",
     "brand": " الماركه",
     "color": "اللون",
+    "processorBrand": "نوع المعالج",
     "size": "الحجم",
     "supplier": "البائع",
     "allCategories": "جميع الفئات",
@@ -36,8 +37,7 @@
     "priceRange": "نطاق السعر",
     "clearAll": "مسح جميع التصفية",
     "apply": "تطبيق التصفية",
-    "selectCategoryFirst": "الرجاء اختيار الفئة أولاً"
-    ,
+    "selectCategoryFirst": "الرجاء اختيار الفئة أولاً",
     "processor": "المعالج",
     "dedicatedGraphics": "كرت شاشة خارجي",
     "onlyWithGPU": "عرض المنتجات التي تحتوي على كرت شاشة خارجي فقط",
