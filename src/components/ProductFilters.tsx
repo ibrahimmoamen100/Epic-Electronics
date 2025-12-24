@@ -24,7 +24,7 @@ export function ProductFilters() {
   const navigate = useNavigate();
 
   // State to control accordion sections
-  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "category", "subcategory"]);
+  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "sort", "category", "subcategory"]);
 
   const optionRow =
     "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 hover:border-border/60 hover:bg-muted/60 transition-colors cursor-pointer text-sm";
@@ -232,10 +232,6 @@ export function ProductFilters() {
 
   const brands = useMemo(() => Array.from(new Set(products.map(p => p.brand).filter(Boolean))).sort(), [products]);
 
-  // Show filtered options or all? Usually "Available Options" are based on other filters.
-  // Using global list for now for most sections to "Keep option visible" even if 0 count?
-  // Let's use the full list of potential options from products, but filter irrelevant ones (like Processor X if we are looking at Monitors?)
-  // For simplicty and robustness, I will use unique values from the products that match the TOP LEVEL context (Category/Brand).
   const topLevelContextProducts = useMemo(() => {
     return products.filter(p => {
       if (productIsArchived(p)) return false;
@@ -299,7 +295,7 @@ export function ProductFilters() {
         value={accordionValue}
         onValueChange={setAccordionValue}
       >
-        {/* Price Range Filter */}
+        {/* 1. Price Range Filter */}
         <AccordionItem value="price">
           <AccordionTrigger>{t("filters.priceRange")}</AccordionTrigger>
           <AccordionContent>
@@ -330,156 +326,7 @@ export function ProductFilters() {
           </AccordionContent>
         </AccordionItem>
 
-        {/* Category Filter */}
-        <AccordionItem value="category">
-          <AccordionTrigger>{t("filters.category")}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {categories.map((category) => {
-                const isSelected = filters.category?.includes(category) || false;
-                const count = categoryCounts[category] || 0;
-                return renderCheckboxOption(
-                  `category-${category}`,
-                  category,
-                  isSelected,
-                  count,
-                  () => toggleFilter('category', category)
-                );
-              })}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Subcategory Filter - Always Visible */}
-        <AccordionItem value="subcategory">
-          <AccordionTrigger>
-            {t("filters.subcategory")}
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {subcategories.map((subcategory) => {
-                const isSelected = filters.subcategory?.includes(subcategory) || false;
-                const count = subcategoryCounts[subcategory] || 0;
-                return renderCheckboxOption(
-                  `subcat-${subcategory}`,
-                  subcategory,
-                  isSelected,
-                  count,
-                  () => toggleFilter('subcategory', subcategory)
-                );
-              })}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Brand Filter */}
-        <AccordionItem value="brand">
-          <AccordionTrigger>{t("filters.brand")}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {brands.map((brand) => {
-                const isSelected = filters.brand?.includes(brand) || false;
-                const count = brandCounts[brand] || 0;
-                return renderCheckboxOption(`brand-${brand}`, brand, isSelected, count, () => toggleFilter('brand', brand));
-              })}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Processor Brand Filter */}
-        <AccordionItem value="processor-brand">
-          <AccordionTrigger>{t("filters.processorBrand") || "نوع المعالج"}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {processorBrands.map((brand) => {
-                const isSelected = filters.processorBrand?.includes(brand) || false;
-                const count = processorBrandCounts[brand] || 0;
-                return renderCheckboxOption(`proc-brand-${brand}`, brand, isSelected, count, () => toggleFilter('processorBrand', brand));
-              })}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Processor Generation */}
-        <AccordionItem value="processor-gen">
-          <AccordionTrigger>جيل المعالج</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {processorGenerations.map(gen => (
-                renderCheckboxOption(`proc-gen-${gen}`, gen, filters.processorGeneration?.includes(gen) || false, processorGenCounts[gen] || 0, () => toggleFilter('processorGeneration', gen))
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="processor-series">
-          <AccordionTrigger>فئة المعالج</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {processorSeries.map(series => (
-                renderCheckboxOption(`proc-series-${series}`, series, filters.processorSeries?.includes(series) || false, processorSeriesCounts[series] || 0, () => toggleFilter('processorSeries', series))
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="integrated-gpu">
-          <AccordionTrigger>كرت الشاشة المدمج</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {integratedGpus.map(gpu => (
-                renderCheckboxOption(`int-gpu-${gpu}`, gpu, filters.integratedGpu?.includes(gpu) || false, integratedGpuCounts[gpu] || 0, () => toggleFilter('integratedGpu', gpu))
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Specific Processor Name */}
-        <AccordionItem value="processor-name">
-          <AccordionTrigger>{t("filters.processor")}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {processorNames.map(name => (
-                renderCheckboxOption(`proc-name-${name}`, name, filters.processorName?.includes(name) || false, processorNameCounts[name] || 0, () => toggleFilter('processorName', name))
-              ))}
-              {processorNames.length === 0 && <div className="text-sm text-muted-foreground">{t("filters.noProcessorsAvailable")}</div>}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Screen Size */}
-        <AccordionItem value="screen-size">
-          <AccordionTrigger>{t("filters.screenSize")}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {screenSizes.map(size => (
-                renderCheckboxOption(`screen-${size}`, size + '"', filters.screenSize?.includes(size) || false, screenSizeCounts[size] || 0, () => toggleFilter('screenSize', size))
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Dedicated GPU */}
-        <AccordionItem value="gpu">
-          <AccordionTrigger>{t("filters.dedicatedGraphics")}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {gpuNames.map(name => (
-                renderCheckboxOption(`gpu-name-${name}`, name, filters.dedicatedGraphicsName?.includes(name) || false, gpuNameCounts[name] || 0, () => toggleFilter('dedicatedGraphicsName', name))
-              ))}
-              <div className={`${optionRow} justify-between mt-2`}>
-                <Label htmlFor="has-gpu">{t("filters.onlyWithGPU")}</Label>
-                <Checkbox
-                  id="has-gpu"
-                  checked={!!filters.hasDedicatedGraphics}
-                  onCheckedChange={(checked) => setFilters({ ...filters, hasDedicatedGraphics: checked ? true : undefined })}
-                />
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        {/* Sort (Single) */}
+        {/* 2. Sort Filter */}
         <AccordionItem value="sort">
           <AccordionTrigger>{t("filters.sortBy")}</AccordionTrigger>
           <AccordionContent>
@@ -503,6 +350,157 @@ export function ProductFilters() {
                 </Label>
               ))}
             </RadioGroup>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 3. Category Filter */}
+        <AccordionItem value="category">
+          <AccordionTrigger>{t("filters.category")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {categories.map((category) => {
+                const isSelected = filters.category?.includes(category) || false;
+                const count = categoryCounts[category] || 0;
+                return renderCheckboxOption(
+                  `category-${category}`,
+                  category,
+                  isSelected,
+                  count,
+                  () => toggleFilter('category', category)
+                );
+              })}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 4. Subcategory Filter */}
+        <AccordionItem value="subcategory">
+          <AccordionTrigger>
+            {t("filters.subcategory")}
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {subcategories.map((subcategory) => {
+                const isSelected = filters.subcategory?.includes(subcategory) || false;
+                const count = subcategoryCounts[subcategory] || 0;
+                return renderCheckboxOption(
+                  `subcat-${subcategory}`,
+                  subcategory,
+                  isSelected,
+                  count,
+                  () => toggleFilter('subcategory', subcategory)
+                );
+              })}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 5. Brand Filter */}
+        <AccordionItem value="brand">
+          <AccordionTrigger>{t("filters.brand")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {brands.map((brand) => {
+                const isSelected = filters.brand?.includes(brand) || false;
+                const count = brandCounts[brand] || 0;
+                return renderCheckboxOption(`brand-${brand}`, brand, isSelected, count, () => toggleFilter('brand', brand));
+              })}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 6. Screen Size */}
+        <AccordionItem value="screen-size">
+          <AccordionTrigger>{t("filters.screenSize")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {screenSizes.map(size => (
+                renderCheckboxOption(`screen-${size}`, size + '"', filters.screenSize?.includes(size) || false, screenSizeCounts[size] || 0, () => toggleFilter('screenSize', size))
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 7. Processor Brand Filter */}
+        <AccordionItem value="processor-brand">
+          <AccordionTrigger>{t("filters.processorBrand") || "نوع المعالج"}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {processorBrands.map((brand) => {
+                const isSelected = filters.processorBrand?.includes(brand) || false;
+                const count = processorBrandCounts[brand] || 0;
+                return renderCheckboxOption(`proc-brand-${brand}`, brand, isSelected, count, () => toggleFilter('processorBrand', brand));
+              })}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 8. Processor Series */}
+        <AccordionItem value="processor-series">
+          <AccordionTrigger>فئة المعالج</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {processorSeries.map(series => (
+                renderCheckboxOption(`proc-series-${series}`, series, filters.processorSeries?.includes(series) || false, processorSeriesCounts[series] || 0, () => toggleFilter('processorSeries', series))
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 9. Processor Generation */}
+        <AccordionItem value="processor-gen">
+          <AccordionTrigger>جيل المعالج</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {processorGenerations.map(gen => (
+                renderCheckboxOption(`proc-gen-${gen}`, gen, filters.processorGeneration?.includes(gen) || false, processorGenCounts[gen] || 0, () => toggleFilter('processorGeneration', gen))
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 10. Dedicated GPU */}
+        <AccordionItem value="gpu">
+          <AccordionTrigger>{t("filters.dedicatedGraphics")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {gpuNames.map(name => (
+                renderCheckboxOption(`gpu-name-${name}`, name, filters.dedicatedGraphicsName?.includes(name) || false, gpuNameCounts[name] || 0, () => toggleFilter('dedicatedGraphicsName', name))
+              ))}
+              <div className={`${optionRow} justify-between mt-2`}>
+                <Label htmlFor="has-gpu">{t("filters.onlyWithGPU")}</Label>
+                <Checkbox
+                  id="has-gpu"
+                  checked={!!filters.hasDedicatedGraphics}
+                  onCheckedChange={(checked) => setFilters({ ...filters, hasDedicatedGraphics: checked ? true : undefined })}
+                />
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 11. Integrated GPU */}
+        <AccordionItem value="integrated-gpu">
+          <AccordionTrigger>كرت الشاشة المدمج</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {integratedGpus.map(gpu => (
+                renderCheckboxOption(`int-gpu-${gpu}`, gpu, filters.integratedGpu?.includes(gpu) || false, integratedGpuCounts[gpu] || 0, () => toggleFilter('integratedGpu', gpu))
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* 12. Specific Processor Name */}
+        <AccordionItem value="processor-name">
+          <AccordionTrigger>{t("filters.processor")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {processorNames.map(name => (
+                renderCheckboxOption(`proc-name-${name}`, name, filters.processorName?.includes(name) || false, processorNameCounts[name] || 0, () => toggleFilter('processorName', name))
+              ))}
+              {processorNames.length === 0 && <div className="text-sm text-muted-foreground">{t("filters.noProcessorsAvailable")}</div>}
+            </div>
           </AccordionContent>
         </AccordionItem>
 
