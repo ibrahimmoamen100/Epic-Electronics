@@ -460,6 +460,8 @@ export interface CashierSale {
   customerName?: string;
   customerPhone?: string;
   paymentMethod?: 'vodafone_cash' | 'instaPay' | 'cash';
+  purchaseType?: 'in_store' | 'shipping_company' | 'delivery_agent';
+  notes?: string;
 }
 
 export class FirebaseSalesService {
@@ -1166,24 +1168,24 @@ export class FirebaseAttendanceService {
 
       const deduction = shouldApplyDelayDeduction
         ? calculateDelayDeduction(
-            delayMinutes,
-            excuseStatus,
-            employee.monthlySalary,
-            employee.monthlyWorkingHours,
-            dailyWage
-          )
+          delayMinutes,
+          excuseStatus,
+          employee.monthlySalary,
+          employee.monthlyWorkingHours,
+          dailyWage
+        )
         : { type: 'none' as const, amount: 0 };
 
       // Calculate overtime
       const overtime =
         normalizedStatus === 'present'
           ? calculateOvertime(
-              effectiveCheckIn,
-              effectiveCheckOut,
-              employee.workingHours,
-              employee.monthlySalary,
-              employee.monthlyWorkingHours
-            )
+            effectiveCheckIn,
+            effectiveCheckOut,
+            employee.workingHours,
+            employee.monthlySalary,
+            employee.monthlyWorkingHours
+          )
           : { hours: 0, amount: 0 };
 
       // Calculate daily net

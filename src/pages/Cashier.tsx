@@ -3,6 +3,7 @@ import { useStore } from "@/store/useStore";
 import { Product, ProductSize, ProductAddon } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -76,13 +77,15 @@ interface Sale {
   customerName?: string;
   customerPhone?: string;
   paymentMethod?: 'vodafone_cash' | 'instaPay' | 'cash';
+  purchaseType?: 'in_store' | 'shipping_company' | 'delivery_agent';
+  notes?: string;
 }
 
 export default function Cashier() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { products, updateProduct, loadProducts, removeFromCart: storeRemoveFromCart, updateProductQuantity } = useStore();
-  
+
   const PASSWORD = "01025423389";
   const ACCESS_STORAGE_KEY = "cashier-access-granted";
 
@@ -92,8 +95,10 @@ export default function Cashier() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'vodafone_cash' | 'instaPay' | 'cash'>('cash');
+  const [purchaseType, setPurchaseType] = useState<'in_store' | 'shipping_company' | 'delivery_agent' | ''>('');
+  const [notes, setNotes] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  
+
   // Advanced filters state
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [customStartDate, setCustomStartDate] = useState<string>("");
@@ -102,13 +107,13 @@ export default function Cashier() {
   const [phoneFilter, setPhoneFilter] = useState<string>("");
   const [productNameFilter, setProductNameFilter] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Product options selection state
   const [selectedProductForOptions, setSelectedProductForOptions] = useState<Product | null>(null);
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
-  
+
   // Add loading state to prevent multiple rapid clicks
   const [loadingProducts, setLoadingProducts] = useState<Set<string>>(new Set());
 
@@ -145,28 +150,28 @@ export default function Cashier() {
   // Check and archive expired products
   const checkAndArchiveExpiredProducts = useCallback(async () => {
     if (!products) return;
-    
+
     const currentDate = new Date();
-    const expiredProducts = products.filter(product => 
-      product.specialOffer && 
-      product.offerEndsAt && 
+    const expiredProducts = products.filter(product =>
+      product.specialOffer &&
+      product.offerEndsAt &&
       new Date(product.offerEndsAt) <= currentDate &&
       !product.isArchived
     );
 
     if (expiredProducts.length > 0) {
       console.log(`Found ${expiredProducts.length} expired products, archiving them...`);
-      
+
       try {
         for (const product of expiredProducts) {
           await updateProduct({ ...product, isArchived: true });
           console.log(`Archived expired product: ${product.name}`);
         }
-        
+
         // Reload products to reflect changes
         await loadProducts();
         console.log('Products reloaded after archiving expired products');
-        
+
       } catch (error) {
         console.error('Error archiving expired products:', error);
       }
@@ -184,7 +189,7 @@ export default function Cashier() {
     return products?.filter(product => {
       // Check if product is archived
       if (product.isArchived) return false;
-      
+
       // Check if product has expired special offer
       if (product.specialOffer && product.offerEndsAt) {
         const offerEndDate = new Date(product.offerEndsAt);
@@ -194,9 +199,9 @@ export default function Cashier() {
           return false;
         }
       }
-      
+
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           product.brand.toLowerCase().includes(searchQuery.toLowerCase());
+        product.brand.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     }) || [];
@@ -204,36 +209,51 @@ export default function Cashier() {
 
   // Calculate final price for a product with options
   const calculateFinalPrice = (product: Product, sizeId: string | null, addonIds: string[]) => {
-    let finalPrice = product.price; // Base price
+    let currentBasePrice = product.price;
+    let isSizeSelected = false;
 
     // If sizes are available and one is selected, use that price instead of base price
     if (product.sizes && product.sizes.length > 0 && sizeId) {
       const selectedSize = product.sizes.find(size => size.id === sizeId);
       if (selectedSize) {
-        finalPrice = selectedSize.price;
+        currentBasePrice = selectedSize.price;
+        isSizeSelected = true;
       }
     }
 
-    // Add addon prices
+    // Calculate discount amount
+    let discountAmount = 0;
+
+    if (product.specialOffer &&
+      product.offerEndsAt &&
+      new Date(product.offerEndsAt) > new Date()) {
+
+      if (product.discountPrice) {
+        // For fixed price offers:
+        // If a size is selected, we DO NOT apply the fixed discount blindly, 
+        // because size prices are absolute. We assume the size price is the final intended price 
+        // unless the user baked the discount into the size price itself (in which case currentBasePrice is already discounted).
+        // We only apply the fixed discount to the "Root" product if no size is selected.
+        if (!isSizeSelected) {
+          // If no size selected, the price should be exactly the discount price
+          // So discountAmount is the difference
+          discountAmount = Math.max(0, currentBasePrice - product.discountPrice);
+        }
+      } else if (product.discountPercentage) {
+        // For percentage offers, apply the percentage to the currently selected price (Base or Size)
+        discountAmount = (currentBasePrice * product.discountPercentage) / 100;
+      }
+    }
+
+    // Apply discount to base price (ensure we don't go below zero)
+    let finalPrice = Math.max(0, currentBasePrice - discountAmount);
+
+    // Add addon prices on top of the discounted base price
     if (product.addons && addonIds.length > 0) {
       const selectedAddons = product.addons.filter(addon => addonIds.includes(addon.id));
       selectedAddons.forEach(addon => {
         finalPrice += addon.price_delta;
       });
-    }
-
-    // Apply special offer discount if available
-    if (product.specialOffer && 
-        product.offerEndsAt &&
-        new Date(product.offerEndsAt) > new Date()) {
-      if (product.discountPrice) {
-        // Use the discount price as recorded in admin
-        finalPrice = product.discountPrice;
-      } else if (product.discountPercentage) {
-        // Calculate discount if discountPrice is not available
-        const discountAmount = (finalPrice * product.discountPercentage) / 100;
-        finalPrice = finalPrice - discountAmount;
-      }
     }
 
     return finalPrice;
@@ -272,7 +292,7 @@ export default function Cashier() {
     try {
       // Add product to loading set to prevent multiple clicks
       setLoadingProducts(prev => new Set(prev).add(product.id));
-      
+
       // Get the latest product data from store
       const latestProduct = products?.find(p => p.id === product.id);
       if (!latestProduct) {
@@ -301,7 +321,7 @@ export default function Cashier() {
 
       // For products without options, add directly
       await addProductToCartWithOptions(latestProduct, null, [], 1);
-      
+
     } catch (error) {
       console.error('Error adding product to cart:', error);
       toast.error("خطأ في إضافة المنتج", {
@@ -350,9 +370,9 @@ export default function Cashier() {
 
   // Add product to cart with selected options
   const addProductToCartWithOptions = async (
-    product: Product, 
-    selectedSize: ProductSize | null, 
-    selectedAddons: ProductAddon[], 
+    product: Product,
+    selectedSize: ProductSize | null,
+    selectedAddons: ProductAddon[],
     quantity: number = 1
   ) => {
     // Prevent multiple rapid calls for the same product
@@ -364,7 +384,7 @@ export default function Cashier() {
     try {
       // Add product to loading set to prevent multiple calls
       setLoadingProducts(prev => new Set(prev).add(product.id || ''));
-      
+
       const availableQuantity = product.wholesaleInfo?.quantity || 0;
       if (availableQuantity < quantity) {
         toast.error(`لا يوجد مخزون كافي. المتوفر: ${availableQuantity}`);
@@ -373,23 +393,23 @@ export default function Cashier() {
 
       // Calculate final price
       const unitFinalPrice = calculateFinalPrice(
-        product, 
-        selectedSize?.id || null, 
+        product,
+        selectedSize?.id || null,
         selectedAddons.map(addon => addon.id)
       );
 
       // Check if item with same options already exists in cart
-      const existingItem = cart.find(item => 
-        item.product.id === product.id && 
+      const existingItem = cart.find(item =>
+        item.product.id === product.id &&
         item.selectedSize?.id === selectedSize?.id &&
-        JSON.stringify(item.selectedAddons.map(a => a.id).sort()) === 
+        JSON.stringify(item.selectedAddons.map(a => a.id).sort()) ===
         JSON.stringify(selectedAddons.map(a => a.id).sort())
       );
 
       if (existingItem) {
         // Update existing item quantity
         await updateCartQuantityWithOptions(
-          product.id || '', 
+          product.id || '',
           existingItem.quantity + quantity,
           selectedSize,
           selectedAddons
@@ -414,7 +434,7 @@ export default function Cashier() {
       }
 
       toast.success("تم إضافة المنتج إلى السلة");
-      
+
     } catch (error) {
       console.error('Error adding product to cart with options:', error);
       toast.error("خطأ في إضافة المنتج", {
@@ -436,18 +456,18 @@ export default function Cashier() {
     if (!item) return;
 
     await updateCartQuantityWithOptions(
-      productId, 
-      newQuantity, 
-      item.selectedSize, 
+      productId,
+      newQuantity,
+      item.selectedSize,
       item.selectedAddons
     );
   };
 
   // Update cart item quantity with options
   const updateCartQuantityWithOptions = async (
-    productId: string, 
-    newQuantity: number, 
-    selectedSize: ProductSize | null, 
+    productId: string,
+    newQuantity: number,
+    selectedSize: ProductSize | null,
     selectedAddons: ProductAddon[]
   ) => {
     // Prevent multiple rapid calls for the same product
@@ -461,19 +481,19 @@ export default function Cashier() {
       return;
     }
 
-    const item = cart.find(item => 
-      item.product.id === productId && 
+    const item = cart.find(item =>
+      item.product.id === productId &&
       item.selectedSize?.id === selectedSize?.id &&
-      JSON.stringify(item.selectedAddons.map(a => a.id).sort()) === 
+      JSON.stringify(item.selectedAddons.map(a => a.id).sort()) ===
       JSON.stringify(selectedAddons.map(a => a.id).sort())
     );
-    
+
     if (!item) return;
 
     try {
       // Add product to loading set to prevent multiple calls
       setLoadingProducts(prev => new Set(prev).add(productId));
-      
+
       // Get the latest product data from store
       const latestProduct = products?.find(p => p.id === productId);
       if (!latestProduct) {
@@ -484,7 +504,7 @@ export default function Cashier() {
       const currentStoreQuantity = latestProduct.wholesaleInfo?.quantity || 0;
       const currentCartQuantity = item.quantity;
       const quantityDifference = newQuantity - currentCartQuantity;
-      
+
       console.log(`Cashier updateCartQuantity: Product ${latestProduct.name}`);
       console.log(`- Current store quantity: ${currentStoreQuantity}`);
       console.log(`- Current cart quantity: ${currentCartQuantity}`);
@@ -497,13 +517,13 @@ export default function Cashier() {
           toast.error(`لا يوجد مخزون كافي. المتوفر: ${currentStoreQuantity}`);
           return;
         }
-        
+
         // Deduct the additional quantity from store
         const newStoreQuantity = currentStoreQuantity - quantityDifference;
         console.log(`- Taking ${quantityDifference} more from store. New store quantity: ${newStoreQuantity}`);
         await updateProductQuantity(productId, newStoreQuantity);
         await loadProducts();
-        
+
       } else if (quantityDifference < 0) {
         // We're decreasing quantity (returning some to store)
         const quantityToReturn = Math.abs(quantityDifference);
@@ -515,28 +535,28 @@ export default function Cashier() {
 
       // Calculate new unit price and total
       const unitFinalPrice = calculateFinalPrice(
-        latestProduct, 
-        selectedSize?.id || null, 
+        latestProduct,
+        selectedSize?.id || null,
         selectedAddons.map(addon => addon.id)
       );
 
       // Update local cart with converted types
       setCart(prev => prev.map(cartItem =>
-        cartItem.product.id === productId && 
-        cartItem.selectedSize?.id === selectedSize?.id &&
-        JSON.stringify(cartItem.selectedAddons.map(a => a.id).sort()) === 
-        JSON.stringify(selectedAddons.map(a => a.id).sort())
-          ? { 
-              ...cartItem, 
-              quantity: newQuantity, 
-              unitFinalPrice,
-              totalPrice: unitFinalPrice * newQuantity 
-            }
+        cartItem.product.id === productId &&
+          cartItem.selectedSize?.id === selectedSize?.id &&
+          JSON.stringify(cartItem.selectedAddons.map(a => a.id).sort()) ===
+          JSON.stringify(selectedAddons.map(a => a.id).sort())
+          ? {
+            ...cartItem,
+            quantity: newQuantity,
+            unitFinalPrice,
+            totalPrice: unitFinalPrice * newQuantity
+          }
           : cartItem
       ));
 
       console.log(`Cashier: Successfully updated cart quantity for ${latestProduct.name}`);
-      
+
     } catch (error) {
       console.error('Error updating cart quantity:', error);
       toast.error("خطأ في تحديث الكمية", {
@@ -560,19 +580,19 @@ export default function Cashier() {
       return;
     }
 
-    const item = cart.find(item => 
-      item.product.id === productId && 
+    const item = cart.find(item =>
+      item.product.id === productId &&
       item.selectedSize?.id === selectedSize?.id &&
-      JSON.stringify(item.selectedAddons.map(a => a.id).sort()) === 
+      JSON.stringify(item.selectedAddons.map(a => a.id).sort()) ===
       JSON.stringify(selectedAddons.map(a => a.id).sort())
     );
-    
+
     if (!item) return;
 
     try {
       // Add product to loading set to prevent multiple calls
       setLoadingProducts(prev => new Set(prev).add(productId));
-      
+
       // Get the latest product data from store
       const latestProduct = products?.find(p => p.id === productId);
       if (!latestProduct) {
@@ -582,16 +602,16 @@ export default function Cashier() {
 
       const currentStoreQuantity = latestProduct.wholesaleInfo?.quantity || 0;
       const cartQuantity = item.quantity;
-      
+
       console.log(`Cashier removeFromCart: Product ${latestProduct.name}`);
       console.log(`- Current store quantity: ${currentStoreQuantity}`);
       console.log(`- Cart quantity to restore: ${cartQuantity}`);
 
       // Remove from local cart first
-      setCart(prev => prev.filter(cartItem => 
-        !(cartItem.product.id === productId && 
+      setCart(prev => prev.filter(cartItem =>
+        !(cartItem.product.id === productId &&
           cartItem.selectedSize?.id === selectedSize?.id &&
-          JSON.stringify(cartItem.selectedAddons.map(a => a.id).sort()) === 
+          JSON.stringify(cartItem.selectedAddons.map(a => a.id).sort()) ===
           JSON.stringify(selectedAddons.map(a => a.id).sort()))
       ));
 
@@ -600,9 +620,9 @@ export default function Cashier() {
       console.log(`- Restoring ${cartQuantity} to store. New store quantity: ${newStoreQuantity}`);
       await updateProductQuantity(productId, newStoreQuantity);
       await loadProducts();
-      
+
       console.log(`Cashier: Successfully removed ${latestProduct.name} from cart`);
-      
+
     } catch (error) {
       console.error('Error removing product from cart:', error);
       toast.error("خطأ في إزالة المنتج", {
@@ -634,16 +654,16 @@ export default function Cashier() {
   const handleConfirmOptions = async () => {
     if (!selectedProductForOptions) return;
 
-    const selectedSize = selectedSizeId && selectedProductForOptions.sizes 
+    const selectedSize = selectedSizeId && selectedProductForOptions.sizes
       ? selectedProductForOptions.sizes.find(size => size.id === selectedSizeId) || null
       : null;
-    
-    const selectedAddons = selectedProductForOptions.addons 
+
+    const selectedAddons = selectedProductForOptions.addons
       ? selectedProductForOptions.addons.filter(addon => selectedAddonIds.includes(addon.id))
       : [];
 
     await addProductToCartWithOptions(selectedProductForOptions, selectedSize, selectedAddons, 1);
-    
+
     // Reset options dialog
     setOptionsDialogOpen(false);
     setSelectedProductForOptions(null);
@@ -665,6 +685,11 @@ export default function Cashier() {
       return;
     }
 
+    if (!purchaseType) {
+      toast.error("يرجى اختيار نوع العملية (بالمحل / شحن / مندوب)");
+      return;
+    }
+
     // Check if user is authenticated (optional check)
     try {
       // This is a basic check - you might want to add more robust authentication
@@ -680,12 +705,12 @@ export default function Cashier() {
       // Add all products to loading set to prevent interactions during sale completion
       const productIds = cart.map(item => item.product.id);
       setLoadingProducts(prev => new Set([...prev, ...productIds]));
-      
+
       // Validate cart data before creating sale
       if (!cart || cart.length === 0) {
         throw new Error("السلة فارغة");
       }
-      
+
       // Validate each cart item
       for (const item of cart) {
         if (!item.product || !item.product.id || !item.product.name) {
@@ -698,7 +723,7 @@ export default function Cashier() {
           throw new Error("سعر المنتج غير صحيح");
         }
       }
-      
+
       // Create sale record (quantities already deducted when adding to cart)
       if (isCustomTotalInvalid) {
         toast.error("يرجى إدخال قيمة إجمالية صحيحة قبل إتمام البيع");
@@ -735,39 +760,41 @@ export default function Cashier() {
         timestamp: new Date(),
         customerName: customerName || null,
         customerPhone: customerPhone || null,
-        paymentMethod: paymentMethod || 'cash'
+        paymentMethod: paymentMethod || 'cash',
+        purchaseType: purchaseType as 'in_store' | 'shipping_company' | 'delivery_agent',
+        notes: notes.trim() || undefined
       };
 
       // Save to Firebase first
       console.log('Cashier: Saving sale to Firebase...');
       console.log('Cashier: Sale data:', newSale);
-      
+
       if (!salesService || typeof salesService.addSale !== 'function') {
         throw new Error("خدمة المبيعات غير متاحة");
       }
-      
+
       let savedSale;
       try {
         savedSale = await salesService.addSale(newSale);
         console.log('Cashier: Sale saved to Firebase with ID:', savedSale.id);
       } catch (firebaseError) {
         console.error('Firebase save failed, saving to localStorage as backup:', firebaseError);
-        
+
         // Create a temporary sale with local ID for backup
         const tempSale: CashierSale = {
           ...newSale,
           id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         };
-        
+
         // Save to localStorage as backup
         const existingSales = localStorage.getItem("cashier-sales");
         const salesArray = existingSales ? JSON.parse(existingSales) : [];
         salesArray.unshift(tempSale);
         localStorage.setItem("cashier-sales", JSON.stringify(salesArray));
-        
+
         savedSale = tempSale;
         console.log('Cashier: Sale saved to localStorage as backup with ID:', savedSale.id);
-        
+
         // Show warning to user
         toast.warning("تم حفظ عملية البيع محلياً - سيتم مزامنتها لاحقاً", {
           description: "حدث خطأ في الاتصال بالسيرفر",
@@ -787,24 +814,26 @@ export default function Cashier() {
         }
         return updatedSales;
       });
-      
+
       // Clear cart and customer info
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod('cash');
+      setPurchaseType('');
+      setNotes('');
       setCustomTotalEnabled(false);
       setCustomTotalValue("");
-      
+
       // Reload products to ensure we have the latest data
       console.log('Cashier: Reloading products after sale completion...');
       await loadProducts();
       console.log('Cashier: Products reloaded successfully');
-      
+
       toast.success("تم إتمام عملية البيع بنجاح");
     } catch (error) {
       console.error('Error completing sale:', error);
-      
+
       // Provide more specific error messages
       let errorMessage = "حدث خطأ أثناء إتمام عملية البيع";
       if (error instanceof Error) {
@@ -818,7 +847,7 @@ export default function Cashier() {
           errorMessage = `خطأ: ${error.message}`;
         }
       }
-      
+
       toast.error(errorMessage, {
         description: "يرجى المحاولة مرة أخرى أو الاتصال بالدعم الفني",
         duration: 5000,
@@ -832,14 +861,14 @@ export default function Cashier() {
   // Clear cart
   const clearCart = async () => {
     if (cart.length === 0) return;
-    
+
     try {
       console.log('Cashier: Clearing cart and restoring quantities...');
-      
+
       // Add all products to loading set to prevent interactions during clear
       const productIds = cart.map(item => item.product.id);
       setLoadingProducts(prev => new Set([...prev, ...productIds]));
-      
+
       // Restore all quantities to store using proper logic
       for (const item of cart) {
         // Get the latest product data from store
@@ -852,24 +881,26 @@ export default function Cashier() {
         const currentStoreQuantity = latestProduct.wholesaleInfo?.quantity || 0;
         const cartQuantity = item.quantity;
         const newStoreQuantity = currentStoreQuantity + cartQuantity;
-        
+
         console.log(`Clearing ${item.product.name}: returning ${cartQuantity} to store (${currentStoreQuantity} -> ${newStoreQuantity})`);
         await updateProductQuantity(item.product.id, newStoreQuantity);
       }
-      
+
       // Reload products to ensure we have latest data
       await loadProducts();
-      
+
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod('cash');
+      setPurchaseType('');
+      setNotes('');
       setCustomTotalEnabled(false);
       setCustomTotalValue("");
-      
+
       console.log('Cashier: Cart cleared successfully');
       toast.success("تم مسح السلة واستعادة الكميات");
-      
+
     } catch (error) {
       console.error('Error clearing cart:', error);
       toast.error("خطأ في مسح السلة", {
@@ -896,11 +927,11 @@ export default function Cashier() {
         console.log('Cashier: Loading sales from Firebase...');
         const firebaseSales = await salesService.getAllSales();
         console.log('Cashier: Firebase sales loaded:', firebaseSales.length);
-        
+
         // Also load from localStorage as backup
         const savedSales = localStorage.getItem("cashier-sales");
         let localStorageSales: CashierSale[] = [];
-        
+
         if (savedSales) {
           try {
             const parsedSales = JSON.parse(savedSales);
@@ -914,33 +945,33 @@ export default function Cashier() {
             localStorage.removeItem("cashier-sales");
           }
         }
-        
+
         // Merge Firebase and localStorage sales, prioritizing Firebase
         const mergedSales = [...firebaseSales];
-        
+
         // Add localStorage sales that don't exist in Firebase
         localStorageSales.forEach(localSale => {
-          const existsInFirebase = firebaseSales.some(firebaseSale => 
-            firebaseSale.id === localSale.id || 
-            (firebaseSale.timestamp.getTime() === localSale.timestamp.getTime() && 
-             firebaseSale.totalAmount === localSale.totalAmount)
+          const existsInFirebase = firebaseSales.some(firebaseSale =>
+            firebaseSale.id === localSale.id ||
+            (firebaseSale.timestamp.getTime() === localSale.timestamp.getTime() &&
+              firebaseSale.totalAmount === localSale.totalAmount)
           );
-          
+
           if (!existsInFirebase) {
             console.log('Cashier: Adding localStorage sale to Firebase:', localSale);
             mergedSales.push(localSale);
           }
         });
-        
+
         setSales(mergedSales);
         console.log('Cashier: Total sales loaded:', mergedSales.length);
-        
+
         // Update localStorage with merged data
         localStorage.setItem("cashier-sales", JSON.stringify(mergedSales));
-        
+
       } catch (error) {
         console.error("Error loading sales from Firebase:", error);
-        
+
         // Fallback to localStorage only
         try {
           const savedSales = localStorage.getItem("cashier-sales");
@@ -1076,6 +1107,16 @@ export default function Cashier() {
     }
   };
 
+  // Get purchase type name
+  const getPurchaseTypeName = (type?: string): string => {
+    switch (type) {
+      case 'in_store': return 'بالمحل';
+      case 'shipping_company': return 'شركة شحن';
+      case 'delivery_agent': return 'مندوب توصيل';
+      default: return '—';
+    }
+  };
+
   // Get payment method badge color
   const getPaymentMethodBadgeVariant = (method?: string): "default" | "secondary" | "outline" => {
     switch (method) {
@@ -1127,7 +1168,7 @@ export default function Cashier() {
     salesToExport.forEach((sale, index) => {
       lines.push(`📋 عملية #${index + 1}`);
       lines.push("-".repeat(25));
-      
+
       // Customer info
       lines.push(`👤 العميل: ${sale.customerName || "بدون اسم"}`);
       if (sale.customerPhone) {
@@ -1136,11 +1177,11 @@ export default function Cashier() {
       if (sale.paymentMethod) {
         lines.push(`💳 طريقة الدفع: ${getPaymentMethodName(sale.paymentMethod)}`);
       }
-      
+
       // Date
       const saleDate = new Date(sale.timestamp);
       lines.push(`📅 التاريخ: ${saleDate.toLocaleDateString('ar-EG')} - ${saleDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`);
-      
+
       // Items
       lines.push("🛍️ المنتجات:");
       sale.items.forEach((item, itemIndex) => {
@@ -1155,7 +1196,7 @@ export default function Cashier() {
         }
         lines.push(`     السعر: ${formatCurrency(item.totalPrice, 'جنيه')}`);
       });
-      
+
       // Total
       lines.push(`💰 المجموع: ${formatCurrency(sale.totalAmount, 'جنيه')}`);
       lines.push(`🆔 رقم العملية: ${sale.id.slice(-8)}`);
@@ -1179,7 +1220,7 @@ export default function Cashier() {
     const whatsappNumber = "201025423389"; // Convert 01025423389 to international format
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
-    
+
     window.open(whatsappUrl, '_blank');
     toast.success(`تم فتح WhatsApp لإرسال ${filteredSales.length} عملية بيع`);
   };
@@ -1189,7 +1230,7 @@ export default function Cashier() {
     try {
       // Save to localStorage
       localStorage.setItem("cashier-sales", JSON.stringify(sales));
-      
+
       // Also save any unsaved sales to Firebase
       const unsavedSales = sales.filter(sale => !sale.id.startsWith('firebase_'));
       if (unsavedSales.length > 0) {
@@ -1198,7 +1239,7 @@ export default function Cashier() {
           await salesService.addSale(sale);
         }
       }
-      
+
       toast.success("تم حفظ عمليات البيع بنجاح");
       console.log('Cashier: Manual save completed, sales count:', sales.length);
     } catch (error) {
@@ -1258,7 +1299,7 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
         const currentStoreQuantity = latestProduct.wholesaleInfo?.quantity || 0;
         const quantityToRestore = item.quantity;
         const newStoreQuantity = currentStoreQuantity + quantityToRestore;
-        
+
         console.log(`Restoring ${item.product.name}: adding ${quantityToRestore} to store (${currentStoreQuantity} -> ${newStoreQuantity})`);
         await updateProductQuantity(item.product.id, newStoreQuantity);
       }
@@ -1289,7 +1330,7 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
 
       console.log('Cashier: Sale deleted successfully');
       toast.success("تم حذف عملية البيع واسترجاع الكميات بنجاح");
-      
+
     } catch (error) {
       console.error('Error deleting sale:', error);
       toast.error("حدث خطأ في حذف عملية البيع", {
@@ -1315,7 +1356,7 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
@@ -1358,12 +1399,12 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
 
   return (
     <div className="min-h-screen bg-gray-50">
-        <Helmet>
-          <title>نظام الكاشير</title>
-          <meta name="description" content="نظام كاشير متكامل لإدارة المبيعات والمخزون" />
-        </Helmet>
-        
-        <div className="container mx-auto p-6">
+      <Helmet>
+        <title>نظام الكاشير</title>
+        <meta name="description" content="نظام كاشير متكامل لإدارة المبيعات والمخزون" />
+      </Helmet>
+
+      <div className="container mx-auto p-6">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -1376,7 +1417,7 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
             </Button>
             <h1 className="text-3xl font-bold">نظام الكاشير</h1>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">
               <Package className="h-3 w-3 mr-1" />
@@ -1440,120 +1481,119 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
               <CardContent>
                 <div className="h-[600px] overflow-y-auto">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                         {filteredProducts.map(product => {
-                       const availableQuantity = product.wholesaleInfo?.quantity || 0;
-                       const isAvailable = availableQuantity > 0;
-                       const inCart = cart.find(item => item.product.id === product.id);
-                       
-                       // Check if product has active special offer
-                       const hasSpecialOffer = product.specialOffer && 
-                         product.offerEndsAt && 
-                         new Date(product.offerEndsAt) > new Date();
-                       
-                       // Calculate discounted price
-                       const discountedPrice = hasSpecialOffer && product.discountPrice
-                         ? product.discountPrice
-                         : (hasSpecialOffer && product.discountPercentage
-                             ? product.price - product.price * (product.discountPercentage / 100)
-                             : null);
-                       
-                       return (
-                         <div
-                           key={product.id}
-                           className={`relative p-4 border rounded-lg transition-all hover:shadow-md ${
-                             !isAvailable ? 'opacity-50 bg-gray-100' : 
-                             loadingProducts.has(product.id || '') ? 'opacity-75 bg-blue-50 border-blue-300' : 
-                             'hover:border-blue-300 cursor-pointer'
-                           } ${hasSpecialOffer ? 'border-red-200 bg-gradient-to-br from-red-50 to-pink-50 shadow-sm' : ''}`}
-                           onClick={() => isAvailable && !loadingProducts.has(product.id || '') && addToCart(product)}
-                         >
-                           {/* Special Offer Badge */}
-                           {hasSpecialOffer && (
-                             <div className="absolute -top-2 -right-2 z-10">
-                               <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
-                                 {product.discountPercentage}% خصم
-                               </div>
-                             </div>
-                           )}
-                           
-                           {/* Special Offer Border Animation */}
-                           {hasSpecialOffer && (
-                             <div className="absolute inset-0 rounded-lg border-2 border-red-300 opacity-30 animate-pulse"></div>
-                           )}
-                           
-                           {/* Loading Indicator */}
-                           {loadingProducts.has(product.id || '') && (
-                             <div className="absolute inset-0 rounded-lg bg-blue-100 bg-opacity-50 flex items-center justify-center z-20">
-                               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                             </div>
-                           )}
-                           
-                           <div className="flex items-start gap-3 relative z-10">
-                             <div className="relative">
-                               <img
-                                 src={product.images?.[0] || "/placeholder.svg"}
-                                 alt={product.name}
-                                 className={`w-16 h-16 object-cover rounded-md ${hasSpecialOffer ? 'ring-2 ring-red-200' : ''}`}
-                               />
-                               {hasSpecialOffer && (
-                                 <div className="absolute -top-1 -left-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                                   ✨
-                                 </div>
-                               )}
-                             </div>
-                             <div className="flex-1 min-w-0">
-                               <div className="flex items-start justify-between">
-                                 <div className="flex-1 min-w-0">
-                                   <h3 className={`font-medium text-sm truncate ${hasSpecialOffer ? 'text-red-800' : ''}`}>
-                                     {product.name}
-                                   </h3>
-                                   <p className="text-xs text-gray-500">{product.brand}</p>
-                                 </div>
-                                 <div className="flex items-center gap-1">
-                                   {(product.sizes && product.sizes.length > 0) || (product.addons && product.addons.length > 0) ? (
-                                     <Settings className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                                   ) : null}
-                                 </div>
-                               </div>
-                               <div className="flex items-center justify-between mt-2">
-                                 <div className="flex flex-col">
-                                   {discountedPrice !== null ? (
-                                     <div className="flex items-center gap-2">
-                                       <span className="font-bold text-lg text-red-600">
-                                         {formatCurrency(discountedPrice, 'جنيه')}
-                                       </span>
-                                       <span className="text-sm text-gray-500 line-through">
-                                         {formatCurrency(product.price, 'جنيه')}
-                                       </span>
-                                     </div>
-                                   ) : (
-                                     <span className="font-bold text-lg">
-                                       {formatCurrency(product.price, 'جنيه')}
-                                     </span>
-                                   )}
-                                   {hasSpecialOffer && (
-                                     <div className="flex items-center gap-1 mt-1">
-                                       <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                       <span className="text-xs text-red-600 font-medium">
-                                         عرض خاص ينتهي {new Date(product.offerEndsAt as string).toLocaleDateString()}
-                                       </span>
-                                     </div>
-                                   )}
-                                 </div>
-                                 <Badge variant={isAvailable ? "default" : "destructive"}>
-                                   {isAvailable ? `${availableQuantity} متاح` : 'غير متاح'}
-                                 </Badge>
-                               </div>
-                               {inCart && (
-                                 <div className="mt-2 text-xs text-blue-600">
-                                   في السلة: {inCart.quantity}
-                                 </div>
-                               )}
-                             </div>
-                           </div>
-                         </div>
-                       );
-                     })}
+                    {filteredProducts.map(product => {
+                      const availableQuantity = product.wholesaleInfo?.quantity || 0;
+                      const isAvailable = availableQuantity > 0;
+                      const inCart = cart.find(item => item.product.id === product.id);
+
+                      // Check if product has active special offer
+                      const hasSpecialOffer = product.specialOffer &&
+                        product.offerEndsAt &&
+                        new Date(product.offerEndsAt) > new Date();
+
+                      // Calculate discounted price
+                      const discountedPrice = hasSpecialOffer && product.discountPrice
+                        ? product.discountPrice
+                        : (hasSpecialOffer && product.discountPercentage
+                          ? product.price - product.price * (product.discountPercentage / 100)
+                          : null);
+
+                      return (
+                        <div
+                          key={product.id}
+                          className={`relative p-4 border rounded-lg transition-all hover:shadow-md ${!isAvailable ? 'opacity-50 bg-gray-100' :
+                            loadingProducts.has(product.id || '') ? 'opacity-75 bg-blue-50 border-blue-300' :
+                              'hover:border-blue-300 cursor-pointer'
+                            } ${hasSpecialOffer ? 'border-red-200 bg-gradient-to-br from-red-50 to-pink-50 shadow-sm' : ''}`}
+                          onClick={() => isAvailable && !loadingProducts.has(product.id || '') && addToCart(product)}
+                        >
+                          {/* Special Offer Badge */}
+                          {hasSpecialOffer && (
+                            <div className="absolute -top-2 -right-2 z-10">
+                              <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
+                                {product.discountPercentage}% خصم
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Special Offer Border Animation */}
+                          {hasSpecialOffer && (
+                            <div className="absolute inset-0 rounded-lg border-2 border-red-300 opacity-30 animate-pulse"></div>
+                          )}
+
+                          {/* Loading Indicator */}
+                          {loadingProducts.has(product.id || '') && (
+                            <div className="absolute inset-0 rounded-lg bg-blue-100 bg-opacity-50 flex items-center justify-center z-20">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            </div>
+                          )}
+
+                          <div className="flex items-start gap-3 relative z-10">
+                            <div className="relative">
+                              <img
+                                src={product.images?.[0] || "/placeholder.svg"}
+                                alt={product.name}
+                                className={`w-16 h-16 object-cover rounded-md ${hasSpecialOffer ? 'ring-2 ring-red-200' : ''}`}
+                              />
+                              {hasSpecialOffer && (
+                                <div className="absolute -top-1 -left-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                                  ✨
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <h3 className={`font-medium text-sm truncate ${hasSpecialOffer ? 'text-red-800' : ''}`}>
+                                    {product.name}
+                                  </h3>
+                                  <p className="text-xs text-gray-500">{product.brand}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {(product.sizes && product.sizes.length > 0) || (product.addons && product.addons.length > 0) ? (
+                                    <Settings className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex flex-col">
+                                  {discountedPrice !== null ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-lg text-red-600">
+                                        {formatCurrency(discountedPrice, 'جنيه')}
+                                      </span>
+                                      <span className="text-sm text-gray-500 line-through">
+                                        {formatCurrency(product.price, 'جنيه')}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="font-bold text-lg">
+                                      {formatCurrency(product.price, 'جنيه')}
+                                    </span>
+                                  )}
+                                  {hasSpecialOffer && (
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                      <span className="text-xs text-red-600 font-medium">
+                                        عرض خاص ينتهي {new Date(product.offerEndsAt as string).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                <Badge variant={isAvailable ? "default" : "destructive"}>
+                                  {isAvailable ? `${availableQuantity} متاح` : 'غير متاح'}
+                                </Badge>
+                              </div>
+                              {inCart && (
+                                <div className="mt-2 text-xs text-blue-600">
+                                  في السلة: {inCart.quantity}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </CardContent>
@@ -1601,6 +1641,31 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
                         <SelectItem value="instaPay">إنستاباي (InstaPay)</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">نوع البيع <span className="text-red-500">*</span></label>
+                    <Select value={purchaseType} onValueChange={(value: any) => setPurchaseType(value)}>
+                      <SelectTrigger className={!purchaseType ? "border-red-300" : ""}>
+                        <SelectValue placeholder="اختر نوع العملية..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="in_store">بالمحل (In Store)</SelectItem>
+                        <SelectItem value="shipping_company">شركة شحن (Shipping)</SelectItem>
+                        <SelectItem value="delivery_agent">مندوب توصيل (Delivery Agent)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">ملاحظات (اختياري)</label>
+                    <Textarea
+                      placeholder="أضف ملاحظات على الطلب (بحد أقصى 300 حرف)..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="min-h-[80px] text-sm resize-none"
+                      maxLength={300}
+                    />
                   </div>
                 </div>
 
@@ -1669,9 +1734,9 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
                               <div className="text-xs text-gray-500">
                                 {formatCurrency(item.unitFinalPrice, 'جنيه')} × {item.quantity}
                               </div>
-                                                              <span className="font-bold text-sm">
-                                  {formatCurrency(item.totalPrice, 'جنيه')}
-                                </span>
+                              <span className="font-bold text-sm">
+                                {formatCurrency(item.totalPrice, 'جنيه')}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1737,9 +1802,8 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
                         <span>الإجمالي الأصلي: {formatCurrency(cartTotals.total, 'جنيه')}</span>
                         {customTotalDifference !== 0 && (
                           <span
-                            className={`ml-2 ${
-                              customTotalDifference < 0 ? "text-green-600" : "text-red-600"
-                            }`}
+                            className={`ml-2 ${customTotalDifference < 0 ? "text-green-600" : "text-red-600"
+                              }`}
                           >
                             {customTotalDifference < 0 ? "-" : "+"}
                             {formatCurrency(Math.abs(customTotalDifference), 'جنيه')}
@@ -1781,362 +1845,317 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
               </CardContent>
             </Card>
 
-                         {/* Recent Sales */}
-             <Card>
-               <CardHeader>
-                 <div className="flex flex-col gap-4">
-                   <div className="flex items-center justify-between flex-wrap gap-3">
-                     <CardTitle className="text-lg flex items-center gap-2">
-                       <DollarSign className="h-5 w-5" />
-                       المبيعات الأخيرة
-                       {hasActiveFilters && (
-                         <Badge variant="secondary" className="ml-2">
-                           {filteredSales.length} من {sales.length}
-                         </Badge>
-                       )}
-                     </CardTitle>
-                     <div className="flex items-center gap-2 flex-wrap">
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         onClick={() => setShowFilters(!showFilters)}
-                         className="gap-2"
-                       >
-                         <Filter className="h-4 w-4" />
-                         <span className="hidden sm:inline">{showFilters ? "إخفاء الفلاتر" : "الفلاتر"}</span>
-                         {hasActiveFilters && (
-                           <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
-                             !
-                           </Badge>
-                         )}
-                       </Button>
-                       {hasActiveFilters && (
-                         <>
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={clearFilters}
-                             className="gap-2"
-                           >
-                             <X className="h-4 w-4" />
-                             <span className="hidden sm:inline">مسح الفلاتر</span>
-                             <span className="sm:hidden">مسح</span>
-                           </Button>
-                           <Button
-                             variant="default"
-                             size="sm"
-                             onClick={sendToWhatsApp}
-                             className="gap-2 bg-green-600 hover:bg-green-700"
-                           >
-                             <Send className="h-4 w-4" />
-                             <span className="hidden sm:inline">إرسال عبر WhatsApp</span>
-                             <span className="sm:hidden">واتساب</span>
-                           </Button>
-                         </>
-                       )}
-                     </div>
-                   </div>
-                 </div>
-               </CardHeader>
-               <CardContent>
-                 {/* Advanced Filters Panel */}
-                 {showFilters && (
-                   <div className="mb-6 p-4 bg-gray-50 rounded-lg border space-y-4">
-                     <div className="flex items-center justify-between mb-4">
-                       <h3 className="font-semibold text-sm flex items-center gap-2">
-                         <Filter className="h-4 w-4" />
-                         الفلاتر المتقدمة
-                       </h3>
-                       {hasActiveFilters && (
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           onClick={clearFilters}
-                           className="h-7 text-xs"
-                         >
-                           <X className="h-3 w-3 mr-1" />
-                           مسح الكل
-                         </Button>
-                       )}
-                     </div>
-                     
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                       {/* Date Filter */}
-                       <div className="space-y-2">
-                         <Label className="text-xs font-medium flex items-center gap-1">
-                           <Calendar className="h-3 w-3" />
-                           الفترة الزمنية
-                         </Label>
-                         <Select value={dateFilter} onValueChange={setDateFilter}>
-                           <SelectTrigger className="h-9">
-                             <SelectValue />
-                           </SelectTrigger>
-                           <SelectContent>
-                             <SelectItem value="all">جميع الفترات</SelectItem>
-                             <SelectItem value="today">اليوم</SelectItem>
-                             <SelectItem value="week">آخر أسبوع</SelectItem>
-                             <SelectItem value="month">آخر شهر</SelectItem>
-                             <SelectItem value="custom">تحديد تاريخ مخصص</SelectItem>
-                           </SelectContent>
-                         </Select>
-                         {dateFilter === "custom" && (
-                           <div className="grid grid-cols-2 gap-2 mt-2">
-                             <div>
-                               <Label className="text-xs">من</Label>
-                               <Input
-                                 type="date"
-                                 value={customStartDate}
-                                 onChange={(e) => setCustomStartDate(e.target.value)}
-                                 className="h-9 text-xs"
-                               />
-                             </div>
-                             <div>
-                               <Label className="text-xs">إلى</Label>
-                               <Input
-                                 type="date"
-                                 value={customEndDate}
-                                 onChange={(e) => setCustomEndDate(e.target.value)}
-                                 className="h-9 text-xs"
-                               />
-                             </div>
-                           </div>
-                         )}
-                       </div>
 
-                       {/* Customer Name Filter */}
-                       <div className="space-y-2">
-                         <Label className="text-xs font-medium flex items-center gap-1">
-                           <User className="h-3 w-3" />
-                           اسم العميل
-                         </Label>
-                         <Input
-                           placeholder="ابحث بالاسم..."
-                           value={customerNameFilter}
-                           onChange={(e) => setCustomerNameFilter(e.target.value)}
-                           className="h-9"
-                         />
-                       </div>
-
-                       {/* Phone Filter */}
-                       <div className="space-y-2">
-                         <Label className="text-xs font-medium flex items-center gap-1">
-                           <Phone className="h-3 w-3" />
-                           رقم الهاتف
-                         </Label>
-                         <Input
-                           type="tel"
-                           placeholder="ابحث بالرقم..."
-                           value={phoneFilter}
-                           onChange={(e) => setPhoneFilter(e.target.value)}
-                           className="h-9"
-                         />
-                       </div>
-
-                       {/* Product Name Filter */}
-                       <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                         <Label className="text-xs font-medium flex items-center gap-1">
-                           <Package className="h-3 w-3" />
-                           اسم المنتج
-                         </Label>
-                         <Input
-                           placeholder="ابحث باسم المنتج..."
-                           value={productNameFilter}
-                           onChange={(e) => setProductNameFilter(e.target.value)}
-                           className="h-9"
-                         />
-                       </div>
-                     </div>
-                   </div>
-                 )}
-
-                 <div className="max-h-[670px] overflow-y-auto">
-                   {filteredSales.length === 0 ? (
-                     <div className="text-center text-gray-500 py-8">
-                       <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                       <p>{hasActiveFilters ? "لا توجد نتائج تطابق الفلاتر المحددة" : "لا توجد مبيعات حديثة"}</p>
-                       {hasActiveFilters && (
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={clearFilters}
-                           className="mt-4"
-                         >
-                           مسح الفلاتر
-                         </Button>
-                       )}
-                     </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                       {filteredSales.map(sale => {
-                         const isDeleting = loadingProducts.size > 0;
-                         return (
-                           <div key={sale.id} className={`border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative ${isDeleting ? 'opacity-75' : ''}`}>
-                             {/* Loading Overlay */}
-                             {isDeleting && (
-                               <div className="absolute inset-0 rounded-lg bg-gray-100 bg-opacity-50 flex items-center justify-center z-10">
-                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-                               </div>
-                             )}
-                             
-                             {/* Sale Header - Enhanced */}
-                             <div className="flex justify-between items-start mb-4 pb-4 border-b border-gray-200">
-                               <div className="flex items-start gap-3 flex-1">
-                                 <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center shadow-sm">
-                                   <Receipt className="h-5 w-5 text-green-600" />
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                                     <span className="text-base font-bold text-gray-900">
-                                       {sale.customerName || "عميل بدون اسم"}
-                                     </span>
-                                     {sale.customerPhone && (
-                                       <Badge variant="outline" className="text-xs">
-                                         <Phone className="h-3 w-3 mr-1" />
-                                         {sale.customerPhone}
-                                       </Badge>
-                                     )}
-                                     {sale.paymentMethod && (
-                                       <Badge variant={getPaymentMethodBadgeVariant(sale.paymentMethod)} className="text-xs">
-                                         💳 {getPaymentMethodName(sale.paymentMethod)}
-                                       </Badge>
-                                     )}
-                                     <Badge variant="secondary" className="text-xs">
-                                       #{sale.id.slice(-8)}
-                                     </Badge>
-                                   </div>
-                                   <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                                     <div className="flex items-center gap-1">
-                                       <Calendar className="h-3 w-3" />
-                                       {sale.timestamp.toLocaleDateString('ar-EG', { 
-                                         year: 'numeric', 
-                                         month: 'long', 
-                                         day: 'numeric' 
-                                       })}
-                                     </div>
-                                     <div className="flex items-center gap-1">
-                                       <Clock className="h-3 w-3" />
-                                       {sale.timestamp.toLocaleTimeString('ar-EG', { 
-                                         hour: '2-digit', 
-                                         minute: '2-digit' 
-                                       })}
-                                     </div>
-                                   </div>
-                                 </div>
-                               </div>
-                               <div className="flex items-start gap-2 ml-4">
-                                 <div className="text-right">
-                                   <div className="text-xl font-bold text-green-600 mb-1">
-                                     {formatCurrency(sale.totalAmount, 'جنيه')}
-                                   </div>
-                                   <div className="text-xs text-gray-500 flex items-center justify-end gap-1">
-                                     <Package className="h-3 w-3" />
-                                     {sale.items.length} {sale.items.length === 1 ? 'منتج' : 'منتجات'}
-                                   </div>
-                                 </div>
-                                 <Button
-                                   variant="ghost"
-                                   size="sm"
-                                   onClick={() => confirmDeleteSale(sale.id)}
-                                   disabled={loadingProducts.size > 0}
-                                   className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                   title="حذف عملية البيع"
-                                 >
-                                   {loadingProducts.size > 0 ? (
-                                     <div className="animate-spin rounded-full h-4 w-4 border-b border-red-500"></div>
-                                   ) : (
-                                     <AlertTriangle className="h-4 w-4" />
-                                   )}
-                                 </Button>
-                               </div>
-                             </div>
-
-                             {/* Sale Items - Enhanced */}
-                             <div className="space-y-2">
-                               {sale.items.map((item, index) => (
-                                 <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 hover:shadow-sm transition-shadow">
-                                   {/* Product Image */}
-                                   <div className="relative flex-shrink-0">
-                                     <img
-                                       src={item.product.images?.[0] || "/placeholder.svg"}
-                                       alt={item.product.name}
-                                       className="w-14 h-14 object-cover rounded-lg border-2 border-white shadow-sm"
-                                     />
-                                     {item.selectedSize && (
-                                       <Badge className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full border-2 border-white">
-                                         {item.selectedSize.label}
-                                       </Badge>
-                                     )}
-                                   </div>
-
-                                   {/* Product Details */}
-                                   <div className="flex-1 min-w-0">
-                                     <div className="flex items-start justify-between gap-3">
-                                       <div className="flex-1 min-w-0">
-                                         <h4 className="text-sm font-semibold text-gray-900 mb-1">
-                                           {item.product.name}
-                                         </h4>
-                                         <div className="flex items-center gap-3 flex-wrap">
-                                           <Badge variant="outline" className="text-xs">
-                                             الكمية: {item.quantity}
-                                           </Badge>
-                                           {item.selectedSize && (
-                                             <Badge variant="secondary" className="text-xs">
-                                               📐 {item.selectedSize.label}
-                                             </Badge>
-                                           )}
-                                           {item.selectedAddons && item.selectedAddons.length > 0 && (
-                                             <Badge variant="secondary" className="text-xs bg-green-50 text-green-700">
-                                               ➕ {item.selectedAddons.length} إضافة
-                                             </Badge>
-                                           )}
-                                         </div>
-                                         {/* Addons Display */}
-                                         {item.selectedAddons && item.selectedAddons.length > 0 && (
-                                           <div className="mt-2 flex flex-wrap gap-1">
-                                             {item.selectedAddons.map((addon, addonIndex) => (
-                                               <Badge
-                                                 key={addonIndex}
-                                                 variant="outline"
-                                                 className="text-xs bg-green-50 text-green-700 border-green-200"
-                                               >
-                                                 +{addon.label}
-                                               </Badge>
-                                             ))}
-                                           </div>
-                                         )}
-                                       </div>
-                                       <div className="text-right flex-shrink-0">
-                                         <div className="text-sm font-bold text-gray-900 mb-1">
-                                           {formatCurrency(item.unitFinalPrice, 'جنيه')}
-                                         </div>
-                                         <div className="text-xs text-gray-500">
-                                           × {item.quantity} = {formatCurrency(item.totalPrice, 'جنيه')}
-                                         </div>
-                                       </div>
-                                     </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-
-                             {/* Sale Footer */}
-                             <div className="mt-3 pt-3 border-t border-gray-100">
-                               <div className="flex justify-between items-center text-sm">
-                                 <span className="text-gray-600">المجموع:</span>
-                                 <span className="font-bold text-green-600">
-                                   {sale.totalAmount.toLocaleString()} ج.م
-                                 </span>
-                               </div>
-                             </div>
-                           </div>
-                         );
-                       })}
-                     </div>
-                   )}
-                 </div>
-               </CardContent>
-             </Card>
           </div>
+        </div>
+
+        {/* Improved Recent Sales Section */}
+        <div className="mt-8">
+          <Card className="w-full">
+            <CardHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    المبيعات الأخيرة
+                    {hasActiveFilters && (
+                      <Badge variant="secondary" className="ml-2">
+                        {filteredSales.length} من {sales.length}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="gap-2"
+                    >
+                      <Filter className="h-4 w-4" />
+                      <span className="hidden sm:inline">{showFilters ? "إخفاء الفلاتر" : "الفلاتر"}</span>
+                      {hasActiveFilters && (
+                        <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                          !
+                        </Badge>
+                      )}
+                    </Button>
+                    {hasActiveFilters && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearFilters}
+                          className="gap-2"
+                        >
+                          <X className="h-4 w-4" />
+                          <span className="hidden sm:inline">مسح الفلاتر</span>
+                          <span className="sm:hidden">مسح</span>
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={sendToWhatsApp}
+                          className="gap-2 bg-green-600 hover:bg-green-700"
+                        >
+                          <Send className="h-4 w-4" />
+                          <span className="hidden sm:inline">إرسال عبر WhatsApp</span>
+                          <span className="sm:hidden">واتساب</span>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Advanced Filters Panel */}
+              {showFilters && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      الفلاتر المتقدمة
+                    </h3>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="h-7 text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        مسح الكل
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Date Filter */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        الفترة الزمنية
+                      </Label>
+                      <Select value={dateFilter} onValueChange={setDateFilter}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">جميع الفترات</SelectItem>
+                          <SelectItem value="today">اليوم</SelectItem>
+                          <SelectItem value="week">آخر أسبوع</SelectItem>
+                          <SelectItem value="month">آخر شهر</SelectItem>
+                          <SelectItem value="custom">تحديد تاريخ مخصص</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {dateFilter === "custom" && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div>
+                            <Label className="text-xs">من</Label>
+                            <Input
+                              type="date"
+                              value={customStartDate}
+                              onChange={(e) => setCustomStartDate(e.target.value)}
+                              className="h-9 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">إلى</Label>
+                            <Input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                              className="h-9 text-xs"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Customer Name Filter */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        اسم العميل
+                      </Label>
+                      <Input
+                        placeholder="ابحث بالاسم..."
+                        value={customerNameFilter}
+                        onChange={(e) => setCustomerNameFilter(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+
+                    {/* Phone Filter */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        رقم الهاتف
+                      </Label>
+                      <Input
+                        type="tel"
+                        placeholder="ابحث بالرقم..."
+                        value={phoneFilter}
+                        onChange={(e) => setPhoneFilter(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+
+                    {/* Product Name Filter */}
+                    <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                      <Label className="text-xs font-medium flex items-center gap-1">
+                        <Package className="h-3 w-3" />
+                        اسم المنتج
+                      </Label>
+                      <Input
+                        placeholder="ابحث باسم المنتج..."
+                        value={productNameFilter}
+                        onChange={(e) => setProductNameFilter(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="max-h-[670px] overflow-y-auto">
+                {filteredSales.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>{hasActiveFilters ? "لا توجد نتائج تطابق الفلاتر المحددة" : "لا توجد مبيعات حديثة"}</p>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="mt-4"
+                      >
+                        مسح الفلاتر
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredSales.map(sale => {
+                      const isDeleting = loadingProducts.size > 0;
+                      return (
+                        <div key={sale.id} className={`flex flex-col border rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow relative ${isDeleting ? 'opacity-75' : ''}`}>
+                          {/* Loading Overlay */}
+                          {isDeleting && (
+                            <div className="absolute inset-0 bg-gray-100 bg-opacity-50 flex items-center justify-center z-10">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                            </div>
+                          )}
+
+                          {/* Card Header */}
+                          <div className="bg-gray-50 p-4 border-b flex justify-between items-start">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-gray-900">
+                                  {sale.customerName || "عميل بدون اسم"}
+                                </span>
+                                <Badge variant="secondary" className="text-xs">
+                                  #{sale.id.slice(-8)}
+                                </Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {sale.purchaseType ? (
+                                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200">
+                                    {getPurchaseTypeName(sale.purchaseType)}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-gray-400">—</span>
+                                )}
+
+                                {sale.customerPhone && (
+                                  <Badge variant="outline" className="text-xs">
+                                    <Phone className="h-3 w-3 mr-1" />
+                                    {sale.customerPhone}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-xl font-bold text-green-600">
+                              {formatCurrency(sale.totalAmount, 'جنيه')}
+                            </div>
+                          </div>
+
+                          {/* Card Content */}
+                          <div className="p-4 flex-1 space-y-4">
+                            {/* Metadata */}
+                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                <span>{sale.timestamp.toLocaleDateString('ar-EG')}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                <span>{sale.timestamp.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span>طريقة الدفع:</span>
+                                <span className="font-medium text-gray-700">{getPaymentMethodName(sale.paymentMethod)}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Package className="h-4 w-4" />
+                                <span>{sale.items.length} منتجات</span>
+                              </div>
+                            </div>
+
+                            {/* Items Summary (first 3 items) */}
+                            <div className="space-y-2">
+                              <div className="text-xs font-semibold text-gray-400 uppercase">المنتجات</div>
+                              {sale.items.slice(0, 3).map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-sm">
+                                  <span className="truncate flex-1 ml-2">
+                                    {item.quantity}x {item.product.name}
+                                    {item.selectedSize ? ` (${item.selectedSize.label})` : ''}
+                                  </span>
+                                  <span className="font-medium text-gray-700">
+                                    {formatCurrency(item.totalPrice, 'ج.م')}
+                                  </span>
+                                </div>
+                              ))}
+                              {sale.items.length > 3 && (
+                                <div className="text-xs text-blue-600 text-center pt-1">
+                                  +{sale.items.length - 3} منتجات أخرى
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Notes */}
+                            {sale.notes && (
+                              <div className="bg-yellow-50 p-3 rounded-md border border-yellow-100 text-sm">
+                                <div className="text-xs font-semibold text-yellow-700 mb-1 flex items-center gap-1">
+                                  <span className="bg-yellow-200 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">!</span>
+                                  ملاحظات:
+                                </div>
+                                <p className="text-gray-700 italic">{sale.notes}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card Footer */}
+                          <div className="p-3 border-t bg-gray-50 flex justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => confirmDeleteSale(sale.id)}
+                              disabled={loadingProducts.size > 0}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              حذف العملية
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -2146,45 +2165,45 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
           <DialogHeader>
             <DialogTitle>اختيار خيارات المنتج</DialogTitle>
           </DialogHeader>
-          
+
           {selectedProductForOptions && (
             <div className="space-y-6">
-               {/* Product Info */}
-               <div className="text-center">
-                 <div className="relative inline-block">
-                   <img
-                     src={selectedProductForOptions.images?.[0] || "/placeholder.svg"}
-                     alt={selectedProductForOptions.name}
-                     className="w-20 h-20 object-cover rounded-lg mx-auto mb-3"
-                   />
-                   {selectedProductForOptions.specialOffer && 
-                    selectedProductForOptions.offerEndsAt && 
+              {/* Product Info */}
+              <div className="text-center">
+                <div className="relative inline-block">
+                  <img
+                    src={selectedProductForOptions.images?.[0] || "/placeholder.svg"}
+                    alt={selectedProductForOptions.name}
+                    className="w-20 h-20 object-cover rounded-lg mx-auto mb-3"
+                  />
+                  {selectedProductForOptions.specialOffer &&
+                    selectedProductForOptions.offerEndsAt &&
                     new Date(selectedProductForOptions.offerEndsAt) > new Date() && (
-                     <div className="absolute -top-2 -right-2">
-                       <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
-                         {selectedProductForOptions.discountPercentage}% خصم
-                       </div>
-                     </div>
-                   )}
-                 </div>
-                 <h3 className="font-semibold text-lg">{selectedProductForOptions.name}</h3>
-                 <p className="text-sm text-gray-500">{selectedProductForOptions.brand}</p>
-                 
-                 {/* Price Display */}
-                 {selectedProductForOptions.specialOffer && 
-                  selectedProductForOptions.offerEndsAt && 
+                      <div className="absolute -top-2 -right-2">
+                        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+                          {selectedProductForOptions.discountPercentage}% خصم
+                        </div>
+                      </div>
+                    )}
+                </div>
+                <h3 className="font-semibold text-lg">{selectedProductForOptions.name}</h3>
+                <p className="text-sm text-gray-500">{selectedProductForOptions.brand}</p>
+
+                {/* Price Display */}
+                {selectedProductForOptions.specialOffer &&
+                  selectedProductForOptions.offerEndsAt &&
                   new Date(selectedProductForOptions.offerEndsAt) > new Date() && (
-                   <div className="mt-2 flex items-center justify-center gap-2">
-                     <span className="text-lg font-bold text-red-600">
-                                                   {formatCurrency(selectedProductForOptions.discountPrice || 
-                         (selectedProductForOptions.price - selectedProductForOptions.price * (selectedProductForOptions.discountPercentage || 0) / 100))}
-                     </span>
-                     <span className="text-sm text-gray-500 line-through">
-                                               {formatCurrency(selectedProductForOptions.price, 'جنيه')}
-                     </span>
-                   </div>
-                 )}
-               </div>
+                    <div className="mt-2 flex items-center justify-center gap-2">
+                      <span className="text-lg font-bold text-red-600">
+                        {formatCurrency(selectedProductForOptions.discountPrice ||
+                          (selectedProductForOptions.price - selectedProductForOptions.price * (selectedProductForOptions.discountPercentage || 0) / 100))}
+                      </span>
+                      <span className="text-sm text-gray-500 line-through">
+                        {formatCurrency(selectedProductForOptions.price, 'جنيه')}
+                      </span>
+                    </div>
+                  )}
+              </div>
 
               {/* Sizes Section */}
               {selectedProductForOptions.sizes && selectedProductForOptions.sizes.length > 0 && (
@@ -2220,7 +2239,7 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
                       <Label htmlFor={`addon-${addon.id}`} className="flex-1 cursor-pointer">
                         <div className="flex justify-between items-center p-2 border rounded hover:bg-gray-50">
                           <span>{addon.label}</span>
-                                                      <span className="font-bold text-green-600">+{formatCurrency(addon.price_delta, 'جنيه')}</span>
+                          <span className="font-bold text-green-600">+{formatCurrency(addon.price_delta, 'جنيه')}</span>
                         </div>
                       </Label>
                     </div>
@@ -2233,7 +2252,7 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
                 <div className="flex justify-between items-center">
                   <span className="font-medium">السعر النهائي:</span>
                   <span className="text-xl font-bold text-primary">
-                                            {formatCurrency(calculateFinalPrice(
+                    {formatCurrency(calculateFinalPrice(
                       selectedProductForOptions,
                       selectedSizeId,
                       selectedAddonIds
@@ -2255,6 +2274,6 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
           )}
         </DialogContent>
       </Dialog>
-      </div>
+    </div>
   );
 } 
