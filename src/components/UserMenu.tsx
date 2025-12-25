@@ -13,10 +13,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { 
+import {
   User,
-  Settings, 
-  Package, 
+  Settings,
+  Package,
   LogOut,
   ShoppingBag,
   MapPin,
@@ -34,8 +34,8 @@ export const UserMenu = () => {
       const result = await signInWithGoogle();
       if (!result.success) {
         // If popup fails, try redirect as fallback
-        if (result.error?.includes('حظر النافذة المنبثقة') || 
-            result.error?.includes('إضافة المتصفح')) {
+        if (result.error?.includes('حظر النافذة المنبثقة') ||
+          result.error?.includes('إضافة المتصفح')) {
           toast.info('جاري المحاولة بطريقة بديلة...');
           const redirectResult = await signInWithGoogleRedirect();
           if (!redirectResult.success) {
@@ -49,7 +49,7 @@ export const UserMenu = () => {
       }
     } catch (error: any) {
       console.error('Sign in error:', error);
-      
+
       // Handle specific errors
       if (error.message?.includes('popup')) {
         toast.error('تم حظر النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة وإعادة المحاولة.');
@@ -136,7 +136,7 @@ export const UserMenu = () => {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/orders" className="flex items-center gap-2">
+          <Link to="/my-orders" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             {t('user.orders')}
           </Link>

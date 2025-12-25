@@ -56,7 +56,7 @@ const Analytics = () => {
   const [timeRange, setTimeRange] = useState("30");
   const [expandedPage, setExpandedPage] = useState<string | null>(null);
   const { isAuthenticated, loading: authLoading, session, login } = useAdminAuth();
-  
+
   // Handle login using the hook's login function
   const handleLogin = useCallback(async (password: string) => {
     console.log('🔐 Analytics: handleLogin called');
@@ -64,16 +64,16 @@ const Analytics = () => {
     console.log('🔐 Analytics: handleLogin result:', result);
     return result;
   }, [login]);
-  
+
   // Only load analytics data if authenticated
-  const { 
-    data, 
-    loading, 
-    error, 
-    realTimeVisitors, 
-    lastUpdated, 
-    refreshData, 
-    exportData 
+  const {
+    data,
+    loading,
+    error,
+    realTimeVisitors,
+    lastUpdated,
+    refreshData,
+    exportData
   } = useAnalytics(isAuthenticated ? parseInt(timeRange) : 0);
 
   // Redirect if not authenticated
@@ -112,7 +112,7 @@ const Analytics = () => {
     if (path.startsWith('/product/') && productName) {
       return productName;
     }
-    
+
     const pageNames: { [key: string]: string } = {
       '/': 'الصفحة الرئيسية',
       '/products': 'المنتجات',
@@ -121,17 +121,17 @@ const Analytics = () => {
       '/contact': 'اتصل بنا',
       '/admin': 'لوحة التحكم',
       '/cashier': 'نظام الكاشير',
-      '/admin/orders': 'إدارة الطلبات',
-      '/admin/analytics': 'إحصائيات الزوار',
+      '/orders': 'إدارة الطلبات',
+      '/visitors-stats': 'إحصائيات الزوار',
     };
-    
+
     // For product pages without productName, extract readable name from slug
     if (path.startsWith('/product/') && !productName) {
       const slug = path.replace('/product/', '').split('?')[0].split('#')[0];
       const words = slug.split('-').slice(0, 6);
       return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || path;
     }
-    
+
     return pageNames[path] || path;
   };
 
@@ -190,7 +190,7 @@ const Analytics = () => {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate("/admin")}
+              onClick={() => navigate("/dashboard")}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -345,7 +345,7 @@ const Analytics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {data.totalVisitors > 0 
+                  {data.totalVisitors > 0
                     ? (((data as any).totalOrders || 0) / data.totalVisitors * 100).toFixed(2)
                     : '0.00'}%
                 </div>
@@ -385,7 +385,7 @@ const Analytics = () => {
               <div className="space-y-2">
                 {data?.topPages.slice(0, 8).map((page, index) => (
                   <div key={page.page} className="border rounded-lg overflow-hidden">
-                    <div 
+                    <div
                       className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors cursor-pointer"
                       onClick={() => setExpandedPage(expandedPage === page.page ? null : page.page)}
                     >
@@ -413,7 +413,7 @@ const Analytics = () => {
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Expanded Details */}
                     {expandedPage === page.page && (
                       <div className="p-4 bg-muted/30 border-t space-y-4">
@@ -450,7 +450,7 @@ const Analytics = () => {
                                 )}
                               </div>
                             </div>
-                            
+
                             {/* Gender */}
                             <div>
                               <p className="text-sm font-medium mb-2">النوع:</p>
@@ -472,7 +472,7 @@ const Analytics = () => {
                             </div>
                           </div>
                         </div>
-                        
+
                         {/* Locations */}
                         <div>
                           <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -495,7 +495,7 @@ const Analytics = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Sources */}
                         <div>
                           <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -516,7 +516,7 @@ const Analytics = () => {
                                   if (src.includes('LinkedIn')) return '💼';
                                   return '🔗';
                                 };
-                                
+
                                 return (
                                   <div key={source.source} className="flex items-center justify-between p-2 bg-background rounded border">
                                     <div className="flex items-center gap-2">
@@ -616,7 +616,7 @@ const Analytics = () => {
                       if (ref.includes('LinkedIn')) return '💼';
                       return '🔗';
                     };
-                    
+
                     return (
                       <div key={referrer.referrer} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-3 flex-1">
@@ -667,7 +667,7 @@ const Analytics = () => {
                   {data.hourlyTraffic.map((hour) => {
                     const maxVisitors = Math.max(...data.hourlyTraffic.map(h => h.visitors), 1);
                     const height = maxVisitors > 0 ? (hour.visitors / maxVisitors) * 100 : 0;
-                    
+
                     return (
                       <div key={hour.hour} className="flex flex-col items-center group relative">
                         <div
@@ -730,7 +730,7 @@ const Analytics = () => {
                     const date = new Date(day.date + 'T00:00:00');
                     const dayName = date.toLocaleDateString('ar-EG', { weekday: 'short' });
                     const dayNumber = date.getDate();
-                    
+
                     return (
                       <div key={day.date} className="flex flex-col items-center group relative">
                         <div

@@ -115,7 +115,7 @@ const Admin = () => {
       session: session ? 'exists' : 'null',
       error: authError
     });
-    
+
     // Force re-render if authentication state changes
     if (isAuthenticated && session) {
       console.log('🔄 Admin: Authenticated with session, forcing re-render...');
@@ -277,7 +277,7 @@ const Admin = () => {
     console.log('🔐 Admin: handleLogin called');
     const result = await login(password);
     console.log('🔐 Admin: handleLogin result:', result);
-    
+
     if (result.success) {
       console.log('🔐 Admin: Login successful, waiting for state update...');
       console.log('🔐 Admin: Current state after login:', {
@@ -285,7 +285,7 @@ const Admin = () => {
         authLoading,
         session: session ? 'exists' : 'null'
       });
-      
+
       // Force a re-render by triggering a state update
       setTimeout(() => {
         console.log('🔐 Admin: Forcing re-render after successful login...');
@@ -294,7 +294,7 @@ const Admin = () => {
           authLoading,
           session: session ? 'exists' : 'null'
         });
-        
+
         // Additional verification
         if (!isAuthenticated) {
           console.log('🔐 Admin: WARNING - Still not authenticated after timeout!');
@@ -303,7 +303,7 @@ const Admin = () => {
         }
       }, 200);
     }
-    
+
     return result;
   }, [login]);
 
@@ -342,9 +342,9 @@ const Admin = () => {
     try {
       console.log('🔧 Initializing admin configuration manually...');
       toast.loading('جاري تهيئة إعدادات الإدارة...', { id: 'init-admin' });
-      
+
       const result = await initializeAdmin();
-      
+
       if (result.success) {
         toast.success('تم تهيئة إعدادات الإدارة بنجاح! كلمة المرور: 45086932', {
           id: 'init-admin',
@@ -378,29 +378,29 @@ const Admin = () => {
       "⚠️ لا يمكن التراجع عن هذا الإجراء!\n" +
       "سيتم إعادة تحميل الصفحة تلقائياً."
     );
-    
+
     if (!confirmed) {
       toast.info("تم إلغاء عملية إعادة التعيين");
       return;
     }
-    
+
     try {
       // Show loading toast
       toast.loading("جاري إعادة تعيين البيانات...", {
         id: "reset-data"
       });
-      
+
       // Clear cashier sales data from Firebase
       console.log('Admin: Clearing sales from Firebase...');
       await salesService.clearAllSales();
       console.log('Admin: Firebase sales cleared successfully');
-      
+
       // Clear cashier sales data from localStorage
       localStorage.removeItem("cashier-sales");
-      
+
       // Clear analytics visitor data
       localStorage.removeItem("returning_visitor");
-      
+
       // Clear any other related data
       const keysToRemove = [
         "cashier-sales",
@@ -409,21 +409,21 @@ const Admin = () => {
         "profit-analysis-data",
         "orders-data"
       ];
-      
+
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
       });
-      
+
       // Update toast to success
       toast.success("تم إعادة تعيين جميع البيانات بنجاح", {
         id: "reset-data"
       });
-      
+
       // Force page refresh to ensure all components reload with fresh data
       setTimeout(() => {
         window.location.reload();
       }, 1500);
-      
+
     } catch (error) {
       console.error("Error resetting data:", error);
       toast.error("حدث خطأ أثناء إعادة تعيين البيانات", {
@@ -452,7 +452,7 @@ const Admin = () => {
     session: session ? 'exists' : 'null',
     error: authError
   });
-  
+
   // Additional debugging
   console.log('🔍 isAuthenticated type:', typeof isAuthenticated);
   console.log('🔍 isAuthenticated value:', isAuthenticated);
@@ -514,21 +514,21 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen">
-        <Helmet>
-          <title>لوحة التحكم</title>
-          <meta
-            name="description"
-            content="لوحة تحكم المسؤول لإدارة منتجات المتجر والمخزون"
-          />
-          <meta name="robots" content="noindex, nofollow" />
-        </Helmet>
-        <main className="max-w-[90%] mx-auto py-8">
+      <Helmet>
+        <title>لوحة التحكم</title>
+        <meta
+          name="description"
+          content="لوحة تحكم المسؤول لإدارة منتجات المتجر والمخزون"
+        />
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <main className="max-w-[90%] mx-auto py-8">
         <div className="mx-auto">
           <div className="mb-8 flex items-center justify-between">
             <h1 className="text-3xl font-bold">لوحة التحكم</h1>
             <div className="flex gap-2">
               <Button
-                onClick={() => navigate("/admin/orders")}
+                onClick={() => navigate("/orders")}
                 className="gap-2"
                 aria-label="إدارة الطلبات"
               >
@@ -544,7 +544,7 @@ const Admin = () => {
                 نظام الكاشير
               </Button>
               <Button
-                onClick={() => navigate("/admin/analytics")}
+                onClick={() => navigate("/visitors-stats")}
                 className="gap-2"
                 aria-label="إحصائيات الزوار"
               >
@@ -552,7 +552,7 @@ const Admin = () => {
                 إحصائيات الزوار
               </Button>
               <Button
-                onClick={() => navigate("/admin/profit-analysis")}
+                onClick={() => navigate("/profits-analytics")}
                 className="gap-2"
                 aria-label="تحليل الأرباح"
               >
@@ -692,104 +692,104 @@ const Admin = () => {
             )}
             {!revenueLoading && (
               <>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <ClipboardList
-                  className="h-5 w-5 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <h3 className="text-sm font-medium">إجمالي الطلبات</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2">
-                {statistics.totalOrders}
-              </p>
-            </div>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <Clock
-                  className="h-5 w-5 text-yellow-600"
-                  aria-hidden="true"
-                />
-                <h3 className="text-sm font-medium">قيد الانتظار</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2 text-yellow-600">
-                {statistics.pendingOrders}
-              </p>
-            </div>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <CheckCircle
-                  className="h-5 w-5 text-blue-600"
-                  aria-hidden="true"
-                />
-                <h3 className="text-sm font-medium">تم التأكيد</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2 text-blue-600">
-                {statistics.confirmedOrders}
-              </p>
-            </div>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <Truck
-                  className="h-5 w-5 text-purple-600"
-                  aria-hidden="true"
-                />
-                <h3 className="text-sm font-medium">تم الشحن</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2 text-purple-600">
-                {statistics.shippedOrders}
-              </p>
-            </div>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <CheckSquare
-                  className="h-5 w-5 text-green-600"
-                  aria-hidden="true"
-                />
-                <h3 className="text-sm font-medium">تم التوصيل</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2 text-green-600">
-                {statistics.deliveredOrders}
-              </p>
-            </div>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <XCircle
-                  className="h-5 w-5 text-red-600"
-                  aria-hidden="true"
-                />
-                <h3 className="text-sm font-medium">ملغي</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2 text-red-600">
-                {statistics.cancelledOrders}
-              </p>
-            </div>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <ShoppingCart
-                  className="h-5 w-5 text-blue-600"
-                  aria-hidden="true"
-                />
-                <h3 className="text-sm font-medium">مبيعات الكاشير</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2 text-blue-600">
-                {orderStatistics?.totalCashierSales || 0}
-              </p>
-            </div>
-            <div className="bg-card rounded-lg border p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-green-600 font-bold text-lg">$</span>
-                <h3 className="text-sm font-medium">إجمالي الإيرادات</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2 text-green-600">
-                {formatCurrency((statistics.totalRevenue || 0), 'جنيه')}
-              </p>
-              <div className="text-xs text-gray-500 mt-1">
-                <div>طلبات: {formatCurrency((revenueByStatus?.delivered || 0), 'جنيه')}</div>
-                <div>كاشير: {formatCurrency((revenueByStatus?.cashier || 0), 'جنيه')}</div>
-              </div>
-            </div>
-            </>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList
+                      className="h-5 w-5 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-sm font-medium">إجمالي الطلبات</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2">
+                    {statistics.totalOrders}
+                  </p>
+                </div>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Clock
+                      className="h-5 w-5 text-yellow-600"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-sm font-medium">قيد الانتظار</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2 text-yellow-600">
+                    {statistics.pendingOrders}
+                  </p>
+                </div>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle
+                      className="h-5 w-5 text-blue-600"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-sm font-medium">تم التأكيد</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2 text-blue-600">
+                    {statistics.confirmedOrders}
+                  </p>
+                </div>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Truck
+                      className="h-5 w-5 text-purple-600"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-sm font-medium">تم الشحن</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2 text-purple-600">
+                    {statistics.shippedOrders}
+                  </p>
+                </div>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare
+                      className="h-5 w-5 text-green-600"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-sm font-medium">تم التوصيل</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2 text-green-600">
+                    {statistics.deliveredOrders}
+                  </p>
+                </div>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <XCircle
+                      className="h-5 w-5 text-red-600"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-sm font-medium">ملغي</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2 text-red-600">
+                    {statistics.cancelledOrders}
+                  </p>
+                </div>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart
+                      className="h-5 w-5 text-blue-600"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-sm font-medium">مبيعات الكاشير</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2 text-blue-600">
+                    {orderStatistics?.totalCashierSales || 0}
+                  </p>
+                </div>
+                <div className="bg-card rounded-lg border p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 font-bold text-lg">$</span>
+                    <h3 className="text-sm font-medium">إجمالي الإيرادات</h3>
+                  </div>
+                  <p className="text-2xl font-bold mt-2 text-green-600">
+                    {formatCurrency((statistics.totalRevenue || 0), 'جنيه')}
+                  </p>
+                  <div className="text-xs text-gray-500 mt-1">
+                    <div>طلبات: {formatCurrency((revenueByStatus?.delivered || 0), 'جنيه')}</div>
+                    <div>كاشير: {formatCurrency((revenueByStatus?.cashier || 0), 'جنيه')}</div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
@@ -817,9 +817,8 @@ const Admin = () => {
                     </div>
                     <Button variant="ghost" size="sm" className="w-9 p-0">
                       <ChevronDown
-                        className={`h-4 w-4 transition-transform ${
-                          isFiltersOpen ? "rotate-180" : "rotate-0"
-                        }`}
+                        className={`h-4 w-4 transition-transform ${isFiltersOpen ? "rotate-180" : "rotate-0"
+                          }`}
                       />
                       <span className="sr-only">Toggle filters</span>
                     </Button>

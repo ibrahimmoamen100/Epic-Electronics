@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { createPortal } from "react-dom";
 import { Suspense, lazy } from "react";
@@ -18,6 +18,7 @@ import { useFacebookPixel } from "./useFacebookPixel";
 
 // Lazy load pages with error handling
 const Index = lazy(() => import("./pages/Index").catch(() => ({ default: () => <div>Error loading Index</div> })));
+const Dashboard = lazy(() => import("./pages/Dashboard").catch(() => ({ default: () => <div>Error loading Dashboard</div> })));
 const Admin = lazy(() => import("./pages/Admin").catch(() => ({ default: () => <div>Error loading Admin</div> })));
 const AdminOrders = lazy(() => import("./pages/admin/Orders").catch(() => ({ default: () => <div>Error loading AdminOrders</div> })));
 const AdminAnalytics = lazy(async () => {
@@ -26,7 +27,7 @@ const AdminAnalytics = lazy(async () => {
     return module;
   } catch (err: any) {
     console.error("Error loading AdminAnalytics:", err);
-    return { 
+    return {
       default: () => (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
@@ -82,38 +83,57 @@ const AppRoutes = () => {
 
   return (
     <>
-    
-    <ScrollToTop />
-    <Layout>
-      <ErrorBoundary>
-        <Suspense fallback={<Loading />}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/setup" element={<AdminSetup />} />
-            <Route path="/admin/orders" element={<AdminOrders />} />
-            <Route path="/admin/analytics" element={<AdminAnalytics />} />
-            <Route path="/admin/profit-analysis" element={<AdminProfitAnalysis />} />
-            <Route path="/cashier" element={<Cashier />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/category/:category" element={<Products />} />
-            {/* New SEO-friendly singular route */}
-            <Route path="/product/:id" element={<ProductDetails />} />
-            {/* Backward compatibility */}
-            <Route path="/products/:id" element={<ProductDetails />} />
-            <Route path="/locations" element={<Locations />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/careers" element={<Careers />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/delivery" element={<Delivery />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/attendance" element={<Attendance />} />
-          </Routes>
-        </Suspense>
-      </ErrorBoundary>
-    </Layout>
+
+      <ScrollToTop />
+      <Layout>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              <Route path="/" element={<Index />} />
+
+              {/* New Dashboard & Tools */}
+              <Route path="/dashboard" element={<Suspense fallback={<Loading />}><Dashboard /></Suspense>} />
+
+              {/* Admin/Inventory - Moved from /admin */}
+              <Route path="/inventory" element={<Admin />} />
+
+              {/* Decoupled Admin Features */}
+              <Route path="/orders" element={<AdminOrders />} />
+              <Route path="/visitors-stats" element={<AdminAnalytics />} />
+              <Route path="/profits-analytics" element={<AdminProfitAnalysis />} />
+              <Route path="/cashier" element={<Cashier />} />
+              <Route path="/attendance" element={<Attendance />} />
+
+              {/* Setup Page */}
+              <Route path="/admin/setup" element={<AdminSetup />} />
+
+              {/* Redirects for Legacy Admin Routes */}
+              <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/admin/orders" element={<Navigate to="/orders" replace />} />
+              <Route path="/admin/analytics" element={<Navigate to="/visitors-stats" replace />} />
+              <Route path="/admin/profit-analysis" element={<Navigate to="/profits-analytics" replace />} />
+
+              {/* Customer Routes */}
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/products/category/:category" element={<Products />} />
+              <Route path="/product/:id" element={<ProductDetails />} />
+              {/* Backward compatibility */}
+              <Route path="/products/:id" element={<ProductDetails />} />
+              <Route path="/locations" element={<Locations />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/careers" element={<Careers />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/delivery" element={<Delivery />} />
+
+              {/* Customer Orders - Renamed from /orders */}
+              <Route path="/my-orders" element={<Orders />} />
+
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </Layout>
     </>
   );
 };
