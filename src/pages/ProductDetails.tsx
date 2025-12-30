@@ -665,19 +665,11 @@ const ProductDetails = () => {
                   </p>
                 </div>
 
-                {/* Rating */}
-                <div className="flex items-center gap-1">
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <span className="text-sm text-gray-600">(4.8)</span>
-                </div>
+
               </div>
 
               {/* Price */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 {product.specialOffer &&
                   new Date(product.offerEndsAt as string) > new Date() &&
                   finalPrice < undiscountedPrice ? (
@@ -719,7 +711,7 @@ const ProductDetails = () => {
                     {formatCurrency(finalPrice, 'جنيه')}
                   </span>
                 )}
-              </div>
+              </div> */}
             </div>
 
             <Separator />

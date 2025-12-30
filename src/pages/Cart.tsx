@@ -466,7 +466,7 @@ const Cart = () => {
                             <div>
                               <div className="flex justify-between items-start gap-2">
                                 <h3
-                                  className="font-semibold text-gray-900 line-clamp-2 cursor-pointer hover:text-primary transition-colors"
+                                  className="font-semibold text-gray-900 text-sm line-clamp-2 cursor-pointer hover:text-primary transition-colors"
                                   onClick={() => navigate(`/product/${item.product.id}`)}
                                 >
                                   {item.product.name}
@@ -551,7 +551,7 @@ const Cart = () => {
                                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                 </Button>
                               </div>
-                              <div className="font-bold text-lg text-primary flex items-center gap-1">
+                              <div className="font-bold text-sm text-primary flex items-center gap-1">
                                 {formatCurrency(item.totalPrice, 'جنيه')}
                               </div>
                             </div>
@@ -563,17 +563,19 @@ const Cart = () => {
 
                 <div className="bg-gray-50/80 p-6 border-t border-gray-100">
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center text-gray-600">
+                    <div className="flex justify-between flex-col items-start text-gray-600">
                       <span>إجمالي المنتجات ({cart.reduce((acc, item) => acc + item.quantity, 0)})</span>
-                      <span className="font-medium">{formatCurrency(totalAmount, 'جنيه')}</span>
+                      <div className="flex  justify-between w-full items-center gap-2">
+
+                        <span className="text-lg font-bold flex flex-col items-start " > الإجمالي
+
+                          <span className="text-[12px] text-gray-400"> (غير شامل الشحن) </span>
+                        </span>
+
+                        <span className="text-xl font-bold">{formatCurrency(totalAmount, 'جنيه')}</span>
+                      </div>
                     </div>
 
-                    <div className="h-px bg-gray-200 my-4" />
-
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>الإجمالي (غير شامل الشحن)</span>
-                      <span className="text-primary text-xl">{formatCurrency(totalAmount, 'جنيه')}</span>
-                    </div>
                   </div>
 
                   <div className="pt-4 mt-2">
