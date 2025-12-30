@@ -293,11 +293,26 @@ export default function Products() {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Mobile Filter Button - Opens from bottom */}
           <div className="md:hidden mb-4">
+            <style>
+              {`
+                @keyframes subtle-pulse {
+                  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); transform: scale(1); }
+                  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); transform: scale(1.01); }
+                  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); transform: scale(1); }
+                }
+                .animate-subtle-attention {
+                  animation: subtle-pulse 3s infinite;
+                }
+              `}
+            </style>
             <Drawer open={openDrawer} onOpenChange={setOpenDrawer}>
               <DrawerTrigger asChild>
-                <Button variant="outline" className="w-full">
+                <Button
+                  variant="outline"
+                  className={`w-full border-primary/50 text-foreground font-medium ${!openDrawer ? 'animate-subtle-attention' : ''}`}
+                >
                   <Filter className="h-4 w-4 mr-2" />
-                  {t("filters.title")}
+                  التصفية حسب
                 </Button>
               </DrawerTrigger>
               <DrawerContent>
@@ -321,6 +336,7 @@ export default function Products() {
               </DrawerContent>
             </Drawer>
           </div>
+
 
           {/* Desktop Sidebar */}
           <div className="hidden md:block lg:w-72 w-60 shrink-0">
