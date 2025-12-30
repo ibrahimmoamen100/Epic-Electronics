@@ -74,24 +74,24 @@ interface ProfitAnalysis {
   totalSales: number;
   totalOrders: number;
   totalCashierSales: number;
-
+  
   // الأرباح
   totalRevenue: number;
   totalCost: number;
   totalProfit: number;
   profitMargin: number;
-
+  
   // تحليل حسب المصدر
   revenueBySource: {
     online: number;
     cashier: number;
   };
-
+  
   profitBySource: {
     online: number;
     cashier: number;
   };
-
+  
   // أكثر المنتجات ربحية
   topProfitableProducts: Array<{
     productId: string;
@@ -102,7 +102,7 @@ interface ProfitAnalysis {
     totalProfit: number;
     profitMargin: number;
   }>;
-
+  
   // أكثر المنتجات مبيعاً
   topSellingProducts: Array<{
     productId: string;
@@ -110,7 +110,7 @@ interface ProfitAnalysis {
     totalQuantity: number;
     totalRevenue: number;
   }>;
-
+  
   // تحليل شهري
   monthlyAnalysis: Array<{
     month: string;
@@ -120,7 +120,7 @@ interface ProfitAnalysis {
     orders: number;
     sales: number;
   }>;
-
+  
   // تحليل حسب الحالة
   analysisByStatus: {
     pending: { revenue: number; orders: number };
@@ -135,7 +135,6 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { products } = useStore();
 
   // جلب الطلبات من Firebase
@@ -144,16 +143,16 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
       const ordersRef = collection(db, 'orders');
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - timeRange);
-
+      
       const q = query(
-        ordersRef,
+        ordersRef, 
         where('createdAt', '>=', cutoffDate),
         orderBy('createdAt', 'desc')
       );
-
+      
       const querySnapshot = await getDocs(q);
       const ordersData: Order[] = [];
-
+      
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         ordersData.push({
@@ -163,13 +162,10 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
           updatedAt: data.updatedAt?.toDate?.() || data.updatedAt || new Date(),
         } as Order);
       });
-
+      
       setOrders(ordersData);
-      setError(null);
     } catch (error) {
       console.error('Error fetching orders:', error);
-      setError('فشل في تحميل الطلبات');
-      throw error;
     }
   };
 
@@ -181,20 +177,18 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
         const parsedSales = JSON.parse(savedSales);
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - timeRange);
-
+        
         const salesData = parsedSales
           .map((sale: any) => ({
             ...sale,
             timestamp: new Date(sale.timestamp)
           }))
           .filter((sale: Sale) => sale.timestamp >= cutoffDate);
-
+        
         setSales(salesData);
       }
     } catch (error) {
       console.error('Error loading sales:', error);
-      setError('فشل في تحميل مبيعات الكاشير');
-      throw error;
     }
   };
 
@@ -234,19 +228,19 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
     orders.forEach(order => {
       if (order.status === 'delivered') {
         onlineRevenue += order.total;
-
+        
         order.items.forEach(item => {
           const product = products.find(p => p.id === item.productId);
           if (product && product.wholesaleInfo) {
             const cost = product.wholesaleInfo.purchasePrice * item.quantity;
             onlineCost += cost;
-
+            
             const existing = onlineProductStats.get(item.productId) || {
               quantity: 0,
               revenue: 0,
               cost: 0
             };
-
+            
             // Use unitFinalPrice for more accurate profit calculation
             const unitPrice = item.unitFinalPrice || item.price;
             onlineProductStats.set(item.productId, {
@@ -270,20 +264,20 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
 
     sales.forEach(sale => {
       cashierRevenue += sale.totalAmount;
-
+      
       sale.items.forEach(item => {
         if (item.product.wholesaleInfo) {
           // Use unitFinalPrice for more accurate profit calculation
           const unitPrice = item.unitFinalPrice || item.product.price;
           const cost = item.product.wholesaleInfo.purchasePrice * item.quantity;
           cashierCost += cost;
-
+          
           const existing = cashierProductStats.get(item.product.id) || {
             quantity: 0,
             revenue: 0,
             cost: 0
           };
-
+          
           cashierProductStats.set(item.product.id, {
             quantity: existing.quantity + item.quantity,
             revenue: existing.revenue + item.totalPrice, // item.totalPrice already uses unitFinalPrice
@@ -319,7 +313,7 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
         const product = products.find(p => p.id === productId);
         const profit = stats.revenue - stats.cost;
         const profitMargin = stats.revenue > 0 ? (profit / stats.revenue) * 100 : 0;
-
+        
         return {
           productId,
           productName: product?.name || 'منتج غير معروف',
@@ -359,10 +353,10 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
     orders.forEach(order => {
       const month = order.createdAt.toISOString().slice(0, 7); // YYYY-MM
       const existing = monthlyData.get(month) || { revenue: 0, cost: 0, orders: 0, sales: 0 };
-
+      
       if (order.status === 'delivered') {
         existing.revenue += order.total;
-
+        
         order.items.forEach(item => {
           const product = products.find(p => p.id === item.productId);
           if (product && product.wholesaleInfo) {
@@ -370,7 +364,7 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
           }
         });
       }
-
+      
       existing.orders += 1;
       monthlyData.set(month, existing);
     });
@@ -379,16 +373,16 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
     sales.forEach(sale => {
       const month = sale.timestamp.toISOString().slice(0, 7);
       const existing = monthlyData.get(month) || { revenue: 0, cost: 0, orders: 0, sales: 0 };
-
+      
       existing.revenue += sale.totalAmount;
       existing.sales += 1;
-
+      
       sale.items.forEach(item => {
         if (item.product.wholesaleInfo) {
           existing.cost += item.product.wholesaleInfo.purchasePrice * item.quantity;
         }
       });
-
+      
       monthlyData.set(month, existing);
     });
 
@@ -449,15 +443,9 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      setError(null);
-      try {
-        await fetchOrders();
-        loadSales();
-      } catch (err) {
-        // Error already set in fetchOrders/loadSales
-      } finally {
-        setLoading(false);
-      }
+      await fetchOrders();
+      loadSales();
+      setLoading(false);
     };
 
     loadData();
@@ -466,21 +454,14 @@ export const useProfitAnalysis = (timeRange: number = 30) => {
   // تحديث البيانات
   const refreshData = async () => {
     setLoading(true);
-    setError(null);
-    try {
-      await fetchOrders();
-      loadSales();
-    } catch (err) {
-      // Error already set in fetchOrders/loadSales
-    } finally {
-      setLoading(false);
-    }
+    await fetchOrders();
+    loadSales();
+    setLoading(false);
   };
 
   return {
     profitAnalysis,
     loading,
-    error,
     refreshData,
     orders,
     sales

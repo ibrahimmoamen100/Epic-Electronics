@@ -119,12 +119,12 @@ const ProfitAnalysis = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [sortBy, setSortBy] = useState<"profit" | "revenue" | "quantity">("profit");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-
-  const {
-    profitAnalysis,
-    loading,
-    error,
-    refreshData
+  
+  const { 
+    profitAnalysis, 
+    loading, 
+    error, 
+    refreshData 
   } = useProfitAnalysis(parseInt(timeRange));
 
   // Custom number formatting functions for better display
@@ -246,7 +246,7 @@ const ProfitAnalysis = () => {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/admin")}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -381,20 +381,20 @@ const ProfitAnalysis = () => {
                       {formatDisplayPrice(profitAnalysis.revenueBySource.online).abbreviated}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {profitAnalysis.totalRevenue > 0 ?
-                        formatPercentage((profitAnalysis.revenueBySource.online / profitAnalysis.totalRevenue) * 100) :
+                      {profitAnalysis.totalRevenue > 0 ? 
+                        formatPercentage((profitAnalysis.revenueBySource.online / profitAnalysis.totalRevenue) * 100) : 
                         '0%'
                       }
                     </p>
                   </div>
                 </div>
-                <Progress
-                  value={profitAnalysis.totalRevenue > 0 ?
+                <Progress 
+                  value={profitAnalysis.totalRevenue > 0 ? 
                     (profitAnalysis.revenueBySource.online / profitAnalysis.totalRevenue) * 100 : 0
-                  }
-                  className="h-2"
+                  } 
+                  className="h-2" 
                 />
-
+                
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-4 h-4 bg-green-500 rounded"></div>
@@ -405,18 +405,18 @@ const ProfitAnalysis = () => {
                       {formatDisplayPrice(profitAnalysis.revenueBySource.cashier).abbreviated}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {profitAnalysis.totalRevenue > 0 ?
-                        formatPercentage((profitAnalysis.revenueBySource.cashier / profitAnalysis.totalRevenue) * 100) :
+                      {profitAnalysis.totalRevenue > 0 ? 
+                        formatPercentage((profitAnalysis.revenueBySource.cashier / profitAnalysis.totalRevenue) * 100) : 
                         '0%'
                       }
                     </p>
                   </div>
                 </div>
-                <Progress
-                  value={profitAnalysis.totalRevenue > 0 ?
+                <Progress 
+                  value={profitAnalysis.totalRevenue > 0 ? 
                     (profitAnalysis.revenueBySource.cashier / profitAnalysis.totalRevenue) * 100 : 0
-                  }
-                  className="h-2"
+                  } 
+                  className="h-2" 
                 />
               </div>
             </CardContent>
@@ -441,20 +441,20 @@ const ProfitAnalysis = () => {
                       {formatDisplayPrice(profitAnalysis.profitBySource.online).abbreviated}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {profitAnalysis.revenueBySource.online > 0 ?
-                        formatPercentage((profitAnalysis.profitBySource.online / profitAnalysis.revenueBySource.online) * 100) :
+                      {profitAnalysis.revenueBySource.online > 0 ? 
+                        formatPercentage((profitAnalysis.profitBySource.online / profitAnalysis.revenueBySource.online) * 100) : 
                         '0%'
                       } هامش ربح
                     </p>
                   </div>
                 </div>
-                <Progress
-                  value={profitAnalysis.revenueBySource.online > 0 ?
+                <Progress 
+                  value={profitAnalysis.revenueBySource.online > 0 ? 
                     (profitAnalysis.profitBySource.online / profitAnalysis.revenueBySource.online) * 100 : 0
-                  }
-                  className="h-2"
+                  } 
+                  className="h-2" 
                 />
-
+                
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-4 h-4 bg-green-500 rounded"></div>
@@ -465,18 +465,18 @@ const ProfitAnalysis = () => {
                       {formatDisplayPrice(profitAnalysis.profitBySource.cashier).abbreviated}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {profitAnalysis.revenueBySource.cashier > 0 ?
-                        formatPercentage((profitAnalysis.profitBySource.cashier / profitAnalysis.revenueBySource.cashier) * 100) :
+                      {profitAnalysis.revenueBySource.cashier > 0 ? 
+                        formatPercentage((profitAnalysis.profitBySource.cashier / profitAnalysis.revenueBySource.cashier) * 100) : 
                         '0%'
                       } هامش ربح
                     </p>
                   </div>
                 </div>
-                <Progress
-                  value={profitAnalysis.revenueBySource.cashier > 0 ?
+                <Progress 
+                  value={profitAnalysis.revenueBySource.cashier > 0 ? 
                     (profitAnalysis.profitBySource.cashier / profitAnalysis.revenueBySource.cashier) * 100 : 0
-                  }
-                  className="h-2"
+                  } 
+                  className="h-2" 
                 />
               </div>
             </CardContent>
@@ -600,11 +600,11 @@ const ProfitAnalysis = () => {
                 {profitAnalysis.monthlyAnalysis.map((month) => {
                   const maxRevenue = Math.max(...profitAnalysis.monthlyAnalysis.map(m => m.revenue));
                   const height = maxRevenue > 0 ? (month.revenue / maxRevenue) * 100 : 0;
-                  const monthName = new Date(month.month + '-01').toLocaleDateString('ar-EG', {
+                  const monthName = new Date(month.month + '-01').toLocaleDateString('ar-EG', { 
                     month: 'short',
                     year: 'numeric'
                   });
-
+                  
                   return (
                     <div key={month.month} className="flex flex-col items-center">
                       <div
@@ -653,15 +653,15 @@ const ProfitAnalysis = () => {
                       <div className="flex justify-between">
                         <span>متوسط التكلفة لكل عملية:</span>
                         <span className="font-medium">
-                          {profitAnalysis.totalSales > 0 ?
-                            formatDisplayPrice(profitAnalysis.totalCost / profitAnalysis.totalSales).abbreviated :
+                          {profitAnalysis.totalSales > 0 ? 
+                            formatDisplayPrice(profitAnalysis.totalCost / profitAnalysis.totalSales).abbreviated : 
                             '0 ج.م'
                           }
                         </span>
                       </div>
                     </div>
                   </div>
-
+                  
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-semibold mb-2">تحليل الربح</h4>
                     <div className="space-y-2">
@@ -674,15 +674,15 @@ const ProfitAnalysis = () => {
                       <div className="flex justify-between">
                         <span>متوسط الربح لكل عملية:</span>
                         <span className="font-medium text-green-600">
-                          {profitAnalysis.totalSales > 0 ?
-                            formatDisplayPrice(profitAnalysis.totalProfit / profitAnalysis.totalSales).abbreviated :
+                          {profitAnalysis.totalSales > 0 ? 
+                            formatDisplayPrice(profitAnalysis.totalProfit / profitAnalysis.totalSales).abbreviated : 
                             '0 ج.م'
                           }
                         </span>
                       </div>
                     </div>
                   </div>
-
+                  
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-semibold mb-2">تحليل الكفاءة</h4>
                     <div className="space-y-2">
@@ -695,8 +695,8 @@ const ProfitAnalysis = () => {
                       <div className="flex justify-between">
                         <span>نسبة المبيعات المكتملة:</span>
                         <span className="font-medium text-blue-600">
-                          {profitAnalysis.totalOrders > 0 ?
-                            formatPercentage((profitAnalysis.analysisByStatus.delivered.orders / profitAnalysis.totalOrders) * 100) :
+                          {profitAnalysis.totalOrders > 0 ? 
+                            formatPercentage((profitAnalysis.analysisByStatus.delivered.orders / profitAnalysis.totalOrders) * 100) : 
                             '0%'
                           }
                         </span>

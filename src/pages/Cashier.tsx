@@ -3,7 +3,6 @@ import { useStore } from "@/store/useStore";
 import { Product, ProductSize, ProductAddon } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -77,8 +76,6 @@ interface Sale {
   customerName?: string;
   customerPhone?: string;
   paymentMethod?: 'vodafone_cash' | 'instaPay' | 'cash';
-  purchaseType?: 'in_store' | 'shipping_company' | 'delivery_agent';
-  notes?: string;
 }
 
 export default function Cashier() {
@@ -86,7 +83,7 @@ export default function Cashier() {
   const { t } = useTranslation();
   const { products, updateProduct, loadProducts, removeFromCart: storeRemoveFromCart, updateProductQuantity } = useStore();
 
-  const PASSWORD = "102030";
+  const PASSWORD = "01025423389";
   const ACCESS_STORAGE_KEY = "cashier-access-granted";
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,8 +92,6 @@ export default function Cashier() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'vodafone_cash' | 'instaPay' | 'cash'>('cash');
-  const [purchaseType, setPurchaseType] = useState<'in_store' | 'shipping_company' | 'delivery_agent' | ''>('');
-  const [notes, setNotes] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Advanced filters state
@@ -685,11 +680,6 @@ export default function Cashier() {
       return;
     }
 
-    if (!purchaseType) {
-      toast.error("يرجى اختيار نوع العملية (بالمحل / شحن / مندوب)");
-      return;
-    }
-
     // Check if user is authenticated (optional check)
     try {
       // This is a basic check - you might want to add more robust authentication
@@ -760,9 +750,7 @@ export default function Cashier() {
         timestamp: new Date(),
         customerName: customerName || null,
         customerPhone: customerPhone || null,
-        paymentMethod: paymentMethod || 'cash',
-        purchaseType: purchaseType as 'in_store' | 'shipping_company' | 'delivery_agent',
-        notes: notes.trim() || undefined
+        paymentMethod: paymentMethod || 'cash'
       };
 
       // Save to Firebase first
@@ -820,8 +808,6 @@ export default function Cashier() {
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod('cash');
-      setPurchaseType('');
-      setNotes('');
       setCustomTotalEnabled(false);
       setCustomTotalValue("");
 
@@ -893,8 +879,6 @@ export default function Cashier() {
       setCustomerName("");
       setCustomerPhone("");
       setPaymentMethod('cash');
-      setPurchaseType('');
-      setNotes('');
       setCustomTotalEnabled(false);
       setCustomTotalValue("");
 
@@ -1104,16 +1088,6 @@ export default function Cashier() {
         return 'نقدي';
       default:
         return 'نقدي';
-    }
-  };
-
-  // Get purchase type name
-  const getPurchaseTypeName = (type?: string): string => {
-    switch (type) {
-      case 'in_store': return 'بالمحل';
-      case 'shipping_company': return 'شركة شحن';
-      case 'delivery_agent': return 'مندوب توصيل';
-      default: return '—';
     }
   };
 
@@ -1642,31 +1616,6 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">نوع البيع <span className="text-red-500">*</span></label>
-                    <Select value={purchaseType} onValueChange={(value: any) => setPurchaseType(value)}>
-                      <SelectTrigger className={!purchaseType ? "border-red-300" : ""}>
-                        <SelectValue placeholder="اختر نوع العملية..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="in_store">بالمحل (In Store)</SelectItem>
-                        <SelectItem value="shipping_company">شركة شحن (Shipping)</SelectItem>
-                        <SelectItem value="delivery_agent">مندوب توصيل (Delivery Agent)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">ملاحظات (اختياري)</label>
-                    <Textarea
-                      placeholder="أضف ملاحظات على الطلب (بحد أقصى 300 حرف)..."
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="min-h-[80px] text-sm resize-none"
-                      maxLength={300}
-                    />
-                  </div>
                 </div>
 
                 {/* Cart Items */}
@@ -1845,317 +1794,362 @@ ${saleToDelete.customerPhone ? `رقم الهاتف: ${saleToDelete.customerPhon
               </CardContent>
             </Card>
 
-
-          </div>
-        </div>
-
-        {/* Improved Recent Sales Section */}
-        <div className="mt-8">
-          <Card className="w-full">
-            <CardHeader>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    المبيعات الأخيرة
-                    {hasActiveFilters && (
-                      <Badge variant="secondary" className="ml-2">
-                        {filteredSales.length} من {sales.length}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowFilters(!showFilters)}
-                      className="gap-2"
-                    >
-                      <Filter className="h-4 w-4" />
-                      <span className="hidden sm:inline">{showFilters ? "إخفاء الفلاتر" : "الفلاتر"}</span>
+            {/* Recent Sales */}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      المبيعات الأخيرة
                       {hasActiveFilters && (
-                        <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
-                          !
+                        <Badge variant="secondary" className="ml-2">
+                          {filteredSales.length} من {sales.length}
                         </Badge>
                       )}
-                    </Button>
-                    {hasActiveFilters && (
-                      <>
+                    </CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="gap-2"
+                      >
+                        <Filter className="h-4 w-4" />
+                        <span className="hidden sm:inline">{showFilters ? "إخفاء الفلاتر" : "الفلاتر"}</span>
+                        {hasActiveFilters && (
+                          <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                            !
+                          </Badge>
+                        )}
+                      </Button>
+                      {hasActiveFilters && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="gap-2"
+                          >
+                            <X className="h-4 w-4" />
+                            <span className="hidden sm:inline">مسح الفلاتر</span>
+                            <span className="sm:hidden">مسح</span>
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={sendToWhatsApp}
+                            className="gap-2 bg-green-600 hover:bg-green-700"
+                          >
+                            <Send className="h-4 w-4" />
+                            <span className="hidden sm:inline">إرسال عبر WhatsApp</span>
+                            <span className="sm:hidden">واتساب</span>
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Advanced Filters Panel */}
+                {showFilters && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border space-y-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <Filter className="h-4 w-4" />
+                        الفلاتر المتقدمة
+                      </h3>
+                      {hasActiveFilters && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearFilters}
+                          className="h-7 text-xs"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          مسح الكل
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Date Filter */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          الفترة الزمنية
+                        </Label>
+                        <Select value={dateFilter} onValueChange={setDateFilter}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">جميع الفترات</SelectItem>
+                            <SelectItem value="today">اليوم</SelectItem>
+                            <SelectItem value="week">آخر أسبوع</SelectItem>
+                            <SelectItem value="month">آخر شهر</SelectItem>
+                            <SelectItem value="custom">تحديد تاريخ مخصص</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {dateFilter === "custom" && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                              <Label className="text-xs">من</Label>
+                              <Input
+                                type="date"
+                                value={customStartDate}
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                className="h-9 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">إلى</Label>
+                              <Input
+                                type="date"
+                                value={customEndDate}
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                className="h-9 text-xs"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Customer Name Filter */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          اسم العميل
+                        </Label>
+                        <Input
+                          placeholder="ابحث بالاسم..."
+                          value={customerNameFilter}
+                          onChange={(e) => setCustomerNameFilter(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+
+                      {/* Phone Filter */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          رقم الهاتف
+                        </Label>
+                        <Input
+                          type="tel"
+                          placeholder="ابحث بالرقم..."
+                          value={phoneFilter}
+                          onChange={(e) => setPhoneFilter(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+
+                      {/* Product Name Filter */}
+                      <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                        <Label className="text-xs font-medium flex items-center gap-1">
+                          <Package className="h-3 w-3" />
+                          اسم المنتج
+                        </Label>
+                        <Input
+                          placeholder="ابحث باسم المنتج..."
+                          value={productNameFilter}
+                          onChange={(e) => setProductNameFilter(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="max-h-[670px] overflow-y-auto">
+                  {filteredSales.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">
+                      <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>{hasActiveFilters ? "لا توجد نتائج تطابق الفلاتر المحددة" : "لا توجد مبيعات حديثة"}</p>
+                      {hasActiveFilters && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={clearFilters}
-                          className="gap-2"
+                          className="mt-4"
                         >
-                          <X className="h-4 w-4" />
-                          <span className="hidden sm:inline">مسح الفلاتر</span>
-                          <span className="sm:hidden">مسح</span>
+                          مسح الفلاتر
                         </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={sendToWhatsApp}
-                          className="gap-2 bg-green-600 hover:bg-green-700"
-                        >
-                          <Send className="h-4 w-4" />
-                          <span className="hidden sm:inline">إرسال عبر WhatsApp</span>
-                          <span className="sm:hidden">واتساب</span>
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Advanced Filters Panel */}
-              {showFilters && (
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border space-y-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      الفلاتر المتقدمة
-                    </h3>
-                    {hasActiveFilters && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="h-7 text-xs"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        مسح الكل
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Date Filter */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        الفترة الزمنية
-                      </Label>
-                      <Select value={dateFilter} onValueChange={setDateFilter}>
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">جميع الفترات</SelectItem>
-                          <SelectItem value="today">اليوم</SelectItem>
-                          <SelectItem value="week">آخر أسبوع</SelectItem>
-                          <SelectItem value="month">آخر شهر</SelectItem>
-                          <SelectItem value="custom">تحديد تاريخ مخصص</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {dateFilter === "custom" && (
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          <div>
-                            <Label className="text-xs">من</Label>
-                            <Input
-                              type="date"
-                              value={customStartDate}
-                              onChange={(e) => setCustomStartDate(e.target.value)}
-                              className="h-9 text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">إلى</Label>
-                            <Input
-                              type="date"
-                              value={customEndDate}
-                              onChange={(e) => setCustomEndDate(e.target.value)}
-                              className="h-9 text-xs"
-                            />
-                          </div>
-                        </div>
                       )}
                     </div>
-
-                    {/* Customer Name Filter */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        اسم العميل
-                      </Label>
-                      <Input
-                        placeholder="ابحث بالاسم..."
-                        value={customerNameFilter}
-                        onChange={(e) => setCustomerNameFilter(e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-
-                    {/* Phone Filter */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        رقم الهاتف
-                      </Label>
-                      <Input
-                        type="tel"
-                        placeholder="ابحث بالرقم..."
-                        value={phoneFilter}
-                        onChange={(e) => setPhoneFilter(e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-
-                    {/* Product Name Filter */}
-                    <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                      <Label className="text-xs font-medium flex items-center gap-1">
-                        <Package className="h-3 w-3" />
-                        اسم المنتج
-                      </Label>
-                      <Input
-                        placeholder="ابحث باسم المنتج..."
-                        value={productNameFilter}
-                        onChange={(e) => setProductNameFilter(e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="max-h-[670px] overflow-y-auto">
-                {filteredSales.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>{hasActiveFilters ? "لا توجد نتائج تطابق الفلاتر المحددة" : "لا توجد مبيعات حديثة"}</p>
-                    {hasActiveFilters && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="mt-4"
-                      >
-                        مسح الفلاتر
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredSales.map(sale => {
-                      const isDeleting = loadingProducts.size > 0;
-                      return (
-                        <div key={sale.id} className={`flex flex-col border rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow relative ${isDeleting ? 'opacity-75' : ''}`}>
-                          {/* Loading Overlay */}
-                          {isDeleting && (
-                            <div className="absolute inset-0 bg-gray-100 bg-opacity-50 flex items-center justify-center z-10">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-                            </div>
-                          )}
-
-                          {/* Card Header */}
-                          <div className="bg-gray-50 p-4 border-b flex justify-between items-start">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-gray-900">
-                                  {sale.customerName || "عميل بدون اسم"}
-                                </span>
-                                <Badge variant="secondary" className="text-xs">
-                                  #{sale.id.slice(-8)}
-                                </Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {sale.purchaseType ? (
-                                  <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200">
-                                    {getPurchaseTypeName(sale.purchaseType)}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-xs text-gray-400">—</span>
-                                )}
-
-                                {sale.customerPhone && (
-                                  <Badge variant="outline" className="text-xs">
-                                    <Phone className="h-3 w-3 mr-1" />
-                                    {sale.customerPhone}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-xl font-bold text-green-600">
-                              {formatCurrency(sale.totalAmount, 'جنيه')}
-                            </div>
-                          </div>
-
-                          {/* Card Content */}
-                          <div className="p-4 flex-1 space-y-4">
-                            {/* Metadata */}
-                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                <span>{sale.timestamp.toLocaleDateString('ar-EG')}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
-                                <span>{sale.timestamp.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <span>طريقة الدفع:</span>
-                                <span className="font-medium text-gray-700">{getPaymentMethodName(sale.paymentMethod)}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Package className="h-4 w-4" />
-                                <span>{sale.items.length} منتجات</span>
-                              </div>
-                            </div>
-
-                            {/* Items Summary (first 3 items) */}
-                            <div className="space-y-2">
-                              <div className="text-xs font-semibold text-gray-400 uppercase">المنتجات</div>
-                              {sale.items.slice(0, 3).map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-sm">
-                                  <span className="truncate flex-1 ml-2">
-                                    {item.quantity}x {item.product.name}
-                                    {item.selectedSize ? ` (${item.selectedSize.label})` : ''}
-                                  </span>
-                                  <span className="font-medium text-gray-700">
-                                    {formatCurrency(item.totalPrice, 'ج.م')}
-                                  </span>
-                                </div>
-                              ))}
-                              {sale.items.length > 3 && (
-                                <div className="text-xs text-blue-600 text-center pt-1">
-                                  +{sale.items.length - 3} منتجات أخرى
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Notes */}
-                            {sale.notes && (
-                              <div className="bg-yellow-50 p-3 rounded-md border border-yellow-100 text-sm">
-                                <div className="text-xs font-semibold text-yellow-700 mb-1 flex items-center gap-1">
-                                  <span className="bg-yellow-200 rounded-full w-4 h-4 flex items-center justify-center text-[10px]">!</span>
-                                  ملاحظات:
-                                </div>
-                                <p className="text-gray-700 italic">{sale.notes}</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredSales.map(sale => {
+                        const isDeleting = loadingProducts.size > 0;
+                        return (
+                          <div key={sale.id} className={`border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative ${isDeleting ? 'opacity-75' : ''}`}>
+                            {/* Loading Overlay */}
+                            {isDeleting && (
+                              <div className="absolute inset-0 rounded-lg bg-gray-100 bg-opacity-50 flex items-center justify-center z-10">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
                               </div>
                             )}
-                          </div>
 
-                          {/* Card Footer */}
-                          <div className="p-3 border-t bg-gray-50 flex justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => confirmDeleteSale(sale.id)}
-                              disabled={loadingProducts.size > 0}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              حذف العملية
-                            </Button>
+                            {/* Sale Header - Enhanced */}
+                            <div className="flex justify-between items-start mb-4 pb-4 border-b border-gray-200">
+                              <div className="flex items-start gap-3 flex-1">
+                                <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center shadow-sm">
+                                  <Receipt className="h-5 w-5 text-green-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <span className="text-base font-bold text-gray-900">
+                                      {sale.customerName || "عميل بدون اسم"}
+                                    </span>
+                                    {sale.customerPhone && (
+                                      <Badge variant="outline" className="text-xs">
+                                        <Phone className="h-3 w-3 mr-1" />
+                                        {sale.customerPhone}
+                                      </Badge>
+                                    )}
+                                    {sale.paymentMethod && (
+                                      <Badge variant={getPaymentMethodBadgeVariant(sale.paymentMethod)} className="text-xs">
+                                        💳 {getPaymentMethodName(sale.paymentMethod)}
+                                      </Badge>
+                                    )}
+                                    <Badge variant="secondary" className="text-xs">
+                                      #{sale.id.slice(-8)}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      {sale.timestamp.toLocaleDateString('ar-EG', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                      })}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      {sale.timestamp.toLocaleTimeString('ar-EG', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2 ml-4">
+                                <div className="text-right">
+                                  <div className="text-xl font-bold text-green-600 mb-1">
+                                    {formatCurrency(sale.totalAmount, 'جنيه')}
+                                  </div>
+                                  <div className="text-xs text-gray-500 flex items-center justify-end gap-1">
+                                    <Package className="h-3 w-3" />
+                                    {sale.items.length} {sale.items.length === 1 ? 'منتج' : 'منتجات'}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => confirmDeleteSale(sale.id)}
+                                  disabled={loadingProducts.size > 0}
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  title="حذف عملية البيع"
+                                >
+                                  {loadingProducts.size > 0 ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b border-red-500"></div>
+                                  ) : (
+                                    <AlertTriangle className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Sale Items - Enhanced */}
+                            <div className="space-y-2">
+                              {sale.items.map((item, index) => (
+                                <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 hover:shadow-sm transition-shadow">
+                                  {/* Product Image */}
+                                  <div className="relative flex-shrink-0">
+                                    <img
+                                      src={item.product.images?.[0] || "/placeholder.svg"}
+                                      alt={item.product.name}
+                                      className="w-14 h-14 object-cover rounded-lg border-2 border-white shadow-sm"
+                                    />
+                                    {item.selectedSize && (
+                                      <Badge className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full border-2 border-white">
+                                        {item.selectedSize.label}
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {/* Product Details */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                                          {item.product.name}
+                                        </h4>
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                          <Badge variant="outline" className="text-xs">
+                                            الكمية: {item.quantity}
+                                          </Badge>
+                                          {item.selectedSize && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              📐 {item.selectedSize.label}
+                                            </Badge>
+                                          )}
+                                          {item.selectedAddons && item.selectedAddons.length > 0 && (
+                                            <Badge variant="secondary" className="text-xs bg-green-50 text-green-700">
+                                              ➕ {item.selectedAddons.length} إضافة
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {/* Addons Display */}
+                                        {item.selectedAddons && item.selectedAddons.length > 0 && (
+                                          <div className="mt-2 flex flex-wrap gap-1">
+                                            {item.selectedAddons.map((addon, addonIndex) => (
+                                              <Badge
+                                                key={addonIndex}
+                                                variant="outline"
+                                                className="text-xs bg-green-50 text-green-700 border-green-200"
+                                              >
+                                                +{addon.label}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="text-right flex-shrink-0">
+                                        <div className="text-sm font-bold text-gray-900 mb-1">
+                                          {formatCurrency(item.unitFinalPrice, 'جنيه')}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          × {item.quantity} = {formatCurrency(item.totalPrice, 'جنيه')}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Sale Footer */}
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600">المجموع:</span>
+                                <span className="font-bold text-green-600">
+                                  {sale.totalAmount.toLocaleString()} ج.م
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
 
