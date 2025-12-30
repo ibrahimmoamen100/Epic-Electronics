@@ -340,16 +340,13 @@ const Cart = () => {
     };
 
     const orderLines = formatOrderLines(orderItems);
-    const depositLabel =
-      data.depositMethod === 'vodafone_cash' ? 'فودافون كاش' :
-        data.depositMethod === 'instapay' ? 'إنستا باي' : 'الدفع في المحل';
+
 
     const reservationDetails = [
       `👤 الاسم: ${reservationInfo.fullName}`,
       `📱 الهاتف: ${reservationInfo.phoneNumber}`,
       `📅 التاريخ: ${reservationInfo.appointmentDate}`,
       `⏰ الوقت: ${reservationInfo.appointmentTime}`,
-      `💳 طريقة تأكيد الحجز: ${depositLabel}`,
       reservationInfo.notes ? `📝 ملاحظات: ${reservationInfo.notes}` : null,
     ].filter(Boolean).join('\n');
 
@@ -363,9 +360,8 @@ const Cart = () => {
       '========================',
       `💰 إجمالي المبلغ: ${formatCurrency(getCartTotal(), 'جنيه')}`,
       '========================',
-      data.depositMethod !== 'store_visit'
-        ? `*يرجى تأكيد استلام العربون (${depositLabel})*`
-        : '*الدفع عند الوصول للمحل*',
+      `   سأرسل العربون بعد هذه الرساله  *`,
+
     ].join('\n');
 
     // Manually call process logic here because resetReservation is involved
@@ -466,7 +462,7 @@ const Cart = () => {
                             <div>
                               <div className="flex justify-between items-start gap-2">
                                 <h3
-                                  className="font-semibold text-gray-900 text-sm line-clamp-2 cursor-pointer hover:text-primary transition-colors"
+                                  className="font-semibold text-gray-900 md:text-base text-sm line-clamp-2 cursor-pointer hover:text-primary transition-colors"
                                   onClick={() => navigate(`/product/${item.product.id}`)}
                                 >
                                   {item.product.name}
@@ -551,7 +547,7 @@ const Cart = () => {
                                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
                                 </Button>
                               </div>
-                              <div className="font-bold text-sm text-primary flex items-center gap-1">
+                              <div className="font-bold text-sm md:text-base text-primary flex items-center gap-1">
                                 {formatCurrency(item.totalPrice, 'جنيه')}
                               </div>
                             </div>
