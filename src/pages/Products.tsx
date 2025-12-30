@@ -339,7 +339,7 @@ export default function Products() {
               <DrawerTrigger asChild>
                 <Button
                   variant="outline"
-                  className={`w-full font-bold text-dark transition-all duration-300 ${!openDrawer ? 'magic-border-btn' : 'border-primary/50'}`}
+                  className={`w-full font-bold text-primary focus:bg-primary hover:bg-primary hover:text-primary focus:text-primary transition-all duration-300 ${!openDrawer ? 'magic-border-btn' : 'border-primary/50'}`}
                 >
                   <span className="relative z-10 flex items-center gap-2">
                     <Filter className="h-4 w-4" />
