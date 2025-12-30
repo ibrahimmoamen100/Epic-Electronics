@@ -26,11 +26,13 @@ interface ProductOptionsProps {
   currentPrice: number;
   undiscountedPrice?: number;
   maxQuantity?: number;
+  quantity: number;
   onSelectionChange: (
     selectedSize: ProductSize | null,
     selectedAddons: ProductAddon[],
     finalPrice: number
   ) => void;
+  onQuantityChange: (quantity: number) => void;
   onBuy: (quantity: number) => void;
 }
 
@@ -39,18 +41,15 @@ export function ProductOptions({
   currentPrice,
   undiscountedPrice,
   maxQuantity = 999,
+  quantity,
   onSelectionChange,
+  onQuantityChange,
   onBuy
 }: ProductOptionsProps) {
   const { t } = useTranslation();
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
-  const [quantity, setQuantity] = useState(1);
-
-  // Reset quantity when product changes
-  useEffect(() => {
-    setQuantity(1);
-  }, [product.id]);
+  // Quantity state removed - controlled by parent
 
   // Calculate final price based on selections (without applying special offer discount)
   // The special offer discount is already applied in ProductDetails component
@@ -118,7 +117,7 @@ export function ProductOptions({
       toast.warning(`أقصى كمية متاحة هي ${maxQuantity}`);
       return;
     }
-    setQuantity(newQuantity);
+    onQuantityChange(newQuantity);
   };
 
   const handleBuyClick = () => {

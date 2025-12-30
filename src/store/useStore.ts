@@ -31,7 +31,7 @@ interface StoreState {
   setProducts: (products: Product[]) => void;
   addToCart: (product: Product, quantity?: number, selectedSize?: ProductSize | null, selectedAddons?: ProductAddon[], selectedColor?: string) => void;
   removeFromCart: (productId: string, selectedSizeId?: string | null) => void;
-  updateCartItemQuantity: (productId: string, quantity: number, selectedSizeId?: string | null) => void;
+  updateCartItemQuantity: (productId: string, quantity: number, selectedSizeId?: string | null, selectedAddonIds?: string[], selectedColor?: string) => void;
   setFilters: (filters: Filter) => void;
   clearCart: (skipRestore?: boolean) => void;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
@@ -109,9 +109,6 @@ export const useStore = create<StoreState>()(
 
         const totalPrice = unitFinalPrice * quantity;
 
-        // Calculate new quantity after adding to cart
-        const newQuantity = availableQuantity - quantity;
-
         set((state) => {
           // Filter out any invalid cart items first
           const validCart = state.cart.filter(item => item.product && item.product.id);
@@ -142,17 +139,8 @@ export const useStore = create<StoreState>()(
                   }
                   : item
               ),
-              // Update product quantity in products array
-              products: state.products.map((p) =>
-                p.id === product.id
-                  ? {
-                    ...p,
-                    wholesaleInfo: p.wholesaleInfo
-                      ? { ...p.wholesaleInfo, quantity: newQuantity }
-                      : p.wholesaleInfo
-                  }
-                  : p
-              ),
+              // Do NOT update products array local stock
+              products: state.products
             };
           }
 
@@ -169,177 +157,73 @@ export const useStore = create<StoreState>()(
 
           return {
             cart: [...validCart, newCartItem],
-            // Update product quantity in products array
-            products: state.products.map((p) =>
-              p.id === product.id
-                ? {
-                  ...p,
-                  wholesaleInfo: p.wholesaleInfo
-                    ? { ...p.wholesaleInfo, quantity: newQuantity }
-                    : p.wholesaleInfo
-                }
-                : p
-            ),
+            // Do NOT update products array local stock
+            products: state.products
           };
         });
 
-        // Update Firebase using atomic transaction to prevent race conditions (async, don't await)
-        updateProductQuantitiesAtomically([{
-          productId: product.id,
-          quantityToDeduct: quantity
-        }]).catch(error => {
-          console.error('Error updating product quantities in Firebase:', error);
-          // Optionally show a toast or handle the error
-        });
-
-        // No need to reload products since we already updated the local state
+        // Do NOT update Firebase here. Stock is only deducted upon order confirmation.
       },
       removeFromCart: async (productId) => {
-        const cartItem = get().cart.find((item) => item.product && item.product.id === productId);
-        if (!cartItem) return;
-
-        const product = get().products.find((p) => p.id === productId);
-        if (!product) return;
-
-        const availableQuantity = product.wholesaleInfo?.quantity || 0;
-        const cartQuantity = cartItem.quantity;
-
-        // Restore quantity using atomic transaction (async, don't await)
-        restoreProductQuantitiesAtomically([{
-          productId: productId,
-          quantityToRestore: cartQuantity
-        }]).catch(error => {
-          console.error('Error restoring product quantities in Firebase:', error);
-        });
-
         set((state) => {
-          // Update local state with restored quantity
-          const updatedProducts = state.products.map((p) =>
-            p.id === productId
-              ? {
-                ...p,
-                wholesaleInfo: p.wholesaleInfo
-                  ? { ...p.wholesaleInfo, quantity: (p.wholesaleInfo.quantity || 0) + cartQuantity }
-                  : p.wholesaleInfo
-              }
-              : p
-          );
-
           return {
             cart: state.cart.filter((item) => item.product && item.product.id !== productId),
-            products: updatedProducts
+            // Do NOT restore stock implicitly
+            products: state.products
           };
         });
-
-        // No need to reload products since we already updated the local state
       },
-      updateCartItemQuantity: async (productId, quantity) => {
-        const cartItem = get().cart.find((item) => item.product && item.product.id === productId);
+      updateCartItemQuantity: async (productId, quantity, selectedSizeId = null, selectedAddonIds = [], selectedColor = undefined) => {
+        // Helper to check if addons match
+        const areAddonsMatching = (itemAddons: ProductAddon[], targetAddonIds: string[]) => {
+          if ((!itemAddons || itemAddons.length === 0) && (!targetAddonIds || targetAddonIds.length === 0)) return true;
+          if (!itemAddons || !targetAddonIds) return false;
+          if (itemAddons.length !== targetAddonIds.length) return false;
+          const itemAddonIds = itemAddons.map(a => a.id).sort();
+          const targetIds = [...targetAddonIds].sort();
+          return itemAddonIds.every((id, index) => id === targetIds[index]);
+        };
+
+        const cartItem = get().cart.find((item) =>
+          item.product &&
+          item.product.id === productId &&
+          (selectedSizeId ? item.selectedSize?.id === selectedSizeId : !item.selectedSize) &&
+          (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor) &&
+          areAddonsMatching(item.selectedAddons || [], selectedAddonIds || [])
+        );
+
         if (!cartItem) return;
 
         const product = get().products.find((p) => p.id === productId);
         if (!product) return;
 
         const availableQuantity = product.wholesaleInfo?.quantity || 0;
-        const currentCartQuantity = cartItem.quantity;
-        const quantityDifference = quantity - currentCartQuantity;
 
-        // If reducing quantity, we can do it without checking
-        if (quantityDifference <= 0) {
-          if (quantity <= 0) {
-            // Remove from cart and restore quantity locally (not in Firebase - will be updated when order is completed)
-            const newQuantity = availableQuantity + currentCartQuantity;
-
-            set((state) => ({
-              cart: state.cart.filter((item) => item.product && item.product.id !== productId),
-              // Restore the quantity to products array (local only)
-              products: state.products.map((p) =>
-                p.id === productId
-                  ? {
-                    ...p,
-                    wholesaleInfo: p.wholesaleInfo
-                      ? { ...p.wholesaleInfo, quantity: newQuantity }
-                      : p.wholesaleInfo
-                  }
-                  : p
-              ),
-            }));
-            return;
-          }
-
-          // Restore the difference to products array locally (not in Firebase)
-          const newQuantity = availableQuantity + Math.abs(quantityDifference);
-
-          set((state) => ({
-            cart: state.cart.map((item) =>
-              item.product && item.product.id === productId ? { ...item, quantity } : item
-            ),
-            // Restore the difference to products array (local only)
-            products: state.products.map((p) =>
-              p.id === productId
-                ? {
-                  ...p,
-                  wholesaleInfo: p.wholesaleInfo
-                    ? { ...p.wholesaleInfo, quantity: newQuantity }
-                    : p.wholesaleInfo
-                }
-                : p
-            ),
-          }));
-          return;
-        }
-
-        // If increasing quantity, check if we have enough stock
-        if (availableQuantity < quantityDifference) {
+        // If increasing quantity, check if we have enough stock (total stock, not "remaining")
+        // Since we are not deducting from stock on add, the availableQuantity IS the total stock.
+        if (availableQuantity < quantity) {
           throw new Error(`الكمية المطلوبة غير متوفرة. المتوفر: ${availableQuantity}`);
         }
 
-        // Reduce the quantity from products array locally (not in Firebase - will be updated when order is completed)
-        const newQuantity = availableQuantity - quantityDifference;
-
         set((state) => ({
           cart: state.cart.map((item) =>
-            item.product && item.product.id === productId ? { ...item, quantity } : item
-          ),
-          // Reduce the quantity from products array (local only)
-          products: state.products.map((p) =>
-            p.id === productId
+            item.product &&
+              item.product.id === productId &&
+              (selectedSizeId ? item.selectedSize?.id === selectedSizeId : !item.selectedSize) &&
+              (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor) &&
+              areAddonsMatching(item.selectedAddons || [], selectedAddonIds || [])
               ? {
-                ...p,
-                wholesaleInfo: p.wholesaleInfo
-                  ? { ...p.wholesaleInfo, quantity: newQuantity }
-                  : p.wholesaleInfo
-              }
-              : p
+                ...item,
+                quantity,
+                totalPrice: item.unitFinalPrice * quantity
+              } : item
           ),
+          products: state.products,
         }));
       },
       setFilters: (filters) => set({ filters }),
       clearCart: async (skipRestore = false) => {
-        const cart = get().cart;
-
-        // Restore all quantities to Firebase only if not skipping (e.g., after order completion)
-        if (!skipRestore) {
-          for (const item of cart) {
-            // Skip items with undefined or null product
-            if (!item.product || !item.product.id) {
-              continue;
-            }
-            const product = get().products.find((p) => p.id === item.product.id);
-            if (product) {
-              const currentQuantity = product.wholesaleInfo?.quantity || 0;
-              const newQuantity = currentQuantity + item.quantity;
-
-              await productsService.updateProduct(item.product.id, {
-                ...product,
-                wholesaleInfo: product.wholesaleInfo
-                  ? { ...product.wholesaleInfo, quantity: newQuantity }
-                  : product.wholesaleInfo
-              });
-            }
-          }
-        }
-
+        // Just clear the cart, no need to restore stock to Firebase since it wasn't deducted
         set({ cart: [] });
       },
       getCartTotal: () => {

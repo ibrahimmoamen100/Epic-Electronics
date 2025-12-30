@@ -704,7 +704,12 @@ export const createOrderAndUpdateProductQuantitiesAtomically = async (
 
       const productData = productDoc.data() as Product;
       const currentQuantity = productData.wholesaleInfo?.quantity || 0;
-      const newQuantity = Math.max(0, currentQuantity - update.quantityToDeduct);
+
+      if (currentQuantity < update.quantityToDeduct) {
+        throw new Error(`عذراً، الكمية المتوفرة للمنتج ${productData.name} هي ${currentQuantity}، ولكن طلبت ${update.quantityToDeduct}`);
+      }
+
+      const newQuantity = currentQuantity - update.quantityToDeduct;
 
       // Update product quantity in transaction
       transaction.update(doc(db, 'products', update.productId), {
@@ -1166,24 +1171,24 @@ export class FirebaseAttendanceService {
 
       const deduction = shouldApplyDelayDeduction
         ? calculateDelayDeduction(
-            delayMinutes,
-            excuseStatus,
-            employee.monthlySalary,
-            employee.monthlyWorkingHours,
-            dailyWage
-          )
+          delayMinutes,
+          excuseStatus,
+          employee.monthlySalary,
+          employee.monthlyWorkingHours,
+          dailyWage
+        )
         : { type: 'none' as const, amount: 0 };
 
       // Calculate overtime
       const overtime =
         normalizedStatus === 'present'
           ? calculateOvertime(
-              effectiveCheckIn,
-              effectiveCheckOut,
-              employee.workingHours,
-              employee.monthlySalary,
-              employee.monthlyWorkingHours
-            )
+            effectiveCheckIn,
+            effectiveCheckOut,
+            employee.workingHours,
+            employee.monthlySalary,
+            employee.monthlyWorkingHours
+          )
           : { hours: 0, amount: 0 };
 
       // Calculate daily net

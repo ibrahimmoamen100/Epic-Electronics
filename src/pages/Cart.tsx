@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { addDoc, collection } from "firebase/firestore";
 import { db, updateProductQuantitiesAtomically, createOrderAndUpdateProductQuantitiesAtomically } from "@/lib/firebase";
 import { useNavigate } from "react-router-dom";
+import { Separator } from "@radix-ui/react-dropdown-menu";
 
 interface ReservationFormData {
   fullName: string;
@@ -695,8 +696,8 @@ ${'='.repeat(30)}
       deliveryInfo: {
         fullName: data.fullName,
         phoneNumber: data.phoneNumber,
-        address: 'استلام من المعرض',
-        city: 'المنصورة', // Default or make generic
+        address: 'استلام من المحل',
+        city: 'لا يوجد', // Default or make generic
         notes: `حجز موعد: ${data.appointmentDate} الساعة ${data.appointmentTime}. ${data.notes || ''}`
       },
       createdAt: new Date(),
@@ -877,7 +878,13 @@ ${'='.repeat(30)}
                                   } else {
                                     try {
                                       // Use the store function which handles Firebase update
-                                      updateCartItemQuantity(item.product.id, newQuantity);
+                                      updateCartItemQuantity(
+                                        item.product.id,
+                                        newQuantity,
+                                        item.selectedSize?.id || null,
+                                        item.selectedAddons?.map(a => a.id) || [],
+                                        item.selectedColor
+                                      );
                                     } catch (error) {
                                       toast.error("خطأ في تحديث الكمية", {
                                         description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
@@ -898,7 +905,13 @@ ${'='.repeat(30)}
                                 onClick={async () => {
                                   try {
                                     // Use the store function which handles Firebase update and stock checking
-                                    updateCartItemQuantity(item.product.id, item.quantity + 1);
+                                    updateCartItemQuantity(
+                                      item.product.id,
+                                      item.quantity + 1,
+                                      item.selectedSize?.id || null,
+                                      item.selectedAddons?.map(a => a.id) || [],
+                                      item.selectedColor
+                                    );
                                   } catch (error) {
                                     toast.error("خطأ في تحديث الكمية", {
                                       description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
@@ -932,20 +945,21 @@ ${'='.repeat(30)}
                       </div>
                     );
                   })}
+                <div className="bg-white rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600">عدد المنتجات:</span>
+                    <span className="font-semibold">{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xl font-bold border-t pt-4 mt-2">
+                    <span>الإجمالي النهائي:</span>
+                    <span className="text-primary">{formatCurrency(getCartTotal(), 'جنيه')}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Cart Summary Section */}
-            <div className="bg-white rounded-lg border shadow-sm p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-600">عدد المنتجات:</span>
-                <span className="font-semibold">{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xl font-bold border-t pt-4 mt-2">
-                <span>الإجمالي النهائي:</span>
-                <span className="text-primary">{formatCurrency(getCartTotal(), 'جنيه')}</span>
-              </div>
-            </div>
+
           </div>
 
           <div className="md:col-span-2">
@@ -973,17 +987,41 @@ ${'='.repeat(30)}
                     <div className="flex items-start gap-3">
                       <MapPin className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-green-900 mb-1">تكلفة الشحن</p>
-                        <div className="space-y-1 text-sm text-green-800">
-                          <p className="flex items-center gap-2">
-                            <span className="font-medium">📍 داخل القاهرة:</span>
-                            <span className="text-green-700 font-semibold">100 جنيه</span>
+                        <p className="text-base font-semibold text-green-900 mb-1">تكلفة الشحن</p>
+                        <div className="space-y-4 text-sm text-green-800">
+                          <p className="flex flex-col items-start gap-2">
+                            <div className="font-medium">📍 داخل القاهرة : <span className="text-green-700 font-semibold">100 جنيه</span>
+                            </div>
+                            <div className=" ">يتم الشحن خلال 24 ساعة عمل  </div>
                           </p>
-                          <p className="flex items-center gap-2">
-                            <span className="font-medium">🚚 جميع المحافظات:</span>
-                            <span className="text-green-700 font-semibold">170 جنيه</span>
+                          <p className="flex flex-col items-start gap-2  border-t pt-4 mt-2">
+                            <div className="font-medium">🚚 جميع المحافظات : <span className="text-green-700 font-semibold">170 جنيه</span>
+                            </div>
+                            <div className="text-sm my-2">يتم الشحن خلال 48 ساعة عمل  </div>
                           </p>
                         </div>
+                        <div className="flex flex-col items-start justify-between text-sm font-bold border-t pt-4 mt-2">
+                          <div className="flex items-center gap-2"> طرق الدفع المتاحه </div>
+                          <div>
+                            <div className="flex flex-col items-start gap-2">
+                              <div>
+                                <img src="/insta.png" alt="online-payment" width={50} height={50} />
+                                <label htmlFor="insta">  InstaPay</label>
+                              </div>
+                              <div>
+                                <img src="/voda.png" alt="online-payment" width={50} height={50} />
+                                <label htmlFor="voda">  Vodafone Cash</label>
+                              </div>
+                              <div>
+                                <img src="/cash.png" alt="online-payment" width={50} height={50} />
+                                <label htmlFor="cash" className="text-sm font-semibold">  الدفع عند الاستلام </label>
+                                <span className="text-xs text-gray-500 font-medium">(بعد دفع مصاريف الشحن)</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+
                       </div>
                     </div>
                   </div>
@@ -1269,8 +1307,8 @@ ${'='.repeat(30)}
           open={showLoginRequiredModal}
           onOpenChange={setShowLoginRequiredModal}
         />
-      </main>
-    </div>
+      </main >
+    </div >
   );
 };
 

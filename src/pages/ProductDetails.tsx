@@ -165,13 +165,57 @@ const ProductDetails = () => {
     return product?.images[selectedImage] || product?.images[0];
   }, [selectedColor, colorImageMapping, selectedImage, product?.images, availableColors.length]);
 
-  // Check if product is in cart (considering selected size and color)
-  const cartItem = cart.find((item) =>
+  // Helper to check if addons match
+  const areAddonsMatching = useCallback((itemAddons: ProductAddon[], targetAddons: ProductAddon[]) => {
+    if ((!itemAddons || itemAddons.length === 0) && (!targetAddons || targetAddons.length === 0)) return true;
+    if (!itemAddons || !targetAddons) return false;
+    if (itemAddons.length !== targetAddons.length) return false;
+    const itemAddonIds = itemAddons.map(a => a.id).sort();
+    const targetAddonIds = targetAddons.map(a => a.id).sort();
+    return itemAddonIds.every((id, index) => id === targetAddonIds[index]);
+  }, []);
+
+  // Check if product is in cart (considering selected size, color AND addons)
+  const cartItem = useMemo(() => cart.find((item) =>
     item.product &&
     item.product.id === id &&
     (selectedSize ? item.selectedSize?.id === selectedSize.id : !item.selectedSize) &&
-    (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor)
-  );
+    (selectedColor ? item.selectedColor === selectedColor : !item.selectedColor) &&
+    areAddonsMatching(item.selectedAddons || [], selectedAddons || [])
+  ), [cart, id, selectedSize, selectedColor, selectedAddons, areAddonsMatching]);
+
+  // Local quantity for products not in cart
+  const [localQuantity, setLocalQuantity] = useState(1);
+
+  // Reset local quantity when selections change and item is not in cart
+  useEffect(() => {
+    if (!cartItem) {
+      setLocalQuantity(1);
+    }
+  }, [selectedSize, selectedColor, selectedAddons, cartItem]);
+
+  // Determine actual quantity to display
+  const currentQuantity = cartItem ? cartItem.quantity : localQuantity;
+
+  const handleQuantityChange = async (newQuantity: number) => {
+    if (cartItem) {
+      // If item is in cart, update cart immediately
+      try {
+        await updateCartItemQuantity(
+          product!.id,
+          newQuantity,
+          selectedSize?.id || null,
+          selectedAddons.map(a => a.id),
+          selectedColor
+        );
+      } catch (error) {
+        toast.error("خطأ في تحديث الكمية");
+      }
+    } else {
+      // If not in cart, just update local state
+      setLocalQuantity(newQuantity);
+    }
+  };
 
   // Find suggested products (same category, excluding current product)
   const suggestedProducts = products
@@ -330,32 +374,7 @@ const ProductDetails = () => {
     }
   };
 
-  const handleUpdateQuantity = async (newQuantity: number) => {
-    if (newQuantity === 0) {
-      try {
-        removeFromCart(product.id);
-        toast.success(`${t("cart.productRemoved")}: ${product.name}`, {
-          duration: 5000,
-          dismissible: true,
-        });
-      } catch (error) {
-        toast.error("خطأ في حذف المنتج", {
-          description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
-        });
-      }
-    } else {
-      try {
-        const cartItem = cart.find(item => item.product.id === product.id);
-        if (!cartItem) return;
 
-        updateCartItemQuantity(product.id, newQuantity);
-      } catch (error) {
-        toast.error("خطأ في تحديث الكمية", {
-          description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
-        });
-      }
-    }
-  };
 
   const handleShare = () => {
     const productUrl = `${window.location.origin}/product/${product.id}`;
@@ -745,7 +764,7 @@ const ProductDetails = () => {
             )}
 
             {/* Available Quantity Display */}
-            {/* <div className="space-y-4">
+            <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Package className="h-5 w-5 text-blue-600" />
@@ -765,7 +784,7 @@ const ProductDetails = () => {
                   </div>
                 </div>
               </div>
-            </div> */}
+            </div>
 
             {/* Product Options */}
             <ProductOptions
@@ -773,7 +792,9 @@ const ProductDetails = () => {
               currentPrice={finalPrice}
               undiscountedPrice={undiscountedPrice}
               maxQuantity={product.wholesaleInfo?.quantity}
+              quantity={currentQuantity}
               onSelectionChange={handleSelectionChange}
+              onQuantityChange={handleQuantityChange}
               onBuy={handleBuy}
             />
 
