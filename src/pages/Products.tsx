@@ -292,16 +292,46 @@ export default function Products() {
 
         <div className="flex flex-col md:flex-row gap-6">
           {/* Mobile Filter Button - Opens from bottom */}
+          {/* Mobile Filter Button - Opens from bottom */}
           <div className="md:hidden mb-4">
             <style>
               {`
-                @keyframes subtle-pulse {
-                  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); transform: scale(1); }
-                  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); transform: scale(1.01); }
-                  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); transform: scale(1); }
+                @keyframes spin-gradient {
+                  0% { transform: translate(-50%, -50%) rotate(0deg); }
+                  100% { transform: translate(-50%, -50%) rotate(360deg); }
                 }
-                .animate-subtle-attention {
-                  animation: subtle-pulse 3s infinite;
+                .magic-border-btn {
+                  position: relative;
+                  overflow: hidden;
+                  border: 1px solid #008cffff;
+                  z-index: 1;
+                  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+                }
+                .magic-border-btn::before {
+                  content: '';
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  width: 400%;
+                  height: 400%;
+                  background: conic-gradient(
+                    transparent 0deg, 
+                    transparent 60deg, 
+                    #008cffff 90deg, 
+                    #55a4ffff 135deg,
+                    #b5def1ff 180deg, 
+                    transparent 240deg
+                  );
+                  animation: spin-gradient 3s linear infinite;
+                  z-index: -2;
+                }
+                .magic-border-btn::after {
+                  content: '';
+                  position: absolute;
+                  inset: 2px;
+                  background: hsl(var(--background)); 
+                  border-radius: calc(var(--radius) - 1px);
+                  z-index: -1;
                 }
               `}
             </style>
@@ -309,10 +339,12 @@ export default function Products() {
               <DrawerTrigger asChild>
                 <Button
                   variant="outline"
-                  className={`w-full border-primary/50 text-foreground font-medium ${!openDrawer ? 'animate-subtle-attention' : ''}`}
+                  className={`w-full font-bold text-dark transition-all duration-300 ${!openDrawer ? 'magic-border-btn' : 'border-primary/50'}`}
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  التصفية حسب
+                  <span className="relative z-10 flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    التصفية حسب
+                  </span>
                 </Button>
               </DrawerTrigger>
               <DrawerContent>
