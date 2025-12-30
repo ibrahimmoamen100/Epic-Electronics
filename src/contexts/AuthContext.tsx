@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { 
-  signInWithRedirect,
-  signOut, 
-  onAuthStateChanged, 
-  User 
+import {
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 export interface UserProfile {
   uid: string;
@@ -49,15 +50,92 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // يمكنك حذف كل الأكواد السابقة إذا لم يكن هناك مصادقة
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+
+      if (currentUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setUserProfile(userDoc.data() as UserProfile);
+          } else {
+            // Create new profile if not exists
+            const newProfile: UserProfile = {
+              uid: currentUser.uid,
+              email: currentUser.email || '',
+              displayName: currentUser.displayName || '',
+              photoURL: currentUser.photoURL || '',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            await setDoc(doc(db, 'users', currentUser.uid), newProfile);
+            setUserProfile(newProfile);
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          // Fallback to minimal profile from Auth to avoid blocking UI
+          setUserProfile({
+            uid: currentUser.uid,
+            email: currentUser.email || '',
+            displayName: currentUser.displayName || '',
+            photoURL: currentUser.photoURL || '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      } else {
+        setUserProfile(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  const signInWithGoogleRedirect = async () => {
+    // Mock or implement if needed
+    return { success: false, error: "Not implemented" };
+  };
+
+  const signOutUser = async () => {
+    try {
+      await signOut(auth);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    if (!user || !user.uid) return { success: false, error: "No user logged in" };
+    try {
+      await setDoc(doc(db, 'users', user.uid), updates, { merge: true });
+      setUserProfile(prev => prev ? { ...prev, ...updates } : null);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
   const value: AuthContextType = {
     user,
     userProfile,
     loading,
-    signInWithGoogle: async () => ({ success: false, error: 'الإجراء غير مدعوم' }),
-    signInWithGoogleRedirect: async () => ({ success: false, error: 'الإجراء غير مدعوم' }),
-    signOutUser: async () => ({ success: false, error: 'الإجراء غير مدعوم' }),
-    updateUserProfile: async () => ({ success: false, error: 'الإجراء غير مدعوم' })
+    signInWithGoogle,
+    signInWithGoogleRedirect,
+    signOutUser,
+    updateUserProfile
   };
 
   return (

@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Package, 
-  Calendar, 
-  MapPin, 
-  Phone, 
+import {
+  Package,
+  Calendar,
+  MapPin,
+  Phone,
   User,
   ArrowLeft,
   Clock,
@@ -47,11 +47,19 @@ interface Order {
   items: OrderItem[];
   total: number;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  deliveryInfo: {
+  type?: 'online_purchase' | 'reservation';
+  deliveryInfo?: {
     fullName: string;
     phoneNumber: string;
     address: string;
     city: string;
+    notes?: string;
+  };
+  reservationInfo?: {
+    fullName: string;
+    phoneNumber: string;
+    appointmentDate: string;
+    appointmentTime: string;
     notes?: string;
   };
   createdAt: Date;
@@ -65,41 +73,34 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If auth is still loading, wait.
+    if (authLoading) return;
+
     if (userProfile && userProfile.uid) {
       console.log('User profile loaded, fetching orders...');
       fetchOrders();
     } else {
-      console.log('No user profile or uid, setting loading to false');
+      console.log('No user profile, stopping load.');
       setLoading(false);
     }
-  }, [userProfile]);
+  }, [userProfile, authLoading]);
 
   const fetchOrders = async () => {
-    if (!userProfile || !userProfile.uid) {
-      console.log('No user profile or uid available');
-      setLoading(false);
-      return;
-    }
+    if (!userProfile || !userProfile.uid) return;
 
     try {
-      console.log('Fetching orders for user:', userProfile.uid);
-      console.log('User profile:', userProfile);
-      
+      setLoading(true);
       const ordersRef = collection(db, 'orders');
-      // استخدام فلتر فقط بدون ترتيب لتجنب الحاجة للفهرس المركب
       const q = query(
         ordersRef,
         where('userId', '==', userProfile.uid)
       );
-      
+
       const querySnapshot = await getDocs(q);
       const ordersData: Order[] = [];
-      
-      console.log('Query snapshot size:', querySnapshot.size);
-      
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        console.log('Order data:', data);
         ordersData.push({
           id: doc.id,
           ...data,
@@ -107,11 +108,10 @@ const Orders = () => {
           updatedAt: data.updatedAt?.toDate?.() || data.updatedAt || new Date(),
         } as Order);
       });
-      
-      // ترتيب البيانات محلياً بدلاً من ترتيبها في الاستعلام
+
+      // Sort client-side
       ordersData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      console.log('Processed orders:', ordersData);
+
       setOrders(ordersData);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -130,7 +130,7 @@ const Orders = () => {
       cancelled: { color: 'bg-red-100 text-red-800', icon: XCircle, text: 'ملغي' },
     };
 
-    const config = statusConfig[status];
+    const config = statusConfig[status] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
@@ -141,7 +141,21 @@ const Orders = () => {
     );
   };
 
-  // Show loading state while authentication is being determined
+  const getTypeBadge = (type?: string) => {
+    if (type === 'reservation') {
+      return (
+        <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+          حجز موعد
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="border-gray-300 text-gray-600">
+        شراء أونلاين
+      </Badge>
+    );
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -169,37 +183,9 @@ const Orders = () => {
     );
   }
 
-  if (!userProfile.uid) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">معلومات المستخدم غير مكتملة</h2>
-          <p className="text-muted-foreground mb-4">
-            يبدو أن معلومات المستخدم غير مكتملة. يرجى تسجيل الدخول مرة أخرى
-          </p>
-          <Link to="/">
-            <Button>العودة للرئيسية</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>جاري تحميل الطلبات...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container py-8">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link to="/">
             <Button variant="ghost" size="icon">
@@ -214,7 +200,12 @@ const Orders = () => {
           </div>
         </div>
 
-        {orders.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>جاري تحميل الطلبات...</p>
+          </div>
+        ) : orders.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -222,14 +213,6 @@ const Orders = () => {
               <p className="text-muted-foreground mb-4">
                 لم تقم بأي طلب بعد. ابدأ بالتسوق الآن!
               </p>
-              {process.env.NODE_ENV === 'development' && (
-                <div className="bg-gray-100 p-4 rounded-lg mb-4 text-left">
-                  <p className="text-sm font-medium mb-2">معلومات تشخيص (للطور):</p>
-                  <p className="text-xs text-gray-600">User ID: {userProfile?.uid}</p>
-                  <p className="text-xs text-gray-600">User Email: {userProfile?.email}</p>
-                  <p className="text-xs text-gray-600">User Name: {userProfile?.displayName}</p>
-                </div>
-              )}
               <Link to="/products">
                 <Button>تصفح المنتجات</Button>
               </Link>
@@ -243,9 +226,12 @@ const Orders = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div>
-                        <CardTitle className="text-lg">
-                          طلب #{order.id.slice(-8)}
-                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">
+                            طلب #{order.id.slice(-8)}
+                          </CardTitle>
+                          {getTypeBadge(order.type)}
+                        </div>
                         <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
@@ -253,7 +239,7 @@ const Orders = () => {
                           </div>
                           <div className="flex items-center gap-1">
                             <User className="h-4 w-4" />
-                            {order.deliveryInfo.fullName}
+                            {order.deliveryInfo?.fullName || order.reservationInfo?.fullName || 'غير محدد'}
                           </div>
                         </div>
                       </div>
@@ -271,26 +257,46 @@ const Orders = () => {
                     </div>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent className="p-6">
-                  {/* Delivery Info */}
+                  {/* Info Section */}
                   <div className="grid md:grid-cols-2 gap-6 mb-6">
                     <div>
-                      <h4 className="font-semibold mb-3 flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        معلومات التوصيل
-                      </h4>
-                      <div className="space-y-2 text-sm">
-                        <p><strong>الاسم:</strong> {order.deliveryInfo.fullName}</p>
-                        <p><strong>الهاتف:</strong> {order.deliveryInfo.phoneNumber}</p>
-                        <p><strong>العنوان:</strong> {order.deliveryInfo.address}</p>
-                        <p><strong>المدينة:</strong> {order.deliveryInfo.city}</p>
-                        {order.deliveryInfo.notes && (
-                          <p><strong>ملاحظات:</strong> {order.deliveryInfo.notes}</p>
-                        )}
-                      </div>
+                      {order.type === 'reservation' && order.reservationInfo ? (
+                        <>
+                          <h4 className="font-semibold mb-3 flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            تفاصيل الحجز
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>الاسم:</strong> {order.reservationInfo.fullName}</p>
+                            <p><strong>الهاتف:</strong> {order.reservationInfo.phoneNumber}</p>
+                            <p><strong>تاريخ الموعد:</strong> {order.reservationInfo.appointmentDate}</p>
+                            <p><strong>الوقت:</strong> {order.reservationInfo.appointmentTime}</p>
+                            {order.reservationInfo.notes && (
+                              <p><strong>ملاحظات:</strong> {order.reservationInfo.notes}</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="font-semibold mb-3 flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            معلومات التوصيل
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>الاسم:</strong> {order.deliveryInfo?.fullName || 'غير محدد'}</p>
+                            <p><strong>الهاتف:</strong> {order.deliveryInfo?.phoneNumber || 'غير محدد'}</p>
+                            <p><strong>العنوان:</strong> {order.deliveryInfo?.address || 'غير محدد'}</p>
+                            <p><strong>المدينة:</strong> {order.deliveryInfo?.city || 'غير محدد'}</p>
+                            {order.deliveryInfo?.notes && (
+                              <p><strong>ملاحظات:</strong> {order.deliveryInfo.notes}</p>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
-                    
+
                     <div>
                       <h4 className="font-semibold mb-3">تفاصيل الطلب</h4>
                       <div className="space-y-2 text-sm">

@@ -33,6 +33,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 import { formatCurrency } from "@/utils/format";
@@ -41,6 +43,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { addDoc, collection } from "firebase/firestore";
 import { db, updateProductQuantitiesAtomically, createOrderAndUpdateProductQuantitiesAtomically } from "@/lib/firebase";
 import { useNavigate } from "react-router-dom";
+
+interface ReservationFormData {
+  fullName: string;
+  phoneNumber: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  notes?: string;
+}
 
 interface DeliveryFormData {
   fullName: string;
@@ -77,6 +87,8 @@ const Cart = () => {
   const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
   const navigate = useNavigate();
 
+  const [orderType, setOrderType] = useState<"online_purchase" | "reservation">("online_purchase");
+
   const {
     register,
     handleSubmit,
@@ -97,7 +109,7 @@ const Cart = () => {
       if (!item.product) {
         return groups;
       }
-      
+
       const supplierName =
         item.product.wholesaleInfo?.supplierName || DEFAULT_SUPPLIER.name;
       const supplierPhone = (
@@ -132,8 +144,8 @@ const Cart = () => {
   // Function to send WhatsApp message with order details
   const sendWhatsAppOrderMessage = async (orderData: any, deliveryInfo: any) => {
     try {
-  const whatsappNumber = "201025423389";
-      
+      const whatsappNumber = "201025423389";
+
       // Format order items with better structure (size, color, addons)
       const orderItemsText = orderData.items.map((item: any, index: number) => {
         const lines: string[] = [];
@@ -200,10 +212,10 @@ ${'='.repeat(30)}
 
       // Create WhatsApp URL
       const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-      
+
       // Open WhatsApp in a new tab
       window.open(whatsappUrl, '_blank');
-      
+
       console.log('WhatsApp message sent successfully');
     } catch (error) {
       console.error('Error sending WhatsApp message:', error);
@@ -227,7 +239,7 @@ ${'='.repeat(30)}
     try {
       console.log('Saving order for user:', userProfile.uid);
       console.log('User profile:', userProfile);
-      
+
       const orderItems = cart
         .filter((item) => item.product && item.product.id) // Filter out invalid items
         .map((item) => {
@@ -238,19 +250,19 @@ ${'='.repeat(30)}
             price: item.unitFinalPrice, // Use the calculated final price
             totalPrice: item.totalPrice,
             image: item.product.images[0],
-          selectedSize: item.selectedSize ? {
-            id: item.selectedSize.id,
-            label: item.selectedSize.label,
-            price: item.selectedSize.price
-          } : null,
-          selectedAddons: item.selectedAddons.map(addon => ({
-            id: addon.id,
-            label: addon.label,
-            price_delta: addon.price_delta
-          })),
-          selectedColor: item.selectedColor
-        };
-      });
+            selectedSize: item.selectedSize ? {
+              id: item.selectedSize.id,
+              label: item.selectedSize.label,
+              price: item.selectedSize.price
+            } : null,
+            selectedAddons: item.selectedAddons.map(addon => ({
+              id: addon.id,
+              label: addon.label,
+              price_delta: addon.price_delta
+            })),
+            selectedColor: item.selectedColor
+          };
+        });
 
       const deliveryInfo = {
         fullName: userProfile.displayName,
@@ -273,9 +285,9 @@ ${'='.repeat(30)}
       console.log('Order data to save:', orderData);
 
       // Prepare quantity deductions for all cart items
-      const deductions = cart.map(item => ({ 
-        productId: item.product.id, 
-        quantityToDeduct: item.quantity 
+      const deductions = cart.map(item => ({
+        productId: item.product.id,
+        quantityToDeduct: item.quantity
       }));
 
       // Create order and update quantities atomically in Firebase
@@ -293,7 +305,7 @@ ${'='.repeat(30)}
           const docRef = await addDoc(collection(db, 'orders'), orderData);
           orderId = docRef.id;
           console.log('✅ Order saved with ID:', orderId);
-          
+
           // Update quantities separately (not atomic, but better than nothing)
           try {
             if (typeof updateProductQuantitiesAtomically === 'function') {
@@ -307,7 +319,7 @@ ${'='.repeat(30)}
         }
       } catch (err: any) {
         console.error('❌ Error creating order atomically:', err);
-        
+
         // Try to save order without quantity update (better than losing the order)
         try {
           const docRef = await addDoc(collection(db, 'orders'), orderData);
@@ -320,20 +332,20 @@ ${'='.repeat(30)}
           throw new Error('فشل في حفظ الطلب. يرجى المحاولة مرة أخرى.');
         }
       }
-      
+
       toast.success("تم حفظ الطلب بنجاح");
-      
+
       // Send WhatsApp message with order details
       await sendWhatsAppOrderMessage(orderData, deliveryInfo);
-      
+
       // Clear cart after successful order (skip restore because quantities are already updated in Firebase)
       await clearCart(true);
-      
+
       // Reload products to ensure we have the latest data
       console.log('Reloading products after order completion...');
       await useStore.getState().loadProducts();
       console.log('Products reloaded successfully');
-      
+
       // Navigate to orders page
       navigate("/orders");
     } catch (error) {
@@ -387,22 +399,22 @@ ${'='.repeat(30)}
               {/* Empty Cart Icon */}
               <div className="mx-auto mb-6">
                 <div className="bg-gray-100 rounded-full p-6 w-20 h-20 mx-auto flex items-center justify-center">
-                  <svg 
-                    className="w-10 h-10 text-gray-400" 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className="w-10 h-10 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"
                     />
                   </svg>
                 </div>
               </div>
-              
+
               {/* Empty Cart Text */}
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {t("cart.emptyTitle")}
@@ -410,10 +422,10 @@ ${'='.repeat(30)}
               <p className="text-gray-600 mb-8">
                 {t("cart.emptyDescription")}
               </p>
-              
+
               {/* Action Buttons */}
               <div className="space-y-3">
-                <Button 
+                <Button
                   onClick={() => navigate("/products")}
                   className="w-full bg-primary hover:bg-primary/90 text-white"
                   size="lg"
@@ -421,8 +433,8 @@ ${'='.repeat(30)}
                   <ShoppingBag className="w-5 h-5 mr-2" />
                   {t("cart.startShopping")}
                 </Button>
-                
-                <Button 
+
+                <Button
                   onClick={() => navigate("/")}
                   variant="outline"
                   className="w-full"
@@ -454,18 +466,18 @@ ${'='.repeat(30)}
         price: item.unitFinalPrice,
         totalPrice: item.totalPrice,
         image: item.product.images[0],
-      selectedSize: item.selectedSize ? {
-        id: item.selectedSize.id,
-        label: item.selectedSize.label,
-        price: item.selectedSize.price
-      } : null,
-      selectedAddons: item.selectedAddons.map(addon => ({
-        id: addon.id,
-        label: addon.label,
-        price_delta: addon.price_delta
-      })),
-      selectedColor: item.selectedColor
-    }));
+        selectedSize: item.selectedSize ? {
+          id: item.selectedSize.id,
+          label: item.selectedSize.label,
+          price: item.selectedSize.price
+        } : null,
+        selectedAddons: item.selectedAddons.map(addon => ({
+          id: addon.id,
+          label: addon.label,
+          price_delta: addon.price_delta
+        })),
+        selectedColor: item.selectedColor
+      }));
 
     const deliveryInfo = {
       fullName: data.fullName,
@@ -540,9 +552,9 @@ ${'='.repeat(30)}
     // Prepare quantity deductions for all cart items
     const deductions = cart
       .filter((item) => item.product && item.product.id) // Filter out invalid items
-      .map(item => ({ 
-        productId: item.product.id, 
-        quantityToDeduct: item.quantity 
+      .map(item => ({
+        productId: item.product.id,
+        quantityToDeduct: item.quantity
       }));
 
     // Create order and update quantities atomically in Firebase
@@ -560,7 +572,7 @@ ${'='.repeat(30)}
         const docRef = await addDoc(collection(db, 'orders'), orderData);
         orderId = docRef.id;
         console.log('✅ Order saved with ID:', orderId);
-        
+
         // Update quantities separately (not atomic, but better than nothing)
         try {
           if (typeof updateProductQuantitiesAtomically === 'function') {
@@ -572,11 +584,11 @@ ${'='.repeat(30)}
           // Continue anyway - order is saved
         }
       }
-      
+
       toast.success('تم حفظ الطلب بنجاح');
     } catch (error: any) {
       console.error('❌ Error saving order from delivery form:', error);
-      
+
       // Try to save order without quantity update (better than losing the order)
       try {
         const docRef = await addDoc(collection(db, 'orders'), orderData);
@@ -599,11 +611,163 @@ ${'='.repeat(30)}
     reset();
     await clearCart(true);
 
-    // Reload products to reflect any quantity changes
+    // Products reload logic
     try {
       await useStore.getState().loadProducts();
     } catch (e) {
       console.warn('Failed to reload products after delivery-form order:', e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const {
+    register: registerReservation,
+    handleSubmit: handleSubmitReservation,
+    formState: { errors: reservationErrors, isValid: isReservationValid },
+    reset: resetReservation,
+  } = useForm<ReservationFormData>({
+    mode: 'onChange'
+  });
+
+  const handleReservationSubmit = async (data: ReservationFormData) => {
+    setIsSubmitting(true);
+
+    // Validate date (must be within 2 days)
+    const selectedDate = new Date(data.appointmentDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + 2);
+
+    if (selectedDate > maxDate) {
+      toast.error("عذراً، لا يمكن الحجز لأكثر من يومين مقدماً");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (selectedDate < today) {
+      toast.error("تاريخ الحجز لا يمكن أن يكون في الماضي");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Assemble order items
+    const orderItems = cart
+      .filter((item) => item.product && item.product.id)
+      .map((item) => ({
+        productId: item.product.id,
+        productName: item.product.name,
+        quantity: item.quantity,
+        price: item.unitFinalPrice,
+        totalPrice: item.totalPrice,
+        image: item.product.images[0],
+        selectedSize: item.selectedSize ? {
+          id: item.selectedSize.id,
+          label: item.selectedSize.label,
+          price: item.selectedSize.price
+        } : null,
+        selectedAddons: item.selectedAddons.map(addon => ({
+          id: addon.id,
+          label: addon.label,
+          price_delta: addon.price_delta
+        })),
+        selectedColor: item.selectedColor
+      }));
+
+    const reservationInfo = {
+      fullName: data.fullName,
+      phoneNumber: data.phoneNumber,
+      appointmentDate: data.appointmentDate,
+      appointmentTime: data.appointmentTime,
+      notes: data.notes || ''
+    };
+
+    const orderData = {
+      userId: userProfile?.uid || `guest-${Date.now()}`,
+      items: orderItems,
+      total: getCartTotal(),
+      status: 'pending',
+      type: 'reservation',
+      reservationInfo, // Save specific reservation info
+      // Map basic delivery info fields for compatibility with existing admin view if needed
+      deliveryInfo: {
+        fullName: data.fullName,
+        phoneNumber: data.phoneNumber,
+        address: 'استلام من المعرض',
+        city: 'المنصورة', // Default or make generic
+        notes: `حجز موعد: ${data.appointmentDate} الساعة ${data.appointmentTime}. ${data.notes || ''}`
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Build WhatsApp message for Reservation
+    const orderLines = orderItems.map((item, i) => {
+      const lines: string[] = [];
+      lines.push(`${i + 1}- ${item.productName}`);
+      lines.push(`  الكمية: ${item.quantity}`);
+      if (item.selectedSize) lines.push(`  الحجم: ${item.selectedSize.label}`);
+      if (item.selectedColor) lines.push(`  اللون: ${getColorByName(item.selectedColor).name}`);
+      lines.push(`  السعر: ${formatCurrency(item.totalPrice, 'جنيه')}`);
+      return lines.join('\n');
+    }).join('\n---------\n');
+
+    const reservationDetails = [
+      `الاسم: ${reservationInfo.fullName}`,
+      `رقم الهاتف: ${reservationInfo.phoneNumber}`,
+      `تاريخ الحجز: ${reservationInfo.appointmentDate}`,
+      `وقت الحجز: ${reservationInfo.appointmentTime}`,
+      reservationInfo.notes ? `ملاحظات: ${reservationInfo.notes}` : null,
+    ].filter(Boolean).join('\n');
+
+    const message = [
+      '📝 طلب حجز منتج',
+      '------------------------------',
+      orderLines,
+      '------------------------------',
+      reservationDetails,
+      '------------------------------',
+      `إجمالي المبلغ: ${formatCurrency(getCartTotal(), 'جنيه')}`,
+      '------------------------------',
+      'يرجى تأكيد الحجز',
+      'علماً أنه يفضل دفع مقدم جدية حجز (200 جنيه) عبر فودافون كاش: 01025423389'
+    ].join('\n');
+
+    const whatsappNumber = '201025423389';
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+    // Process Order Saving (same as regular order)
+    const deductions = cart
+      .filter((item) => item.product && item.product.id)
+      .map(item => ({
+        productId: item.product.id,
+        quantityToDeduct: item.quantity
+      }));
+
+    try {
+      if (typeof createOrderAndUpdateProductQuantitiesAtomically === 'function') {
+        await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);
+      } else {
+        await addDoc(collection(db, 'orders'), orderData);
+        if (typeof updateProductQuantitiesAtomically === 'function') {
+          await updateProductQuantitiesAtomically(deductions);
+        }
+      }
+      toast.success('تم إرسال طلب الحجز بنجاح');
+
+      // Open WhatsApp
+      window.open(whatsappUrl, '_blank');
+
+      resetReservation();
+      await clearCart(true);
+      await useStore.getState().loadProducts();
+      navigate("/orders"); // Or stay? PRD says "Display in /orders" so navigating there is good.
+
+    } catch (error) {
+      console.error('Error saving reservation:', error);
+      toast.error('حدث خطأ في حفظ الحجز');
     } finally {
       setIsSubmitting(false);
     }
@@ -626,293 +790,409 @@ ${'='.repeat(30)}
                   .filter((item) => item.product && item.product.id) // Filter out invalid items
                   .map((item) => {
                     const itemPrice = getCartItemPrice(item);
-                    const isSpecialOffer = item.product.specialOffer && 
-                      item.product.discountPercentage && 
+                    const isSpecialOffer = item.product.specialOffer &&
+                      item.product.discountPercentage &&
                       item.product.offerEndsAt &&
                       new Date(item.product.offerEndsAt) > new Date();
-                  
-                  return (
-                    <div
-                      key={`${item.product.id}-${item.selectedSize?.id || 'no-size'}-${item.selectedAddons.map(a => a.id).sort().join('-')}`}
-                      className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      {(() => {
-                        // Get the image for the selected color
-                        const availableColors = item.product.color ? item.product.color.split(',').map(c => c.trim()) : [];
-                        const colorImageMapping: { [key: string]: string } = {};
-                        availableColors.forEach((color, index) => {
-                          if (item.product.images && item.product.images[index]) {
-                            colorImageMapping[color] = item.product.images[index];
-                          }
-                        });
-                        
-                        const displayImage = item.selectedColor && colorImageMapping[item.selectedColor] 
-                          ? colorImageMapping[item.selectedColor] 
-                          : item.product.images[0];
-                        
-                        return (
-                          <div className="relative">
-                            <img
-                              src={displayImage}
-                              alt={item.product.name}
-                              className="h-20 w-20 rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
+
+                    return (
+                      <div
+                        key={`${item.product.id}-${item.selectedSize?.id || 'no-size'}-${item.selectedAddons.map(a => a.id).sort().join('-')}`}
+                        className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
+                      >
+                        {(() => {
+                          // Get the image for the selected color
+                          const availableColors = item.product.color ? item.product.color.split(',').map(c => c.trim()) : [];
+                          const colorImageMapping: { [key: string]: string } = {};
+                          availableColors.forEach((color, index) => {
+                            if (item.product.images && item.product.images[index]) {
+                              colorImageMapping[color] = item.product.images[index];
+                            }
+                          });
+
+                          const displayImage = item.selectedColor && colorImageMapping[item.selectedColor]
+                            ? colorImageMapping[item.selectedColor]
+                            : item.product.images[0];
+
+                          return (
+                            <div className="relative">
+                              <img
+                                src={displayImage}
+                                alt={item.product.name}
+                                className="h-20 w-20 rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
                                 onClick={() => navigate(`/product/${item.product.id}`)}
-                            />
-                            {item.selectedColor && (
-                              <div 
-                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                              />
+                              {item.selectedColor && (
+                                <div
+                                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                                  style={{ backgroundColor: item.selectedColor }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })()}
+                        <div className="flex-1">
+                          <h3
+                            className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"
+                            onClick={() => navigate(`/product/${item.product.id}`)}
+                          >
+                            {item.product.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {item.product.brand}
+                          </p>
+                          {item.selectedSize && (
+                            <p className="text-sm text-blue-600 font-medium">
+                              📐 الحجم: {item.selectedSize.label}
+                            </p>
+                          )}
+                          {item.selectedColor && (
+                            <p className="text-sm text-purple-600 font-medium flex items-center gap-2">
+                              🎨 اللون:
+                              <div
+                                className="w-4 h-4 rounded-full border border-gray-300"
                                 style={{ backgroundColor: item.selectedColor }}
                               />
-                            )}
-                          </div>
-                        );
-                      })()}
-                      <div className="flex-1">
-                        <h3 
-                          className="font-medium cursor-pointer hover:text-primary hover:underline transition-colors"
-                          onClick={() => navigate(`/product/${item.product.id}`)}
-                        >
-                          {item.product.name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {item.product.brand}
-                        </p>
-                        {item.selectedSize && (
-                          <p className="text-sm text-blue-600 font-medium">
-                            📐 الحجم: {item.selectedSize.label}
-                          </p>
-                        )}
-                        {item.selectedColor && (
-                          <p className="text-sm text-purple-600 font-medium flex items-center gap-2">
-                            🎨 اللون: 
-                            <div 
-                              className="w-4 h-4 rounded-full border border-gray-300"
-                              style={{ backgroundColor: item.selectedColor }}
-                            />
-                            {getColorByName(item.selectedColor).name}
-                          </p>
-                        )}
-                        {item.selectedAddons && item.selectedAddons.length > 0 && (
-                          <p className="text-sm text-green-600">
-                            ➕ الإضافات: {item.selectedAddons.map(addon => addon.label).join(', ')}
-                          </p>
-                        )}
-                        <div className="flex md:flex-row flex-col md:items-center items-start gap-4 mt-2">
-                          <div className="flex items-center gap-0">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={async () => {
-                                const newQuantity = Math.max(
-                                  0,
-                                  item.quantity - 1
-                                );
-                                if (newQuantity === 0) {
-                                  handleDeleteClick(item.product.id);
-                                } else {
+                              {getColorByName(item.selectedColor).name}
+                            </p>
+                          )}
+                          {item.selectedAddons && item.selectedAddons.length > 0 && (
+                            <p className="text-sm text-green-600">
+                              ➕ الإضافات: {item.selectedAddons.map(addon => addon.label).join(', ')}
+                            </p>
+                          )}
+                          <div className="flex md:flex-row flex-col md:items-center items-start gap-4 mt-2">
+                            <div className="flex items-center gap-0">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={async () => {
+                                  const newQuantity = Math.max(
+                                    0,
+                                    item.quantity - 1
+                                  );
+                                  if (newQuantity === 0) {
+                                    handleDeleteClick(item.product.id);
+                                  } else {
+                                    try {
+                                      // Use the store function which handles Firebase update
+                                      updateCartItemQuantity(item.product.id, newQuantity);
+                                    } catch (error) {
+                                      toast.error("خطأ في تحديث الكمية", {
+                                        description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
+                                      });
+                                    }
+                                  }
+                                }}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="w-12 text-center font-medium">
+                                {item.quantity}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={async () => {
                                   try {
-                                    // Use the store function which handles Firebase update
-                                    updateCartItemQuantity(item.product.id, newQuantity);
+                                    // Use the store function which handles Firebase update and stock checking
+                                    updateCartItemQuantity(item.product.id, item.quantity + 1);
                                   } catch (error) {
                                     toast.error("خطأ في تحديث الكمية", {
                                       description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
                                     });
                                   }
-                                }
-                              }}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="w-12 text-center font-medium">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={async () => {
-                                try {
-                                  // Use the store function which handles Firebase update and stock checking
-                                  updateCartItemQuantity(item.product.id, item.quantity + 1);
-                                } catch (error) {
-                                  toast.error("خطأ في تحديث الكمية", {
-                                    description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
-                                  });
-                                }
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-semibold">
-                              {formatCurrency(item.totalPrice, 'جنيه')}
-                            </span>
-                            {isSpecialOffer && (
-                              <span className="text-sm text-muted-foreground line-through">
-                                {formatCurrency(item.product.price * item.quantity, 'جنيه')}
+                                }}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-semibold">
+                                {formatCurrency(item.totalPrice, 'جنيه')}
                               </span>
-                            )}
+                              {isSpecialOffer && (
+                                <span className="text-sm text-muted-foreground line-through">
+                                  {formatCurrency(item.product.price * item.quantity, 'جنيه')}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteClick(item.product.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteClick(item.product.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Cart Summary Section */}
+            <div className="bg-white rounded-lg border shadow-sm p-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-600">عدد المنتجات:</span>
+                <span className="font-semibold">{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xl font-bold border-t pt-4 mt-2">
+                <span>الإجمالي النهائي:</span>
+                <span className="text-primary">{formatCurrency(getCartTotal(), 'جنيه')}</span>
               </div>
             </div>
           </div>
 
           <div className="md:col-span-2">
             <div className="rounded-lg border bg-card p-6 sticky top-20 shadow-sm">
-              <div className="flex items-center gap-2 mb-6">
-                <Truck className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">معلومات التوصيل</h2>
-              </div>
+              <Tabs defaultValue="online_purchase" onValueChange={(val) => setOrderType(val as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="online_purchase" className="text-sm">
+                    <Truck className="h-4 w-4 mr-2" />
+                    شراء أونلاين
+                  </TabsTrigger>
+                  <TabsTrigger value="reservation" className="text-sm">
+                    <CalendarClock className="h-4 w-4 mr-2" />
+                    حجز منتج
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Shipping Cost Info */}
-              <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-green-900 mb-1">تكلفة الشحن</p>
-                    <div className="space-y-1 text-sm text-green-800">
-                      <p className="flex items-center gap-2">
-                        <span className="font-medium">📍 داخل القاهرة:</span>
-                        <span className="text-green-700 font-semibold">100 جنيه</span>
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="font-medium">🚚 جميع المحافظات:</span>
-                        <span className="text-green-700 font-semibold">170 جنيه</span>
-                      </p>
+                <TabsContent value="online_purchase" className="space-y-6">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Truck className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-semibold">معلومات التوصيل</h2>
+                  </div>
+
+                  {/* Shipping Cost Info */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-green-900 mb-1">تكلفة الشحن</p>
+                        <div className="space-y-1 text-sm text-green-800">
+                          <p className="flex items-center gap-2">
+                            <span className="font-medium">📍 داخل القاهرة:</span>
+                            <span className="text-green-700 font-semibold">100 جنيه</span>
+                          </p>
+                          <p className="flex items-center gap-2">
+                            <span className="font-medium">🚚 جميع المحافظات:</span>
+                            <span className="text-green-700 font-semibold">170 جنيه</span>
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <form onSubmit={handleSubmit(onDeliverySubmit)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-sm font-medium">
-                    اسم الزبون <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="أدخل اسمك الكامل"
-                    {...register('fullName', { required: 'هذا الحقل إلزامي' })}
-                    className={errors.fullName ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                  />
-                  {errors.fullName && (
-                    <p className="text-xs text-red-500 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors.fullName.message}
-                    </p>
-                  )}
-                </div>
+                  <form onSubmit={handleSubmit(onDeliverySubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName" className="text-sm font-medium">
+                        اسم الزبون <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="fullName"
+                        type="text"
+                        placeholder="أدخل اسمك الكامل"
+                        {...register('fullName', { required: 'هذا الحقل إلزامي' })}
+                        className={errors.fullName ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                      />
+                      {errors.fullName && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.fullName.message}
+                        </p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="city" className="text-sm font-medium">
-                    المحافظة <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="city"
-                    type="text"
-                    placeholder="مثال: القاهرة، الجيزة، الإسكندرية"
-                    {...register('city', { required: 'هذا الحقل إلزامي' })}
-                    className={errors.city ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                  />
-                  {errors.city && (
-                    <p className="text-xs text-red-500 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors.city.message}
-                    </p>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="city" className="text-sm font-medium">
+                        المحافظة <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="city"
+                        type="text"
+                        placeholder="مثال: القاهرة، الجيزة، الإسكندرية"
+                        {...register('city', { required: 'هذا الحقل إلزامي' })}
+                        className={errors.city ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                      />
+                      {errors.city && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.city.message}
+                        </p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm font-medium">
-                    العنوان بالتفصيل <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="address"
-                    type="text"
-                    placeholder="الشارع، المنطقة، رقم الشقة/المبنى"
-                    {...register('address', { required: 'هذا الحقل إلزامي' })}
-                    className={errors.address ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                  />
-                  {errors.address && (
-                    <p className="text-xs text-red-500 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors.address.message}
-                    </p>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address" className="text-sm font-medium">
+                        العنوان بالتفصيل <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="address"
+                        type="text"
+                        placeholder="الشارع، المنطقة، رقم الشقة/المبنى"
+                        {...register('address', { required: 'هذا الحقل إلزامي' })}
+                        className={errors.address ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                      />
+                      {errors.address && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.address.message}
+                        </p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phoneNumber" className="text-sm font-medium">
-                    رقم الهاتف <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="phoneNumber"
-                    type="tel"
-                    placeholder="01XXXXXXXXX"
-                    {...register('phoneNumber', { 
-                      required: 'هذا الحقل إلزامي',
-                      pattern: { 
-                        value: /^01[0-9]{9,}$/g, 
-                        message: 'رقم الهاتف غير صحيح! يجب أن يبدأ بـ 01 ويحتوي على 11 رقم' 
-                      } 
-                    })}
-                    className={errors.phoneNumber ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                  />
-                  {errors.phoneNumber && (
-                    <p className="text-xs text-red-500 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors.phoneNumber.message}
-                    </p>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phoneNumber" className="text-sm font-medium">
+                        رقم الهاتف <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="phoneNumber"
+                        type="tel"
+                        placeholder="01XXXXXXXXX"
+                        {...register('phoneNumber', {
+                          required: 'هذا الحقل إلزامي',
+                          pattern: {
+                            value: /^01[0-9]{9,}$/g,
+                            message: 'رقم الهاتف غير صحيح! يجب أن يبدأ بـ 01 ويحتوي على 11 رقم'
+                          }
+                        })}
+                        className={errors.phoneNumber ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                      />
+                      {errors.phoneNumber && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.phoneNumber.message}
+                        </p>
+                      )}
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="notes" className="text-sm font-medium">
-                    ملاحظات <span className="text-gray-400 text-xs">(اختياري)</span>
-                  </Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="أضف أي ملاحظات إضافية للطلب..."
-                    rows={3}
-                    {...register('notes')}
-                    className="resize-none"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes" className="text-sm font-medium">
+                        ملاحظات <span className="text-gray-400 text-xs">(اختياري)</span>
+                      </Label>
+                      <Textarea
+                        id="notes"
+                        placeholder="أضف أي ملاحظات إضافية للطلب..."
+                        rows={3}
+                        {...register('notes')}
+                        className="resize-none"
+                      />
+                    </div>
 
-                <Button
-                  type="submit"
-                  disabled={!isValid || isSubmitting}
-                  className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-semibold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>جاري المعالجة...</span>
-                    </>
-                  ) : (
-                    <>
-                      <FaWhatsapp className="h-5 w-5" />
-                      <span>إتمام الطلب وإرسال عبر واتساب</span>
-                    </>
-                  )}
-                </Button>
-              </form>
+                    <Button
+                      type="submit"
+                      disabled={!isValid || isSubmitting}
+                      className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-semibold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>جاري المعالجة...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FaWhatsapp className="h-5 w-5" />
+                          <span>إتمام الطلب وإرسال عبر واتساب</span>
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="reservation" className="space-y-6">
+                  <div className="flex items-center gap-2 mb-6">
+                    <CalendarClock className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-semibold">حجز منتج للاستلام</h2>
+                  </div>
+
+                  <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                    <p className="font-semibold mb-1">ملاحظة هامة:</p>
+                    <p>يفضل دفع جدية حجز (200 جنيه) لضمان توفر المنتج.</p>
+                    <p className="mt-1 font-mono bg-yellow-100 p-1 rounded inline-block" style={{ direction: 'ltr' }}>01025423389</p>
+                  </div>
+
+                  <form onSubmit={handleSubmitReservation(handleReservationSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="res-fullName">الاسم بالكامل <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="res-fullName"
+                        placeholder="أدخل اسمك الكامل"
+                        {...registerReservation("fullName", { required: "هذا الحقل مطلوب" })}
+                      />
+                      {reservationErrors.fullName && <p className="text-red-500 text-xs">{reservationErrors.fullName.message}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="res-phone">رقم الهاتف <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="res-phone"
+                        placeholder="01xxxxxxxxx"
+                        {...registerReservation("phoneNumber", {
+                          required: "هذا الحقل مطلوب",
+                          pattern: { value: /^01[0-9]{9,}$/, message: "رقم غير صحيح" }
+                        })}
+                      />
+                      {reservationErrors.phoneNumber && <p className="text-red-500 text-xs">{reservationErrors.phoneNumber.message}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="res-date">تاريخ الحجز <span className="text-red-500">*</span></Label>
+                        <Input
+                          id="res-date"
+                          type="date"
+                          min={new Date().toISOString().split('T')[0]}
+                          {...registerReservation("appointmentDate", { required: "هذا الحقل مطلوب" })}
+                        />
+                        {reservationErrors.appointmentDate && <p className="text-red-500 text-xs">{reservationErrors.appointmentDate.message}</p>}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="res-time">وقت الحجز <span className="text-red-500">*</span></Label>
+                        <Input
+                          id="res-time"
+                          type="time"
+                          {...registerReservation("appointmentTime", { required: "هذا الحقل مطلوب" })}
+                        />
+                        {reservationErrors.appointmentTime && <p className="text-red-500 text-xs">{reservationErrors.appointmentTime.message}</p>}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="res-notes">ملاحظات <span className="text-gray-400 text-xs">(اختياري)</span></Label>
+                      <Textarea
+                        id="res-notes"
+                        placeholder="أي تفاصيل إضافية..."
+                        rows={3}
+                        {...registerReservation("notes")}
+                        className="resize-none"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-semibold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
+                      disabled={!isReservationValid || isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>جاري المعالجة...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FaWhatsapp className="h-5 w-5" />
+                          <span>حجز عبر واتساب</span>
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </div>
@@ -1054,7 +1334,7 @@ async function clearCart(): Promise<void> {
     .map((item: any) => ({
       productId: item.product.id,
       quantityToRestore: item.quantity,
-  }));
+    }));
   const negativeDeductPayload = currentCart
     .filter((item: any) => item.product && item.product.id) // Filter out invalid items
     .map((item: any) => ({

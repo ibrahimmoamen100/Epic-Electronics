@@ -745,7 +745,7 @@ const ProductDetails = () => {
             )}
 
             {/* Available Quantity Display */}
-            <div className="space-y-4">
+            {/* <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Package className="h-5 w-5 text-blue-600" />
@@ -765,7 +765,7 @@ const ProductDetails = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Product Options */}
             <ProductOptions
