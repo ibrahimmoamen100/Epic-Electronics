@@ -126,7 +126,7 @@ const Index = () => {
         </section>
 
         {/* Categories Section */}
-        <CategoriesCarousel />
+        {/* <CategoriesCarousel /> */}
 
         {/* Special Offers Section */}
         {specialOffersProducts.length > 0 && (
@@ -134,7 +134,7 @@ const Index = () => {
             <div className="relative">
               {/* Background decoration */}
               <div className="absolute inset-0 bg-gradient-to-br from-red-50 via-orange-50 to-red-50 rounded-3xl"></div>
-              
+
               {/* Main content */}
               <div className="relative p-3 sm:p-4 md:p-6 lg:p-8">
                 {/* Title section */}
@@ -158,7 +158,7 @@ const Index = () => {
                     onClick={() => navigate("/products")}
                     className="flex items-center gap-2 border-2 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-all duration-300 hover:scale-105"
                   >
-                    {t("specialOffers.viewAll")}
+                    عرض الجميع
                     <ArrowRight className="h-4 w-4 ms-1 rtl:rotate-180" />
                   </Button>
                 </div>
@@ -203,9 +203,7 @@ const Index = () => {
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
                       {t("products.featured")}
                     </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {t("products.featuredSubtitle")}
-                    </p>
+
                   </div>
                 </div>
                 <Button
@@ -213,7 +211,7 @@ const Index = () => {
                   onClick={() => navigate("/products")}
                   className="flex items-center gap-1"
                 >
-                  {t("products.viewMore")}
+                  عرض الجميع
                   <ArrowRight className="h-4 w-4 ms-1 rtl:rotate-180" />
                 </Button>
               </div>

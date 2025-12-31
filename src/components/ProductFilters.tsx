@@ -427,7 +427,7 @@ export function ProductFilters() {
           <AccordionContent>
             <div className="space-y-1 pt-2">
               {processorBrands.map((brand) => {
-                const isSelected = filters.processorBrand?.includes(brand) || false;
+                const isSelected = filters.processorBrand?.includes(brand as any) || false;
                 const count = processorBrandCounts[brand] || 0;
                 return renderCheckboxOption(`proc-brand-${brand}`, brand, isSelected, count, () => toggleFilter('processorBrand', brand));
               })}

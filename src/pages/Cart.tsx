@@ -105,6 +105,22 @@ const Cart = () => {
 
   const totalAmount = getCartTotal();
 
+  const {
+    register: registerReservation,
+    handleSubmit: handleSubmitReservation,
+    setValue: setReservationValue,
+    watch: watchReservation,
+    formState: { errors: reservationErrors, isValid: isReservationValid },
+    reset: resetReservation,
+  } = useForm<ReservationFormData>({
+    mode: 'onChange',
+    defaultValues: {
+      depositMethod: 'vodafone_cash'
+    }
+  });
+
+  const depositMethod = watchReservation("depositMethod");
+
   if (cart.length === 0) {
     return (
       <div className="min-h-screen">
@@ -275,21 +291,7 @@ const Cart = () => {
     await processOrder(orderData, message);
   };
 
-  const {
-    register: registerReservation,
-    handleSubmit: handleSubmitReservation,
-    setValue: setReservationValue,
-    watch: watchReservation,
-    formState: { errors: reservationErrors, isValid: isReservationValid },
-    reset: resetReservation,
-  } = useForm<ReservationFormData>({
-    mode: 'onChange',
-    defaultValues: {
-      depositMethod: 'vodafone_cash'
-    }
-  });
 
-  const depositMethod = watchReservation("depositMethod");
 
   const handleReservationSubmit = async (data: ReservationFormData) => {
     setIsSubmitting(true);
@@ -360,7 +362,7 @@ const Cart = () => {
       '========================',
       `💰 إجمالي المبلغ: ${formatCurrency(getCartTotal(), 'جنيه')}`,
       '========================',
-      `   سأرسل العربون بعد هذه الرساله  *`,
+      `   سأرسل العربون بعد هذه الرساله *`,
 
     ].join('\n');
 

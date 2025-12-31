@@ -1,62 +1,36 @@
-import { Globe, Facebook, Instagram, Twitter, Phone } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useTranslation } from "react-i18next";
+import { Facebook, Phone, MapPin } from "lucide-react";
 import { CONTACT_PHONES } from "@/constants/supplier";
+import { Link } from "react-router-dom";
 
 export function Topbar() {
-  const { i18n } = useTranslation();
-
-  const handleLanguageChange = (value: string) => {
-    i18n.changeLanguage(value);
-    // Update document direction based on language
-    document.documentElement.dir = value === "ar" ? "rtl" : "ltr";
-  };
-
   return (
-    <div className="bg-primary text-primary-foreground">
+    <div className="bg-primary text-primary-foreground shadow-sm relative z-50">
       <div className="container flex h-12 items-center justify-between">
-        <div className="flex items-center   gap-2">
-          <a
-            href={`tel:${CONTACT_PHONES.main}`}
-            className="flex items-center flex-row-reverse gap-1 border border-primary-foreground/80 rounded-full p-1 text-sm md:text-base hover:text-primary-foreground/80"
-          >
-            <Phone className="h-3 w-3" />
-            {CONTACT_PHONES.main}
-          </a>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-400 via-orange-500 to-purple-600 rounded-full blur opacity-60 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
             <a
-              href="https://www.facebook.com/groups/elmargstore"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary-foreground/80 border border-primary-foreground/80 rounded-full p-1"
+              href={`tel:${CONTACT_PHONES.main}`}
+              className="relative flex items-center flex-row-reverse gap-2 text-sm font-bold bg-white text-primary hover:text-primary-foreground px-4 py-1.5 rounded-full transition-all duration-300 hover:bg-transparent"
             >
-              <Facebook className="h-4 w-4" />
+              <Phone className="h-4 w-4" />
+              <span dir="ltr">{CONTACT_PHONES.main}</span>
             </a>
-
           </div>
+          <div className="w-px h-4 bg-primary-foreground/20 hidden sm:block" />
+
         </div>
 
-        <Select onValueChange={handleLanguageChange} defaultValue="ar">
-          <SelectTrigger className="w-[120px] text-black border-none outline-none focus:outline-none focus:border-none shrink-0">
-            <Globe className="mr-2 h-4 w-4" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent
-            className="text-foreground bg-background"
-            position="popper"
-            sideOffset={4}
-            align="end"
+        <div className="relative group">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-400 via-orange-500 to-purple-600 rounded-full blur opacity-60 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+          <Link
+            to="/locations"
+            className="relative flex items-center gap-2 text-sm font-bold bg-white text-primary hover:text-primary-foreground px-4 py-1.5 rounded-full transition-all duration-300 hover:bg-transparent"
           >
-            <SelectItem value="en">English</SelectItem>
-            <SelectItem value="ar">العربية</SelectItem>
-          </SelectContent>
-        </Select>
+            <MapPin className="h-4 w-4" />
+            <span>موقعنا</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
