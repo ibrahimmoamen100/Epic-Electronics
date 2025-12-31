@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, query, orderBy, where, Timestamp, runTransaction } from 'firebase/firestore';
 import { Product } from '@/types/product';
@@ -43,15 +43,26 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Initialize Analytics only in production
-let analytics;
-if (typeof window !== 'undefined') {
-  try {
-    analytics = getAnalytics(app);
-  } catch (error) {
-    console.warn('Analytics initialization failed:', error);
+// Initialize Firebase Analytics with proper async support check
+// This will be null if Analytics is not supported (e.g., server-side rendering, ad blockers)
+export let analytics: Analytics | null = null;
+
+// Async initialization of Analytics
+(async () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const supported = await isSupported();
+      if (supported) {
+        analytics = getAnalytics(app);
+        console.log('✅ Firebase Analytics initialized successfully');
+      } else {
+        console.warn('⚠️ Firebase Analytics is not supported in this environment');
+      }
+    } catch (error) {
+      console.warn('⚠️ Analytics initialization failed:', error);
+    }
   }
-}
+})();
 
 // Firebase Products Service
 export class FirebaseProductsService {

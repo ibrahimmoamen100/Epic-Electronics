@@ -97,10 +97,10 @@ export interface AnalyticsData {
   pageViews: number;
   averageSessionDuration: number;
   bounceRate: number;
-  topPages: Array<{ 
-    page: string; 
-    views: number; 
-    avgTimeOnPage: number; 
+  topPages: Array<{
+    page: string;
+    views: number;
+    avgTimeOnPage: number;
     totalTimeOnPage: number;
     // Visitor details
     demographics: {
@@ -271,21 +271,21 @@ class Analytics {
 
   private getDeviceModel(): { model?: string; brand?: string } {
     const userAgent = navigator.userAgent;
-    
+
     // iPhone detection
     if (userAgent.includes('iPhone')) {
       const match = userAgent.match(/iPhone\s?([\w,]+)/);
       const model = match ? `iPhone ${match[1]}` : 'iPhone';
       return { model, brand: 'Apple' };
     }
-    
+
     // iPad detection
     if (userAgent.includes('iPad')) {
       const match = userAgent.match(/iPad[\w,]+/);
       const model = match ? match[0] : 'iPad';
       return { model, brand: 'Apple' };
     }
-    
+
     // Android devices
     if (userAgent.includes('Android')) {
       // Samsung
@@ -294,55 +294,55 @@ class Analytics {
         const model = match ? `Samsung Galaxy ${match[0]}` : 'Samsung Galaxy';
         return { model, brand: 'Samsung' };
       }
-      
+
       // Xiaomi
       if (userAgent.includes('Mi ') || userAgent.includes('Redmi')) {
         const match = userAgent.match(/(Mi\s[\w]+|Redmi\s[\w]+)/);
         const model = match ? match[1] : 'Xiaomi';
         return { model, brand: 'Xiaomi' };
       }
-      
+
       // Oppo
       if (userAgent.includes('OPPO')) {
         const match = userAgent.match(/OPPO\s([\w]+)/);
         const model = match ? `Oppo ${match[1]}` : 'Oppo';
         return { model, brand: 'Oppo' };
       }
-      
+
       // Vivo
       if (userAgent.includes('vivo')) {
         const match = userAgent.match(/vivo\s([\w]+)/);
         const model = match ? `Vivo ${match[1]}` : 'Vivo';
         return { model, brand: 'Vivo' };
       }
-      
+
       // Realme
       if (userAgent.includes('RMX') || userAgent.includes('realme')) {
         const match = userAgent.match(/(RMX[\w]+|realme\s[\w]+)/);
         const model = match ? match[1] : 'Realme';
         return { model, brand: 'Realme' };
       }
-      
+
       // Generic Android
       return { model: 'Android Device', brand: 'Unknown' };
     }
-    
+
     return { model: undefined, brand: undefined };
   }
 
   private getConnectionType(): { connectionType?: 'wifi' | '4g' | '5g' | '3g' | '2g' | 'unknown'; effectiveType?: 'slow-2g' | '2g' | '3g' | '4g' } {
     // @ts-ignore - Network Information API
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    
+
     if (!connection) {
       return { connectionType: 'unknown', effectiveType: undefined };
     }
-    
+
     const effectiveType = connection.effectiveType as 'slow-2g' | '2g' | '3g' | '4g' | undefined;
     const type = connection.type as string | undefined;
-    
+
     let connectionType: 'wifi' | '4g' | '5g' | '3g' | '2g' | 'unknown' = 'unknown';
-    
+
     if (type) {
       if (type === 'wifi' || type === 'ethernet') {
         connectionType = 'wifi';
@@ -373,7 +373,7 @@ class Analytics {
         connectionType = '2g';
       }
     }
-    
+
     return { connectionType, effectiveType };
   }
 
@@ -382,7 +382,7 @@ class Analytics {
     const productMatch = url.match(/\/product\/([^\/\?]+)/);
     if (productMatch) {
       const slug = productMatch[1];
-      
+
       // Try to find product in localStorage or sessionStorage
       try {
         // First, check sessionStorage for current product (set by ProductDetails page)
@@ -397,17 +397,17 @@ class Analytics {
         } catch (e) {
           // Continue to other methods
         }
-        
+
         // Check zustand persist storage (default key is usually the store name)
         const possibleKeys = [
           'shop-storage', // The actual store key
-          'store-storage', 
-          'store', 
+          'store-storage',
+          'store',
           'products-store',
           'local_products_fallback',
           'elhamds-store'
         ];
-        
+
         for (const key of possibleKeys) {
           try {
             const stored = localStorage.getItem(key) || sessionStorage.getItem(key);
@@ -415,7 +415,7 @@ class Analytics {
               const parsed = JSON.parse(stored);
               // Handle different storage structures
               const productsArray = parsed?.state?.products || parsed?.products || (Array.isArray(parsed) ? parsed : []);
-              
+
               if (Array.isArray(productsArray)) {
                 const product = productsArray.find((p: any) => p.id === slug || p.slug === slug);
                 if (product && product.name) {
@@ -428,7 +428,7 @@ class Analytics {
             continue;
           }
         }
-        
+
         // Also check zustand store if available (try to access from window)
         if (typeof window !== 'undefined' && (window as any).__ZUSTAND_STORE__) {
           try {
@@ -446,13 +446,13 @@ class Analytics {
       } catch (e) {
         console.warn('Failed to lookup product name from cache:', e);
       }
-      
+
       // Fallback: Convert slug to readable name
       // e.g., "dell-latitude-5310-intel-core-i7-10610u-13-3-inch-fhd-ssd-256gb"
       // -> "Dell Latitude 5310 Intel Core i7 10610u 13"
       const words = slug.split('-');
       // Take first meaningful words (usually brand and model)
-      const meaningfulWords = words.slice(0, 8).map(word => 
+      const meaningfulWords = words.slice(0, 8).map(word =>
         word.charAt(0).toUpperCase() + word.slice(1)
       );
       return meaningfulWords.join(' ');
@@ -479,12 +479,12 @@ class Analytics {
       if (!p.startsWith('/')) p = '/' + p;
       // Remove trailing slash unless root
       if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
-      
+
       // Log normalization for debugging
       if (this.debugEnabled && path !== p) {
         console.log('🔧 [Analytics] Normalized path', { original: path, normalized: p });
       }
-      
+
       return p;
     } catch (error) {
       console.warn('⚠️ [Analytics] Error normalizing path', { path, error });
@@ -495,14 +495,14 @@ class Analytics {
   private async initializeSession() {
     const deviceInfo = this.getDeviceModel();
     const connectionInfo = this.getConnectionType();
-    
+
     // Get demographics from localStorage (if set by user)
     const storedAge = localStorage.getItem('user_age');
     const storedGender = localStorage.getItem('user_gender');
     const age = storedAge ? parseInt(storedAge) : undefined;
     const ageGroup = this.getAgeGroup(age);
     const gender = storedGender ? (storedGender as 'male' | 'female' | 'not_specified') : 'not_specified';
-    
+
     const sessionData: VisitorSession = {
       id: this.sessionId,
       startTime: this.sessionStartTime,
@@ -519,7 +519,7 @@ class Analytics {
       deviceModel: deviceInfo.model,
       deviceBrand: deviceInfo.brand,
     };
-    
+
     // Prepare data for Firestore (convert Date to Timestamp)
     const sessionDataForFirestore = {
       ...sessionData,
@@ -543,9 +543,9 @@ class Analytics {
     const normalized = this.normalizePath(page);
 
     const nowTs = Date.now();
-    console.log('🔍 [Analytics] trackPageView called', { 
-      page, 
-      normalized, 
+    console.log('🔍 [Analytics] trackPageView called', {
+      page,
+      normalized,
       nowTs,
       productNameOverride,
       lastTrackedPath: this.lastTrackedPath,
@@ -558,10 +558,10 @@ class Analytics {
     // BUT: allow tracking if productNameOverride is provided (more accurate data)
     const isDuplicatePath = this.lastTrackedPath === normalized;
     const withinCooldown = (nowTs - this.lastTrackTimestamp) < this.trackCooldownMs;
-    
+
     if (isDuplicatePath && withinCooldown && !productNameOverride) {
-      console.log('⚠️ [Analytics] Skipping trackPageView due to cooldown', { 
-        normalized, 
+      console.log('⚠️ [Analytics] Skipping trackPageView due to cooldown', {
+        normalized,
         since: nowTs - this.lastTrackTimestamp,
         cooldownMs: this.trackCooldownMs
       });
@@ -593,26 +593,26 @@ class Analytics {
     }
 
     const now = new Date();
-    const timeOnPage = this.currentPageStartTime 
-      ? now.getTime() - this.currentPageStartTime.getTime() 
+    const timeOnPage = this.currentPageStartTime
+      ? now.getTime() - this.currentPageStartTime.getTime()
       : 0;
-    
+
     const deviceInfo = this.getDeviceModel();
     const connectionInfo = this.getConnectionType();
     // Use override if provided, otherwise extract from URL
     const productName = productNameOverride || this.extractProductNameFromUrl(page);
-    
+
     // Get demographics from localStorage (if set by user)
     const storedAge = localStorage.getItem('user_age');
     const storedGender = localStorage.getItem('user_gender');
     const age = storedAge ? parseInt(storedAge) : undefined;
     const ageGroup = this.getAgeGroup(age);
     const gender = storedGender ? (storedGender as 'male' | 'female' | 'not_specified') : 'not_specified';
-    
+
     // Get previous page from sessionStorage
     const previousPage = sessionStorage.getItem('last_page') || undefined;
     sessionStorage.setItem('last_page', page);
-    
+
     const pageView: PageView = {
       id: `${this.sessionId}-${Date.now()}`,
       page,
@@ -639,7 +639,7 @@ class Analytics {
       productName,
       previousPage,
     };
-    
+
     // Prepare data for Firestore (convert Date to Timestamp)
     const pageViewData = {
       ...pageView,
@@ -655,14 +655,14 @@ class Analytics {
       // per-path count guard - but allow if productNameOverride is provided
       const pathCount = this.perPathCounts.get(normalized) || 0;
       if (pathCount >= this.perPathLimit && !productNameOverride) {
-        console.warn('⚠️ [Analytics] Per-path limit reached, skipping', { 
-          normalized, 
-          pathCount, 
-          perPathLimit: this.perPathLimit 
+        console.warn('⚠️ [Analytics] Per-path limit reached, skipping', {
+          normalized,
+          pathCount,
+          perPathLimit: this.perPathLimit
         });
         return;
       }
-      
+
       console.log('💾 [Analytics] Saving page view to Firebase', {
         pageViewId: pageView.id,
         page: pageView.page,
@@ -672,12 +672,12 @@ class Analytics {
 
       // Save page view with Timestamp
       await setDoc(doc(db, 'page_views', pageView.id), pageViewData);
-      
+
       console.log('✅ [Analytics] Page view saved successfully', {
         pageViewId: pageView.id,
         page: pageView.page
       });
-      
+
       // Store page view ID for later updates (scroll depth, interactions)
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('last_page_view_id', pageView.id);
@@ -713,10 +713,10 @@ class Analytics {
       this.perPathCounts.set(normalized, pathCount + 1);
       this.lastTrackedPath = normalized;
       this.lastTrackTimestamp = nowTs;
-      
-      console.log('✅ [Analytics] Page view tracking completed successfully', { 
-        normalized, 
-        sessionWriteCount: this.sessionWriteCount, 
+
+      console.log('✅ [Analytics] Page view tracking completed successfully', {
+        normalized,
+        sessionWriteCount: this.sessionWriteCount,
         perPath: this.perPathCounts.get(normalized),
         productName: pageView.productName
       });
@@ -731,7 +731,7 @@ class Analytics {
         errorCode: error?.code,
         errorStack: error?.stack
       });
-      
+
       // If error looks like permission-denied or similar, disable further writes
       const msg = (error && (error.message || error.code || '')).toString().toLowerCase();
       if (msg.includes('permission') || msg.includes('permission-denied') || msg.includes('not allowed') || msg.includes('not-authorized')) {
@@ -768,7 +768,7 @@ class Analytics {
   // Track page interaction
   async trackInteraction(type: 'imageClick' | 'addToCart' | 'buyNow' | 'videoView', page: string): Promise<void> {
     if (!this.writesEnabled) return;
-    
+
     try {
       const pageViewId = `${this.sessionId}-${Date.now()}-${type}`;
       const interactionData = {
@@ -778,9 +778,9 @@ class Analytics {
         timestamp: new Date(),
         sessionId: this.sessionId,
       };
-      
+
       await setDoc(doc(db, 'page_interactions', pageViewId), interactionData);
-      
+
       // Update the last page view with interaction
       const lastPageView = sessionStorage.getItem('last_page_view_id');
       if (lastPageView) {
@@ -804,7 +804,7 @@ class Analytics {
   // Update page view with scroll depth when leaving page
   async updatePageViewWithScrollDepth(pageViewId: string, scrollDepth: number): Promise<void> {
     if (!this.writesEnabled) return;
-    
+
     try {
       const pageViewRef = doc(db, 'page_views', pageViewId);
       await setDoc(pageViewRef, { scrollDepth }, { merge: true });
@@ -828,7 +828,7 @@ class Analytics {
         endDate: endDate.toISOString(),
         days
       });
-      
+
       const pageViewsQuery = query(
         collection(db, 'page_views'),
         where('timestamp', '>=', startTimestamp),
@@ -842,7 +842,7 @@ class Analytics {
           timestamp: this.convertToDate(data.timestamp)
         } as PageView;
       });
-      
+
       console.log('📊 [Analytics] Page views fetched', {
         totalPageViews: pageViews.length,
         productPagesCount: pageViews.filter(v => v.page?.includes('/product/')).length,
@@ -886,7 +886,7 @@ class Analytics {
       const totalVisitors = sessions.length;
       const uniqueVisitors = new Set(sessions.map(s => s.id)).size;
       const totalPageViews = pageViews.length;
-      
+
       const totalSessionTime = sessions.reduce((sum, session) => sum + (session.totalTime || 0), 0);
       const averageSessionDuration = totalVisitors > 0 ? totalSessionTime / totalVisitors : 0;
 
@@ -895,10 +895,10 @@ class Analytics {
       const bounceRate = totalVisitors > 0 ? (bounceSessions / totalVisitors) * 100 : 0;
 
       // Top pages with session duration and visitor details
-      const pageData: { 
-        [key: string]: { 
-          views: number; 
-          totalTime: number; 
+      const pageData: {
+        [key: string]: {
+          views: number;
+          totalTime: number;
           times: number[];
           ageGroups: { [key: string]: number };
           ages: number[];
@@ -906,15 +906,15 @@ class Analytics {
           regions: { [key: string]: number };
           sources: { [key: string]: number };
           sessionIds: Set<string>;
-        } 
+        }
       } = {};
-      
+
       pageViews.forEach(view => {
         const page = view.page;
         if (!pageData[page]) {
-          pageData[page] = { 
-            views: 0, 
-            totalTime: 0, 
+          pageData[page] = {
+            views: 0,
+            totalTime: 0,
             times: [],
             ageGroups: {},
             ages: [],
@@ -930,7 +930,7 @@ class Analytics {
           pageData[page].times.push(view.timeOnPage);
         }
         pageData[page].sessionIds.add(view.sessionId);
-        
+
         // Collect demographics
         if (view.ageGroup) {
           pageData[page].ageGroups[view.ageGroup] = (pageData[page].ageGroups[view.ageGroup] || 0) + 1;
@@ -944,14 +944,14 @@ class Analytics {
         if (view.region) {
           pageData[page].regions[view.region] = (pageData[page].regions[view.region] || 0) + 1;
         }
-        
+
         // Collect sources
         let source = view.referrer || 'Direct';
         if (source !== 'Direct' && source !== '') {
           try {
             const url = new URL(source);
             const hostname = url.hostname.toLowerCase();
-            
+
             if (hostname.includes('facebook.com') || hostname.includes('fb.com') || hostname.includes('m.facebook.com')) {
               source = 'Facebook';
             } else if (hostname.includes('instagram.com')) {
@@ -981,12 +981,12 @@ class Analytics {
         }
         pageData[page].sources[source] = (pageData[page].sources[source] || 0) + 1;
       });
-      
+
       const topPages = Object.entries(pageData)
         .map(([page, data]) => {
           const avgTime = data.views > 0 ? data.totalTime / data.views : 0;
           const uniqueVisitors = data.sessionIds.size;
-          
+
           // Calculate age groups distribution
           const ageGroupsList = [
             '13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'
@@ -995,12 +995,12 @@ class Analytics {
             count: data.ageGroups[ageGroup] || 0,
             percentage: uniqueVisitors > 0 ? ((data.ageGroups[ageGroup] || 0) / uniqueVisitors) * 100 : 0
           })).filter(ag => ag.count > 0);
-          
+
           // Calculate average age
-          const averageAge = data.ages.length > 0 
-            ? data.ages.reduce((sum, age) => sum + age, 0) / data.ages.length 
+          const averageAge = data.ages.length > 0
+            ? data.ages.reduce((sum, age) => sum + age, 0) / data.ages.length
             : 0;
-          
+
           // Calculate gender distribution
           const gendersList = [
             { key: 'male', label: 'ذكر' },
@@ -1011,7 +1011,7 @@ class Analytics {
             count: data.genders[key] || 0,
             percentage: uniqueVisitors > 0 ? ((data.genders[key] || 0) / uniqueVisitors) * 100 : 0
           })).filter(g => g.count > 0);
-          
+
           // Calculate regions distribution
           const regionsList = Object.entries(data.regions)
             .map(([region, count]) => ({
@@ -1020,7 +1020,7 @@ class Analytics {
               percentage: uniqueVisitors > 0 ? (count / uniqueVisitors) * 100 : 0
             }))
             .sort((a, b) => b.count - a.count);
-          
+
           // Calculate sources distribution
           const sourcesList = Object.entries(data.sources)
             .map(([source, count]) => ({
@@ -1029,10 +1029,10 @@ class Analytics {
               percentage: uniqueVisitors > 0 ? (count / uniqueVisitors) * 100 : 0
             }))
             .sort((a, b) => b.count - a.count);
-          
-          return { 
-            page, 
-            views: data.views, 
+
+          return {
+            page,
+            views: data.views,
             avgTimeOnPage: avgTime,
             totalTimeOnPage: data.totalTime,
             demographics: {
@@ -1046,11 +1046,11 @@ class Analytics {
         })
         .sort((a, b) => b.views - a.views)
         .slice(0, 10);
-      
+
       console.log('📊 [Analytics] Top pages calculated', {
         topPagesCount: topPages.length,
-        topPages: topPages.map(p => ({ 
-          page: p.page, 
+        topPages: topPages.map(p => ({
+          page: p.page,
           views: p.views,
           uniqueVisitors: (p as any).uniqueVisitors || 0
         })),
@@ -1066,7 +1066,7 @@ class Analytics {
       const referrerData: { [key: string]: { visits: number; sources: Set<string> } } = {};
       pageViews.forEach(view => {
         let referrer = view.referrer || '';
-        
+
         // Normalize referrer - detect social media and search engines
         if (!referrer || referrer === 'Direct' || referrer === '') {
           referrer = 'زيارة مباشرة';
@@ -1074,7 +1074,7 @@ class Analytics {
           try {
             const url = new URL(referrer);
             const hostname = url.hostname.toLowerCase();
-            
+
             // Detect Facebook
             if (hostname.includes('facebook.com') || hostname.includes('fb.com') || hostname.includes('m.facebook.com')) {
               referrer = 'Facebook';
@@ -1124,7 +1124,7 @@ class Analytics {
             referrer = referrer || 'زيارة مباشرة';
           }
         }
-        
+
         if (!referrerData[referrer]) {
           referrerData[referrer] = { visits: 0, sources: new Set() };
         }
@@ -1134,8 +1134,8 @@ class Analytics {
         }
       });
       const topReferrers = Object.entries(referrerData)
-        .map(([referrer, data]) => ({ 
-          referrer, 
+        .map(([referrer, data]) => ({
+          referrer,
           visits: data.visits,
           percentage: totalPageViews > 0 ? (data.visits / totalPageViews) * 100 : 0
         }))
@@ -1148,9 +1148,9 @@ class Analytics {
         deviceCounts[session.deviceType] = (deviceCounts[session.deviceType] || 0) + 1;
       });
       const deviceBreakdown = Object.entries(deviceCounts)
-        .map(([device, count]) => ({ 
-          device, 
-          percentage: totalVisitors > 0 ? (count / totalVisitors) * 100 : 0 
+        .map(([device, count]) => ({
+          device,
+          percentage: totalVisitors > 0 ? (count / totalVisitors) * 100 : 0
         }))
         .sort((a, b) => b.percentage - a.percentage);
 
@@ -1160,9 +1160,9 @@ class Analytics {
         browserCounts[session.browser] = (browserCounts[session.browser] || 0) + 1;
       });
       const browserBreakdown = Object.entries(browserCounts)
-        .map(([browser, count]) => ({ 
-          browser, 
-          percentage: totalVisitors > 0 ? (count / totalVisitors) * 100 : 0 
+        .map(([browser, count]) => ({
+          browser,
+          percentage: totalVisitors > 0 ? (count / totalVisitors) * 100 : 0
         }))
         .sort((a, b) => b.percentage - a.percentage);
 
@@ -1200,14 +1200,14 @@ class Analytics {
         }
       });
       const dailyTraffic = Object.entries(dailySessions)
-        .map(([date, sessionSet]) => ({ 
-          date, 
-          visitors: sessionSet.size 
+        .map(([date, sessionSet]) => ({
+          date,
+          visitors: sessionSet.size
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
       // ===== ENHANCED ANALYTICS CALCULATIONS =====
-      
+
       // Age Distribution
       const ageGroupCounts: { [key: string]: number } = {};
       const ages: number[] = [];
@@ -1254,7 +1254,7 @@ class Analytics {
         // In production, you'd want to track userId in sessions
         return orderUserIds.has(s.id); // This is a simplified match
       });
-      
+
       const genderConversions: { [key: string]: number } = {};
       convertingSessions.forEach(session => {
         const gender = session.gender || 'not_specified';
@@ -1280,7 +1280,7 @@ class Analytics {
         'القاهرة', 'الإسكندرية', 'الجيزة', 'الأقصر', 'أسوان', 'الشرقية', 'الدقهلية',
         'المنيا', 'أسيوط', 'سوهاج', 'قنا', 'البحيرة', 'كفر الشيخ', 'الغربية'
       ];
-      
+
       pageViews.forEach(view => {
         if (view.region && egyptGovernorates.includes(view.region)) {
           if (!egyptRegionsData[view.region]) {
@@ -1290,7 +1290,7 @@ class Analytics {
           egyptRegionsData[view.region].visitors.add(view.sessionId);
         }
       });
-      
+
       sessions.forEach(session => {
         if (session.region && egyptRegionsData[session.region]) {
           egyptRegionsData[session.region].visitors.add(session.id);
@@ -1318,11 +1318,11 @@ class Analytics {
           .map(([page, views]) => ({ page, views }))
           .sort((a, b) => b.views - a.views)
           .slice(0, 5);
-        
+
         const uniqueVisitors = data.visitors.size;
         const conversions = data.orderIds.size;
         const avgOrderValue = conversions > 0 ? data.orderTotal / conversions : 0;
-        
+
         return {
           region,
           visitors: uniqueVisitors,
@@ -1402,22 +1402,22 @@ class Analytics {
           // Calculate conversion rates by connection type
           const connConversions: { [key: string]: number } = {};
           const connVisitors: { [key: string]: number } = {};
-          
+
           sessions.forEach(session => {
             const connType = session.connectionType || 'unknown';
             connVisitors[connType] = (connVisitors[connType] || 0) + 1;
             // Simplified: if session has order, count as conversion
             // In production, you'd link sessions to orders via userId
           });
-          
+
           // Count orders by connection type (simplified - would need session-order linkage)
           orders.forEach(order => {
             // This is a simplified approach - in production, track connectionType in orders
             // For now, we'll calculate overall conversion and distribute proportionally
           });
-          
+
           const overallConversionRate = totalVisitors > 0 ? (orders.length / totalVisitors) * 100 : 0;
-          
+
           return Object.keys(connVisitors).reduce((acc, type) => {
             // Distribute conversions proportionally (simplified)
             acc[type] = overallConversionRate;
@@ -1471,7 +1471,7 @@ class Analytics {
         osData[os].versions[version] = (osData[os].versions[version] || 0) + 1;
       });
       const osBreakdown = Object.entries(osData)
-        .flatMap(([os, data]) => 
+        .flatMap(([os, data]) =>
           Object.entries(data.versions).map(([version, count]) => ({
             os,
             version,
@@ -1482,24 +1482,26 @@ class Analytics {
         .sort((a, b) => b.count - a.count);
 
       // Product Pages Analytics - Enhanced with real order data
-      const productPageData: { [key: string]: {
-        productName: string;
-        productId: string;
-        views: number;
-        timeOnPage: number[];
-        bounces: number;
-        conversions: number;
-        orderQuantity: number;
-        revenue: number;
-        sources: { [key: string]: number };
-        timeDistribution: { [key: string]: number };
-        scrollDepths: { '25%': number; '50%': number; '75%': number; '100%': number };
-        interactions: { imageClicks: number; addToCartClicks: number; buyNowClicks: number; videoViews: number };
-        previousPages: { [key: string]: number };
-        nextPages: { [key: string]: number };
-        exits: number;
-      } } = {};
-      
+      const productPageData: {
+        [key: string]: {
+          productName: string;
+          productId: string;
+          views: number;
+          timeOnPage: number[];
+          bounces: number;
+          conversions: number;
+          orderQuantity: number;
+          revenue: number;
+          sources: { [key: string]: number };
+          timeDistribution: { [key: string]: number };
+          scrollDepths: { '25%': number; '50%': number; '75%': number; '100%': number };
+          interactions: { imageClicks: number; addToCartClicks: number; buyNowClicks: number; videoViews: number };
+          previousPages: { [key: string]: number };
+          nextPages: { [key: string]: number };
+          exits: number;
+        }
+      } = {};
+
       // Extract product IDs from page views
       pageViews.filter(v => v.productName || v.page.includes('/product/')).forEach(view => {
         // Extract product ID from URL or use productName
@@ -1511,7 +1513,7 @@ class Analytics {
         if (!productId && view.productName) {
           productId = view.page.split('/').pop() || '';
         }
-        
+
         const key = productId || view.productName || view.page;
         if (!productPageData[key]) {
           productPageData[key] = {
@@ -1565,12 +1567,12 @@ class Analytics {
           // Try to match product by ID or name
           const productKey = Object.keys(productPageData).find(key => {
             const data = productPageData[key];
-            return data.productId === item.productId || 
-                   data.productName === item.productName ||
-                   key.includes(item.productId) ||
-                   key.includes(item.productName);
+            return data.productId === item.productId ||
+              data.productName === item.productName ||
+              key.includes(item.productId) ||
+              key.includes(item.productName);
           });
-          
+
           if (productKey) {
             productPageData[productKey].conversions++;
             productPageData[productKey].orderQuantity += item.quantity;
@@ -1582,8 +1584,8 @@ class Analytics {
       // Calculate next pages (would need to track this)
       const productPages = Object.entries(productPageData).map(([key, data]) => {
         const sortedTimes = [...data.timeOnPage].sort((a, b) => a - b);
-        const medianTime = sortedTimes.length > 0 
-          ? sortedTimes[Math.floor(sortedTimes.length / 2)] 
+        const medianTime = sortedTimes.length > 0
+          ? sortedTimes[Math.floor(sortedTimes.length / 2)]
           : 0;
         const topSource = Object.entries(data.sources)
           .sort((a, b) => b[1] - a[1])[0]?.[0] || 'Direct';
@@ -1599,8 +1601,8 @@ class Analytics {
           productName: data.productName,
           productId: data.productId,
           views: data.views,
-          avgTimeOnPage: data.timeOnPage.length > 0 
-            ? data.timeOnPage.reduce((sum, t) => sum + t, 0) / data.timeOnPage.length 
+          avgTimeOnPage: data.timeOnPage.length > 0
+            ? data.timeOnPage.reduce((sum, t) => sum + t, 0) / data.timeOnPage.length
             : 0,
           medianTimeOnPage: medianTime,
           bounceRate: data.views > 0 ? (data.bounces / data.views) * 100 : 0,
@@ -1623,7 +1625,7 @@ class Analytics {
       const totalOrders = orders.length;
       const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-      const totalOrderQuantity = orders.reduce((sum, order) => 
+      const totalOrderQuantity = orders.reduce((sum, order) =>
         sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
       );
 
@@ -1674,20 +1676,20 @@ class Analytics {
     try {
       const now = new Date();
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-      
+
       const activeSessionsQuery = query(
         collection(db, 'visitor_sessions'),
         where('startTime', '>=', fiveMinutesAgo)
       );
       const snapshot = await getDocs(activeSessionsQuery);
-      
+
       // Filter out sessions with invalid timestamps
       const validSessions = snapshot.docs.filter(doc => {
         const data = doc.data();
         const startTime = this.convertToDate(data.startTime);
         return startTime >= fiveMinutesAgo;
       });
-      
+
       return validSessions.length;
     } catch (error) {
       console.error('Error getting real-time visitors:', error);
@@ -1699,25 +1701,158 @@ class Analytics {
 // Create singleton instance
 export const analytics = new Analytics();
 
+// ============================================================================
+// Firebase Analytics (GA4) Integration
+// ============================================================================
+// These functions send events to Firebase Analytics (Google Analytics 4)
+// which can be viewed in Firebase Console and exported to BigQuery.
+// This is separate from the custom Firestore-based analytics above.
+// ============================================================================
+
+import { logEvent, setUserProperties, setUserId } from 'firebase/analytics';
+import { analytics as firebaseAnalytics } from './firebase';
+
+/**
+ * Track page view event in Firebase Analytics (GA4)
+ * This data will appear in Firebase Console and can be exported to BigQuery
+ */
+export const trackPageView = (page: string, additionalParams?: Record<string, any>) => {
+  if (firebaseAnalytics) {
+    try {
+      logEvent(firebaseAnalytics, 'page_view', {
+        page_path: page,
+        page_title: document.title,
+        page_location: window.location.href,
+        ...additionalParams
+      });
+      console.log('✅ Firebase Analytics: page_view tracked', { page, title: document.title });
+    } catch (error) {
+      console.warn('⚠️ Firebase Analytics: Failed to track page_view', error);
+    }
+  }
+};
+
+/**
+ * Track custom event in Firebase Analytics (GA4)
+ * @param eventName - Name of the event (use lowercase with underscores)
+ * @param params - Event parameters
+ */
+export const trackEvent = (eventName: string, params?: Record<string, any>) => {
+  if (firebaseAnalytics) {
+    try {
+      logEvent(firebaseAnalytics, eventName as any, params);
+      console.log(`✅ Firebase Analytics: ${eventName} tracked`, params);
+    } catch (error) {
+      console.warn(`⚠️ Firebase Analytics: Failed to track ${eventName}`, error);
+    }
+  }
+};
+
+/**
+ * Track product view
+ */
+export const trackProductView = (productId: string, productName: string, price: number, category?: string) => {
+  trackEvent('view_item', {
+    item_id: productId,
+    item_name: productName,
+    price: price,
+    currency: 'EGP',
+    ...(category && { item_category: category })
+  });
+};
+
+/**
+ * Track add to cart
+ */
+export const trackAddToCart = (productId: string, productName: string, price: number, quantity: number) => {
+  trackEvent('add_to_cart', {
+    item_id: productId,
+    item_name: productName,
+    price: price,
+    quantity: quantity,
+    currency: 'EGP',
+    value: price * quantity
+  });
+};
+
+/**
+ * Track purchase/checkout
+ */
+export const trackPurchase = (orderId: string, total: number, items: any[]) => {
+  trackEvent('purchase', {
+    transaction_id: orderId,
+    value: total,
+    currency: 'EGP',
+    items: items.map(item => ({
+      item_id: item.productId || item.id,
+      item_name: item.productName || item.name,
+      price: item.unitFinalPrice || item.price,
+      quantity: item.quantity
+    }))
+  });
+};
+
+/**
+ * Track search
+ */
+export const trackSearch = (searchTerm: string) => {
+  trackEvent('search', {
+    search_term: searchTerm
+  });
+};
+
+/**
+ * Set user ID for analytics (for logged-in users)
+ */
+export const setAnalyticsUserId = (userId: string | null) => {
+  if (firebaseAnalytics && userId) {
+    try {
+      setUserId(firebaseAnalytics, userId);
+      console.log('✅ Firebase Analytics: User ID set', userId);
+    } catch (error) {
+      console.warn('⚠️ Firebase Analytics: Failed to set user ID', error);
+    }
+  }
+};
+
+/**
+ * Set user properties
+ */
+export const setAnalyticsUserProperties = (properties: Record<string, string>) => {
+  if (firebaseAnalytics) {
+    try {
+      setUserProperties(firebaseAnalytics, properties);
+      console.log('✅ Firebase Analytics: User properties set', properties);
+    } catch (error) {
+      console.warn('⚠️ Firebase Analytics: Failed to set user properties', error);
+    }
+  }
+};
+
+// ============================================================================
+// Auto-tracking for Custom Analytics (Firestore-based)
+// ============================================================================
+
 // Auto-track page views using History API hooks (avoid MutationObserver which
 // can fire frequently and cause duplicate tracking while staying on the same
 // page). This also provides more deterministic detection of SPA navigations.
 if (typeof window !== 'undefined') {
-  // Track initial page view
+  // Track initial page view (both systems)
   analytics.trackPageView(window.location.pathname);
+  trackPageView(window.location.pathname); // Firebase Analytics
 
   // Wrap history methods to dispatch a custom event we can listen to
-  (function(history) {
+  (function (history) {
     const pushState = history.pushState;
     const replaceState = history.replaceState;
 
-    history.pushState = function(...args: any[]) {
+    history.pushState = function (...args: any[]) {
       const result = pushState.apply(this, args as any);
       window.dispatchEvent(new Event('locationchange'));
       return result;
     } as any;
 
-    history.replaceState = function(...args: any[]) {
+    history.replaceState = function (...args: any[]) {
       const result = replaceState.apply(this, args as any);
       window.dispatchEvent(new Event('locationchange'));
       return result;
@@ -1736,7 +1871,9 @@ if (typeof window !== 'undefined') {
     trackTimeout = window.setTimeout(() => {
       try {
         const path = window.location.pathname;
-        analytics.trackPageView(path);
+        // Track in both systems
+        analytics.trackPageView(path); // Custom Firestore analytics
+        trackPageView(path); // Firebase Analytics (GA4)
       } catch (e) {
         console.warn('Analytics: trackPageView failed on locationchange', e);
       }
