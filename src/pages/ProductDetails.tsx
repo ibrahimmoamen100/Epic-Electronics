@@ -4,7 +4,9 @@ import { useStore } from "@/store/useStore";
 import { Product, ProductSize, ProductAddon } from "@/types/product";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductModal } from "@/components/ProductModal";
-import { ProductOptions } from "@/components/ProductOptions";
+import { ProductOptions, CheckoutFormData } from "@/components/ProductOptions";
+import { useAuth } from "@/contexts/AuthContext";
+import { createOrderAndUpdateProductQuantitiesAtomically } from "@/lib/firebase";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { analytics } from "@/lib/analytics";
@@ -12,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   ShoppingCart,
   Share2,
+  X,
   Plus,
   Minus,
   ChevronLeft,
@@ -55,8 +58,10 @@ const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { userProfile } = useAuth();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [showShippingPolicy, setShowShippingPolicy] = useState(false);
   const [isBatteryModalOpen, setIsBatteryModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
@@ -334,17 +339,16 @@ const ProductDetails = () => {
     : baseDescription;
   const canonicalUrl = `${window.location.origin}/product/${product.id}`;
 
-  const handleBuy = async (quantity: number) => {
+  const handleBuy = async (quantity: number, formData: CheckoutFormData) => {
+    if (!product) return;
+
     // Check if product is out of stock
     const availableQuantity = product.wholesaleInfo?.quantity || 0;
     if (availableQuantity <= 0) {
-      toast.error("المنتج غير متوفر حالياً", {
-        description: "تم نفاد الكمية المتاحة لهذا المنتج",
-      });
+      toast.error("المنتج غير متوفر حالياً");
       return;
     }
 
-    // Validate required selections
     if (product.sizes && product.sizes.length > 0 && !selectedSize) {
       toast.error("يرجى اختيار حجم المنتج أولاً");
       return;
@@ -355,22 +359,121 @@ const ProductDetails = () => {
       return;
     }
 
+    // Process Order
     try {
-      await addToCart(product, quantity, selectedSize, selectedAddons, selectedColor);
+      const totalAmount = finalPrice * quantity;
 
-      toast.success("تم إضافة المنتج للسلة",
-        {
-          duration: 2000,
-          dismissible: true,
-        }
-      );
+      const orderItem = {
+        productId: product.id,
+        productName: product.name,
+        quantity: quantity,
+        price: finalPrice,
+        totalPrice: totalAmount,
+        image: product.images[0],
+        selectedSize: selectedSize ? {
+          id: selectedSize.id,
+          label: selectedSize.label,
+          price: selectedSize.price
+        } : null,
+        selectedAddons: selectedAddons.map(addon => ({
+          id: addon.id,
+          label: addon.label,
+          price_delta: addon.price_delta
+        })),
+        selectedColor: selectedColor
+      };
 
-      // Redirect to cart
-      navigate("/cart");
+      const orderData = {
+        userId: userProfile?.uid || `guest-${Date.now()}`,
+        items: [orderItem],
+        total: totalAmount,
+        status: 'pending',
+        type: formData.orderType,
+        deliveryInfo: {
+          fullName: formData.fullName,
+          phoneNumber: formData.phoneNumber,
+          address: formData.orderType === 'reservation' ? 'استلام من المحل' : formData.address,
+          city: formData.orderType === 'reservation' ? 'لا يوجد' : formData.governorate,
+          notes: formData.notes || ''
+        },
+        reservationInfo: formData.orderType === 'reservation' ? {
+          fullName: formData.fullName,
+          phoneNumber: formData.phoneNumber,
+          appointmentDate: formData.appointmentDate || new Date().toISOString().split('T')[0], // Default to today if not specified in simplified form
+          appointmentTime: formData.appointmentTime || '12:00', // Default
+          notes: formData.notes || ''
+        } : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const deductions = [{
+        productId: product.id,
+        quantityToDeduct: quantity
+      }];
+
+      // Save to Firebase
+      await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);
+
+      // Construct WhatsApp Message
+      const whatsappNumber = "201025423389";
+      const orderLines = [
+        `1. ${product.name}`,
+        `   الكمية: ${quantity}`,
+        selectedSize ? `   الحجم: ${selectedSize.label}` : '',
+        selectedColor ? `   اللون: ${getColorByName(selectedColor).name}` : '',
+        `   السعر: ${formatCurrency(totalAmount, 'جنيه')}`
+      ].filter(Boolean).join('\n');
+
+      const customerInfo = formData.orderType === 'reservation' ?
+        [
+          `👤 الاسم: ${formData.fullName}`,
+          `📱 الهاتف: ${formData.phoneNumber}`,
+          `📅 التاريخ: ${formData.appointmentDate}`,
+          `⏰ الوقت: ${formData.appointmentTime}`,
+          `🏷 النوع: حجز`,
+          formData.notes ? `📝 ملاحظات: ${formData.notes}` : null
+        ].filter(Boolean).join('\n') :
+        [
+          `👤 الاسم: ${formData.fullName}`,
+          `🏙 المحافظة: ${formData.governorate}`,
+          `📍 العنوان: ${formData.address}`,
+          `📱 الهاتف: ${formData.phoneNumber}`,
+          `🏷 النوع: شراء أونلاين`,
+          formData.notes ? `📝 ملاحظات: ${formData.notes}` : null
+        ].filter(Boolean).join('\n');
+
+      const message = [
+        formData.orderType === 'reservation' ? '📅 طلب حجز جديد' : '🚀 طلب شراء جديد',
+        '========================',
+        orderLines,
+        '========================',
+        '*بيانات العميل:*',
+        customerInfo,
+        '========================',
+        `💰 الإجمالي: ${formatCurrency(totalAmount, 'جنيه')}`,
+        '========================',
+        formData.orderType === 'reservation'
+          ? 'يرجى تأكيد الحجز وإرسال العربون.'
+          : 'يرجى تأكيد الطلب وتحديد مصاريف الشحن.'
+      ].join('\n');
+
+      // Show Success UI
+      toast.success("سيتم التواصل معك قريبًا لتأكيد الطلب");
+      setShowShippingPolicy(true);
+
+      // Redirect to WhatsApp
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+      // Small delay to allow toast to be seen
+      setTimeout(() => {
+        window.open(whatsappUrl, '_blank');
+        navigate('/products'); // Redirect to home/products page
+      }, 1500);
+
     } catch (error) {
-      toast.error("خطأ في إضافة المنتج", {
-        description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
-      });
+      console.error('Order Error:', error);
+      toast.error('حدث خطأ أثناء تنفيذ الطلب. يرجى المحاولة لاحقاً.');
     }
   };
 
@@ -1255,6 +1358,55 @@ const ProductDetails = () => {
           <DialogFooter className="flex sm:justify-end">
             <Button variant="outline" onClick={() => setIsBatteryModalOpen(false)}>
               إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Shipping Policy Modal */}
+      <Dialog open={showShippingPolicy} onOpenChange={setShowShippingPolicy}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-yellow-700">
+              <Truck className="h-5 w-5" /> سياسة الشحن والتوصيل
+            </DialogTitle>
+            <DialogDescription>
+              يرجى مراجعة تفاصيل الشحن أدناه
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg p-4 border border-yellow-100 shadow-sm">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center bg-white/60 p-3 rounded border border-yellow-100/50">
+                <p className="font-medium flex items-center gap-2 text-gray-800">
+                  <span className="w-2 h-2 rounded-full bg-green-500 shadow-sm" />
+                  داخل القاهرة
+                </p>
+                <div className="text-right">
+                  <p className="font-bold text-yellow-800">100 ج.م</p>
+                  <p className="text-xs text-yellow-600">(24 ساعة)</p>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center bg-white/60 p-3 rounded border border-yellow-100/50">
+                <p className="font-medium flex items-center gap-2 text-gray-800">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shadow-sm" />
+                  جميع المحافظات
+                </p>
+                <div className="text-right">
+                  <p className="font-bold text-yellow-800">170 ج.م</p>
+                  <p className="text-xs text-yellow-600">(48 ساعة)</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 text-xs text-yellow-800 bg-yellow-100/50 p-2 rounded">
+              * سيتم تأكيد تكلفة الشحن النهائية عبر واتساب.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setShowShippingPolicy(false)} className="w-full">
+              حسناً، فهمت
             </Button>
           </DialogFooter>
         </DialogContent>

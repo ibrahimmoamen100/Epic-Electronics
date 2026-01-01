@@ -17,9 +17,24 @@ import {
   Tag,
   Sparkles,
   Minus,
-  ShoppingCart
+  ShoppingCart,
+  Truck,
+  CalendarClock
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+
+export interface CheckoutFormData {
+  fullName: string;
+  phoneNumber: string;
+  governorate: string;
+  address: string;
+  orderType: 'online_purchase' | 'reservation';
+  appointmentDate?: string;
+  appointmentTime?: string;
+  notes?: string;
+}
 
 interface ProductOptionsProps {
   product: Product;
@@ -33,7 +48,7 @@ interface ProductOptionsProps {
     finalPrice: number
   ) => void;
   onQuantityChange: (quantity: number) => void;
-  onBuy: (quantity: number) => void;
+  onBuy: (quantity: number, formData: CheckoutFormData) => void;
 }
 
 export function ProductOptions({
@@ -49,6 +64,19 @@ export function ProductOptions({
   const { t } = useTranslation();
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
+
+  const [formData, setFormData] = useState<CheckoutFormData>({
+    fullName: '',
+    phoneNumber: '',
+    governorate: '',
+    address: '',
+    orderType: 'online_purchase',
+    appointmentDate: '',
+    appointmentTime: '',
+    notes: ''
+  });
+
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof CheckoutFormData, boolean>>>({});
   // Quantity state removed - controlled by parent
 
   // Calculate final price based on selections (without applying special offer discount)
@@ -121,12 +149,35 @@ export function ProductOptions({
   };
 
   const handleBuyClick = () => {
-    // Validate quantity against stock one last time
+    // Validate quantity against stock
     if (quantity > maxQuantity) {
       toast.error("الكمية المطلوبة غير متوفرة");
       return;
     }
-    onBuy(quantity);
+
+    // Validate Form
+    const errors: Partial<Record<keyof CheckoutFormData, boolean>> = {};
+    if (!formData.fullName.trim()) errors.fullName = true;
+    if (!formData.phoneNumber.trim() || !/^01[0-9]{9,}$/.test(formData.phoneNumber)) errors.phoneNumber = true;
+
+    // Conditional Validation
+    if (formData.orderType === 'online_purchase') {
+      if (!formData.governorate) errors.governorate = true;
+      if (!formData.address.trim()) errors.address = true;
+    } else {
+      // Reservation validation
+      if (!formData.appointmentDate) errors.appointmentDate = true;
+      if (!formData.appointmentTime) errors.appointmentTime = true;
+    }
+
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      toast.error("يرجى ملء جميع الحقول المطلوبة بشكل صحيح");
+      return;
+    }
+
+    onBuy(quantity, formData);
   };
 
   const hasSizes = product.sizes && product.sizes.length > 0;
@@ -246,12 +297,12 @@ export function ProductOptions({
             </div>
             <div className="text-right">
               <div className="text-3xl font-bold text-primary">
-                {formatCurrency(currentPrice, 'جنيه')}
+                {formatCurrency(currentPrice * quantity, 'جنيه')}
               </div>
               {/* Show original price if discounted */}
               {currentPrice < originalPrice && (
                 <div className="text-sm line-through text-gray-500 mt-1">
-                  {formatCurrency(originalPrice, 'جنيه')}
+                  {formatCurrency(originalPrice * quantity, 'جنيه')}
                 </div>
               )}
             </div>
@@ -287,17 +338,7 @@ export function ProductOptions({
             </div>
           </div>
 
-          <Separator />
 
-          {/* Buy Button */}
-          <Button
-            className="w-full h-14 text-lg bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-300"
-            onClick={handleBuyClick}
-            disabled={maxQuantity <= 0}
-          >
-            <ShoppingCart className="mr-2 h-6 w-6" />
-            {maxQuantity <= 0 ? 'نفذت الكمية' : 'شراء / حجز الآن'}
-          </Button>
 
           {/* Detailed Selection Summary (Optional but helpful) */}
           {(selectedSizeId || selectedAddonIds.length > 0) && (
@@ -329,6 +370,149 @@ export function ProductOptions({
               )}
             </div>
           )}
+
+
+          <Separator />
+
+          {/* Checkout Form */}
+          <div className="space-y-4 pt-4 border-t border-primary/10">
+            {/* Order Type Selection - First Field */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">نوع الطلب</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, orderType: 'online_purchase', appointmentDate: '', appointmentTime: '' }))} // Clear reservation fields on type change
+                  className={`flex-1 py-2 text-sm rounded-md border text-center transition-all ${formData.orderType === 'online_purchase' ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  <Truck className="inline-block w-4 h-4 mr-1 ml-1" />
+                  شراء أونلاين
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, orderType: 'reservation', governorate: '', address: '' }))} // Clear online purchase fields on type change
+                  className={`flex-1 py-2 text-sm rounded-md border text-center transition-all ${formData.orderType === 'reservation' ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  <CalendarClock className="inline-block w-4 h-4 mr-1 ml-1" />
+                  حجز منتج
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">الاسم بالكامل <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="أدخل اسمك الكريم"
+                value={formData.fullName}
+                onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                className={`h-9 bg-white ${formErrors.fullName ? 'border-red-500' : ''}`}
+              />
+              {formErrors.fullName && <p className="text-[10px] text-red-500">مطلوب</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-700">رقم الهاتف <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="01xxxxxxxxx"
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                className={`h-9 bg-white ${formErrors.phoneNumber ? 'border-red-500' : ''}`}
+              />
+              {formErrors.phoneNumber && <p className="text-[10px] text-red-500">رقم هاتف غير صحيح</p>}
+            </div>
+
+            {/* Fields for Online Purchase */}
+            {formData.orderType === 'online_purchase' && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-gray-700">المحافظة <span className="text-red-500">*</span></Label>
+                  <Input
+                    placeholder="اسم المحافظة"
+                    value={formData.governorate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, governorate: e.target.value }))}
+                    className={`h-9 bg-white ${formErrors.governorate ? 'border-red-500' : ''}`}
+                  />
+                  {formErrors.governorate && <p className="text-[10px] text-red-500">مطلوب</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-gray-700">العنوان بالتفصيل <span className="text-red-500">*</span></Label>
+                  <Textarea
+                    placeholder="اسم الشارع، رقم العمارة، علامة مميزة..."
+                    value={formData.address}
+                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                    className={`min-h-[60px] bg-white resize-none ${formErrors.address ? 'border-red-500' : ''}`}
+                  />
+                  {formErrors.address && <p className="text-[10px] text-red-500">مطلوب</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-gray-700">ملاحظات <span className="text-gray-400 font-normal">(اختياري)</span></Label>
+                  <Textarea
+                    placeholder="أي تعليمات إضافية..."
+                    value={formData.notes || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    className="min-h-[40px] bg-white resize-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Fields for Reservation */}
+            {formData.orderType === 'reservation' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-gray-700">تاريخ الحجز <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="date"
+                      value={formData.appointmentDate}
+                      min={new Date().toISOString().split('T')[0]}
+                      max={new Date(new Date().setDate(new Date().getDate() + 2)).toISOString().split('T')[0]}
+                      onChange={(e) => setFormData(prev => ({ ...prev, appointmentDate: e.target.value }))}
+                      className={`h-9 bg-white ${formErrors.appointmentDate ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.appointmentDate && <p className="text-[10px] text-red-500">مطلوب</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-gray-700">الوقت <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="time"
+                      value={formData.appointmentTime}
+                      onChange={(e) => setFormData(prev => ({ ...prev, appointmentTime: e.target.value }))}
+                      className={`h-9 bg-white ${formErrors.appointmentTime ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.appointmentTime && <p className="text-[10px] text-red-500">مطلوب</p>}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-gray-700">ملاحظات <span className="text-gray-400 font-normal">(اختياري)</span></Label>
+                  <Textarea
+                    placeholder="أي تفاصيل أخرى..."
+                    value={formData.notes || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    className="min-h-[40px] bg-white resize-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Submit Button */}
+            <Button
+              className="w-full h-12 text-lg bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all duration-300 mt-2"
+              onClick={handleBuyClick}
+              disabled={maxQuantity <= 0}
+            >
+              {maxQuantity <= 0 ? 'نفذت الكمية' : (
+                <>
+                  <ShoppingCart className="mr-2 h-5 w-5" />
+                  {formData.orderType === 'reservation' ? 'حجز الآن' : 'شراء الآن'}
+                </>
+              )}
+            </Button>
+          </div>
+
 
         </div>
       </div>
