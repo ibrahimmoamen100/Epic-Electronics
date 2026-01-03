@@ -33,38 +33,7 @@ const tools = [
         color: 'text-orange-600',
         bgColor: 'bg-orange-100',
     },
-    {
-        title: 'نظام الكاشير',
-        description: 'واجهة البيع المباشر وإدارة الفواتير اليومية',
-        icon: Calculator,
-        href: '/cashier',
-        color: 'text-green-600',
-        bgColor: 'bg-green-100',
-    },
-    {
-        title: 'تحليل البيانات',
-        description: 'إحصائيات شاملة عن أداء المتجر والمبيعات',
-        icon: BarChart3,
-        href: '/analytics',
-        color: 'text-purple-600',
-        bgColor: 'bg-purple-100',
-    },
-    {
-        title: 'تحليل الأرباح',
-        description: 'تقارير مفصلة عن الأرباح والمبيعات والتكاليف',
-        icon: TrendingUp,
-        href: '/profit-analysis',
-        color: 'text-amber-600',
-        bgColor: 'bg-amber-100',
-    },
-    {
-        title: 'الحضور والانصراف',
-        description: 'تسجيل ومتابعة حضور الموظفين وساعات العمل',
-        icon: Clock,
-        href: '/attendance',
-        color: 'text-indigo-600',
-        bgColor: 'bg-indigo-100',
-    },
+
 ];
 
 const DASHBOARD_PASSWORD = "102030";
