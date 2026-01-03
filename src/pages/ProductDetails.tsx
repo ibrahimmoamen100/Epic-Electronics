@@ -416,7 +416,7 @@ const ProductDetails = () => {
       await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);
 
       // Construct WhatsApp Message
-      const whatsappNumber = "201025423389";
+      const whatsappNumber = "201035783914";
       const orderLines = [
         `1. ${product.name}`,
         `   الكمية: ${quantity}`,
