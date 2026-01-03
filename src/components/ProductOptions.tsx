@@ -434,6 +434,17 @@ export function ProductOptions({
                     className={`h-9 bg-white ${formErrors.governorate ? 'border-red-500' : ''}`}
                   />
                   {formErrors.governorate && <p className="text-[10px] text-red-500">مطلوب</p>}
+
+                  {formData.governorate && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-md flex justify-between items-center text-xs text-blue-800 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <span>
+                        مصاريف الشحن: <span className="font-bold">{['القاهرة', 'القاهره', 'cairo'].includes(formData.governorate.trim().toLowerCase()) ? '100' : '170'} جنيه</span>
+                      </span>
+                      <span>
+                        يوصل في خلال: <span className="font-bold">{['القاهرة', 'القاهره', 'cairo'].includes(formData.governorate.trim().toLowerCase()) ? '24 ساعة' : '48 ساعة'}</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
