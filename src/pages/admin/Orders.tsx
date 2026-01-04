@@ -546,40 +546,74 @@ const AdminOrders = () => {
                     المنتجات ({selectedOrder.items.length})
                   </h3>
                   <div className="space-y-3">
-                    {selectedOrder.items.map((item, idx) => (
-                      <div key={idx} className="flex gap-4 p-4 bg-white border rounded-lg hover:shadow-sm transition-shadow">
-                        <div className="h-20 w-20 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
-                          <img src={item.image} alt={item.productName} className="h-full w-full object-cover" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start">
+                    <div className="border rounded-2xl overflow-hidden bg-white shadow-sm divide-y divide-gray-100">
+                      {selectedOrder.items.map((item, idx) => (
+                        <div key={idx} className="flex gap-4 p-5 hover:bg-gray-50/60 transition-colors group items-start">
+                          {/* Product Image */}
+                          <div className="relative h-24 w-24 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden border border-gray-100 shadow-sm">
+                            <img
+                              src={item.image}
+                              alt={item.productName}
+                              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          </div>
+
+                          {/* Product Details */}
+                          <div className="flex-1 min-w-0 flex flex-col h-full justify-between">
                             <div>
-                              <h4 className="font-medium text-gray-900 truncate">{item.productName}</h4>
-                              {item.selectedSize && (
-                                <Badge variant="outline" className="mt-1 text-xs font-normal mr-2">
-                                  {item.selectedSize.label}
-                                </Badge>
-                              )}
-                            </div>
-                            <span className="font-semibold">{formatCurrency(item.totalPrice || (item.price * item.quantity), 'جنيه')}</span>
-                          </div>
+                              {/* Header: Name */}
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-bold text-gray-900 text-lg leading-tight">
+                                  {item.productName}
+                                </h4>
+                              </div>
 
-                          {item.selectedAddons && item.selectedAddons.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {item.selectedAddons.map((addon, i) => (
-                                <span key={i} className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full border border-green-100">
-                                  + {addon.label}
+                              {/* Options (Size & Addons) */}
+                              <div className="flex flex-wrap items-center gap-2 mb-3">
+                                {/* Size Badge */}
+                                {item.selectedSize && (
+                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-50 border border-blue-100 text-blue-700 text-sm font-medium">
+                                    <span className="opacity-70">الحجم:</span>
+                                    <span>{item.selectedSize.label}</span>
+                                  </div>
+                                )}
+
+                                {/* Addons List */}
+                                {item.selectedAddons && item.selectedAddons.map((addon, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-amber-50 border border-amber-100 text-amber-800 text-sm font-medium"
+                                  >
+                                    {addon.label}
+                                    {addon.price_delta > 0 && (
+                                      <span className="text-amber-600 font-bold mr-1 text-xs">
+                                        (+{formatCurrency(addon.price_delta, '')})
+                                      </span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Footer: Financials */}
+                            <div className="mt-2 flex items-center justify-between pt-3 border-t border-gray-100 border-dashed">
+                              <div className="flex items-center gap-2 bg-gray-100/50 px-3 py-1.5 rounded-lg border border-gray-100">
+                                <span className="text-xs text-muted-foreground font-medium">الكمية:</span>
+                                <span className="font-bold text-gray-900 text-sm">{item.quantity}</span>
+                                <span className="text-xs text-muted-foreground">× {formatCurrency(item.price, 'جنيه')}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-500 font-medium">الإجمالي:</span>
+                                <span className="font-black text-xl text-primary bg-primary/5 px-3 py-1 rounded-lg border border-primary/10 dashed">
+                                  {formatCurrency(item.totalPrice || (item.price * item.quantity), 'جنيه')}
                                 </span>
-                              ))}
+                              </div>
                             </div>
-                          )}
-
-                          <div className="mt-2 text-sm text-muted-foreground">
-                            {item.quantity} × {formatCurrency(item.price, 'جنيه')}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

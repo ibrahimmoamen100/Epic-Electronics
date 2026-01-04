@@ -20,4 +20,4 @@ export const verifyPassword = (
 };
 
 // The hashed version of the admin password (45086932)
-export const ADMIN_PASSWORD_HASH = hashPassword("45086932");
+export const ADMIN_PASSWORD_HASH = hashPassword("102030");
