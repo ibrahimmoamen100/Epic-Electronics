@@ -29,6 +29,8 @@ import {
   HardDrive,
   Clock,
   CheckCircle,
+  Monitor,
+  Cpu,
 } from "lucide-react";
 import {
   Dialog,
@@ -757,9 +759,31 @@ const ProductDetails = () => {
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
-                  <Badge variant="secondary" className="text-xs">
-                    {product.category}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary" className="text-xs font-medium">
+                      {product.category}
+                    </Badge>
+
+                    {product.display?.sizeInches && (
+                      <Badge variant="outline" className="text-xs gap-1.5 py-1 px-2.5 bg-white/50 backdrop-blur-sm border-gray-200 hover:border-blue-200 transition-colors">
+                        <Monitor className="w-3.5 h-3.5 text-blue-500" />
+                        <span>{product.display.sizeInches} بوصه</span>
+                      </Badge>
+                    )}
+
+                    {product.processor?.processorSeries && (
+                      <Badge variant="outline" className="text-xs gap-1.5 py-1 px-2.5 bg-white/50 backdrop-blur-sm border-gray-200 hover:border-purple-200 transition-colors">
+                        <Cpu className="w-3.5 h-3.5 text-purple-500" />
+                        {product.processor.processorSeries}
+                      </Badge>
+                    )}
+
+                    {product.processor?.processorGeneration && (
+                      <Badge variant="outline" className="text-xs py-1 px-2.5 bg-blue-50/50 text-blue-700 border-blue-100 hover:bg-blue-50 transition-colors">
+                        {product.processor.processorGeneration.replace(/(\d+)(?:st|nd|rd|th)?\s*Gen(?:eration)?/i, "الجيل $1")}
+                      </Badge>
+                    )}
+                  </div>
                   <h1 className="text-3xl font-bold text-gray-900">
                     {product.name}
                   </h1>

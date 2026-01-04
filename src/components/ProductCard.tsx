@@ -1,6 +1,6 @@
 import { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { Eye, ShoppingCart, Timer, Package, AlertTriangle } from "lucide-react";
+import { Eye, ShoppingCart, Timer, Package, AlertTriangle, Monitor, Cpu } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
@@ -40,9 +40,9 @@ export const ProductCard = ({
   const isLowStock = availableQuantity > 0 && availableQuantity <= 5;
 
   // Check if product has options (colors, sizes, or addons)
-  const hasOptions = (product.color && product.color.trim() !== '') || 
-                    (product.sizes && product.sizes.length > 0) || 
-                    (product.addons && product.addons.length > 0);
+  const hasOptions = (product.color && product.color.trim() !== '') ||
+    (product.sizes && product.sizes.length > 0) ||
+    (product.addons && product.addons.length > 0);
 
   // Calculate time remaining for special offers
   useEffect(() => {
@@ -122,7 +122,7 @@ export const ProductCard = ({
         },
         cancel: {
           label: t("cart.continueShopping"),
-          onClick: () => {},
+          onClick: () => { },
         },
         duration: 5000,
         dismissible: true,
@@ -144,8 +144,8 @@ export const ProductCard = ({
     product.specialOffer && product.discountPrice
       ? product.discountPrice
       : (product.specialOffer && product.discountPercentage
-          ? product.price - product.price * (product.discountPercentage / 100)
-          : null);
+        ? product.price - product.price * (product.discountPercentage / 100)
+        : null);
 
   // Get current image for display
   const currentImage = product.images?.[currentImageIndex] || product.images?.[0] || '/placeholder.svg';
@@ -179,7 +179,7 @@ export const ProductCard = ({
   };
 
   return (
-    <motion.div 
+    <motion.div
       className={`group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-lg ${isOutOfStock ? 'opacity-60' : ''} h-[450px] flex flex-col`}
       onMouseEnter={() => {
         // Show second image on hover if available
@@ -201,20 +201,20 @@ export const ProductCard = ({
           className="h-full w-full object-contain transition-all duration-500 group-hover:scale-105"
           loading="lazy"
         />
-        
+
         {/* Stock Status Badge */}
         {isOutOfStock && (
           <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
             نفذت الكمية
           </div>
         )}
-        
+
         {isLowStock && !isOutOfStock && (
           <div className="absolute top-2 left-2 bg-orange-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
             كمية محدودة
           </div>
         )}
-        
+
         {product.specialOffer && timeRemaining && (
           <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
             -{product.discountPercentage}%
@@ -238,26 +238,46 @@ export const ProductCard = ({
 
         </div>
       </div>
-      
+
       <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between">
         <div className="space-y-2 flex-1">
           <Link to={`/product/${product.id}`} className="text-sm text-primary hover:underline sm:text-base text-gray-600 line-clamp-1">
-          <h3 className="font-semibold text-sm sm:text-base line-clamp-2 transition-colors duration-300 leading-tight ">
-            {product.name || 'Unnamed Product'}
-          </h3>
+            <h3 className="font-semibold text-sm sm:text-base line-clamp-2 transition-colors duration-300 leading-tight ">
+              {product.name || 'Unnamed Product'}
+            </h3>
           </Link>
           <p className="text-xs sm:text-sm text-gray-600 line-clamp-1">
             {product.brand || 'Unknown Brand'}
           </p>
           {(product.category || product.subcategory) && (
-            <p className="text-xs text-gray-500 line-clamp-1">
-              {product.category}
-              {product.subcategory && (
-                <span className="ml-1">/ {product.subcategory}</span>
-              )}
+            <p className="flex items-center gap-2 text-xs text-gray-500 line-clamp-1">
+              <span>{product.category} {product.subcategory && `/ ${product.subcategory}`}</span>
             </p>
           )}
-          
+
+          {/* Product Specs Badges */}
+          <div className="flex flex-wrap gap-1 mt-1">
+            {product.display?.sizeInches && (
+              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
+                <Monitor className="w-3 h-3 text-blue-500" />
+                <span>{product.display.sizeInches} بوصه</span>
+              </Badge>
+            )}
+
+            {product.processor?.processorSeries && (
+              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
+                <Cpu className="w-3 h-3 text-purple-500" />
+                {product.processor.processorSeries}
+              </Badge>
+            )}
+
+            {product.processor?.processorGeneration && (
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-blue-50/50 text-blue-700 border-blue-100">
+                {product.processor.processorGeneration.replace(/(\d+)(?:st|nd|rd|th)?\s*Gen(?:eration)?/i, "الجيل $1")}
+              </Badge>
+            )}
+          </div>
+
           {/* Price Section */}
           <div className="flex gap-2 items-baseline">
             {discountedPrice !== null ? (
@@ -280,7 +300,7 @@ export const ProductCard = ({
               </p>
             )}
           </div>
-          
+
           {/* Stock Information */}
           <div className="flex items-center gap-1.5">
             <Package className="h-3 w-3 text-gray-500" />
@@ -291,15 +311,15 @@ export const ProductCard = ({
               //   متوفر: {availableQuantity} قطعة
               // </span>
               <span className="text-xs text-gray-600">
-                 In stock
+                In stock
               </span>
             )}
           </div>
-          
+
           {/* Special Offer Timer */}
           {product.specialOffer && timeRemaining && (
             <div className="flex items-center text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-md">
-              <Timer className="h-3 w-3 mr-1" /> 
+              <Timer className="h-3 w-3 mr-1" />
               <span>ينتهي في: {timeRemaining}</span>
             </div>
           )}
@@ -325,16 +345,15 @@ export const ProductCard = ({
             <Eye className="h-4 w-4 mr-1.5 transition-transform duration-200 group-hover/btn:scale-110" />
             <span className="font-medium">تفاصيل</span>
           </Button>
-          
+
           <Button
             size="default"
-            className={`flex-1 text-sm sm:text-sm transition-all duration-200 h-10 sm:h-9 group/btn ${
-              isOutOfStock 
-                ? 'bg-gray-400 hover:bg-gray-500 cursor-not-allowed text-white' 
+            className={`flex-1 text-sm sm:text-sm transition-all duration-200 h-10 sm:h-9 group/btn ${isOutOfStock
+                ? 'bg-gray-400 hover:bg-gray-500 cursor-not-allowed text-white'
                 : product.specialOffer
                   ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg'
                   : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg'
-            }`}
+              }`}
             onClick={handleAddToCart}
             disabled={isOutOfStock || isInCart}
           >
