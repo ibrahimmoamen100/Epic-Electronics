@@ -424,6 +424,7 @@ const ProductDetails = () => {
         `   الكمية: ${quantity}`,
         selectedSize ? `   الحجم: ${selectedSize.label}` : '',
         selectedColor ? `   اللون: ${getColorByName(selectedColor).name}` : '',
+        selectedAddons.length > 0 ? `   الإضافات:\n${selectedAddons.map(addon => `      - ${addon.label} (+${formatCurrency(addon.price_delta, 'جنيه')})`).join('\n')}` : '',
         `   السعر: ${formatCurrency(totalAmount, 'جنيه')}`
       ].filter(Boolean).join('\n');
 

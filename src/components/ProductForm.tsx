@@ -122,6 +122,19 @@ const gamingTechnologiesOptions = [
   "FreeSync", "DirectX 12 Ultimate"
 ];
 
+// Suitable For options
+const suitableForOptions = [
+  "البرمجة",
+  "المونتاج على خفيف",
+  "الجرافيك على خفيف",
+  "الجرافيك القوي",
+  "المونتاج القوي",
+  "التصفح",
+  "البرامج المكتبية",
+  "البرامج الهندسية على خفيف",
+  "البرامج الهندسية على ثقيل"
+];
+
 export function ProductForm({ onSubmit }: ProductFormProps) {
   const { products } = useStore();
   const { t } = useTranslation();
@@ -209,6 +222,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       quantity: 0,
       notes: "",
     },
+    suitableFor: [] as string[],
   };
 
   // Use form persistence hook
@@ -415,6 +429,16 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
     }
   };
 
+  const toggleSuitableFor = (option: string) => {
+    setFormData((prev) => {
+      const current = prev.suitableFor || [];
+      const updated = current.includes(option)
+        ? current.filter((item) => item !== option)
+        : [...current, option];
+      return { ...prev, suitableFor: updated };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -586,6 +610,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
             quantity: finalQuantity,
           };
         })() : null,
+        suitableFor: formData.suitableFor || [],
       };
 
       // Remove id from product data since Firebase will generate it
@@ -1225,6 +1250,53 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+
+        {/* Suitable For Section */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium">يصلح لـ</label>
+          <div className="max-h-60 overflow-y-auto p-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {suitableForOptions.map((option) => {
+                const isSelected = formData.suitableFor?.includes(option);
+                return (
+                  <div
+                    key={option}
+                    onClick={() => toggleSuitableFor(option)}
+                    className={cn(
+                      "flex items-center space-x-3 space-x-reverse p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:bg-accent/50",
+                      isSelected
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-gray-200"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
+                        isSelected
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "border-gray-300 bg-white"
+                      )}
+                    >
+                      {isSelected && <Package className="w-3 h-3" />}
+                    </div>
+                    <span
+                      className={cn(
+                        "text-sm font-medium",
+                        isSelected ? "text-primary" : "text-gray-700"
+                      )}
+                    >
+                      {option}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 px-1">
+              اختر أكثر من اختيار إذا كان الجهاز مناسب لأكثر من استخدام.
+            </p>
           </div>
         </div>
 
@@ -2721,7 +2793,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
         <Button type="submit" className="w-full">
           إضافة المنتج
         </Button>
-      </form>
+      </form >
     </>
   );
 }

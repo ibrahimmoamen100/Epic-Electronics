@@ -43,6 +43,7 @@ export const ProductSchema = z.object({
   costs: z.object({
     base_cost: z.number().optional(), // Base cost for profit calculation
   }).optional(),
+  suitableFor: z.array(z.string()).optional(), // New field for usage categories
   // Processor specifications
   processor: z.object({
     name: z.string().optional(), // Processor name (e.g., "Intel Core i7-12700K")

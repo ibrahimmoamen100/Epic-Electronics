@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PlusCircle, X, Calendar as CalendarIcon } from "lucide-react";
+import { PlusCircle, X, Calendar as CalendarIcon, Package } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -102,6 +102,19 @@ const processorGenerationOptions = [
   "1st Generation", "2nd Generation", "3rd Generation", "4th Generation", "5th Generation",
   "6th Generation", "7th Generation", "8th Generation", "9th Generation", "10th Generation",
   "11th Generation", "12th Generation", "13th Generation", "14th Generation", "15th Generation"
+];
+
+// Suitable For options
+const suitableForOptions = [
+  "البرمجة",
+  "المونتاج على خفيف",
+  "الجرافيك على خفيف",
+  "الجرافيك القوي",
+  "المونتاج القوي",
+  "التصفح",
+  "البرامج المكتبية",
+  "البرامج الهندسية على خفيف",
+  "البرامج الهندسية على ثقيل"
 ];
 
 interface EditProductModalProps {
@@ -363,6 +376,7 @@ export function EditProductModal({
             supplierLocation: product.wholesaleInfo.supplierLocation || "",
           }
           : undefined,
+        suitableFor: product.suitableFor || [],
       });
       setOfferEndDate(
         product.offerEndsAt ? new Date(product.offerEndsAt) : undefined
@@ -469,6 +483,15 @@ export function EditProductModal({
         });
       }
     }
+  };
+
+  const toggleSuitableFor = (option: string) => {
+    if (!formData) return;
+    const current = formData.suitableFor || [];
+    const updated = current.includes(option)
+      ? current.filter((item: string) => item !== option)
+      : [...current, option];
+    setFormData({ ...formData, suitableFor: updated });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -597,6 +620,7 @@ export function EditProductModal({
             ? offerEndDate.toISOString()
             : null,
         createdAt: product?.createdAt || new Date().toISOString(),
+        suitableFor: formData.suitableFor || [],
       };
 
       await onSave(updatedProduct);
@@ -1215,6 +1239,52 @@ export function EditProductModal({
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Suitable For Section */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium">يصلح لـ</label>
+            <div className="max-h-60 overflow-y-auto p-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {suitableForOptions.map((option) => {
+                  const isSelected = formData.suitableFor?.includes(option);
+                  return (
+                    <div
+                      key={option}
+                      onClick={() => toggleSuitableFor(option)}
+                      className={cn(
+                        "flex items-center space-x-3 space-x-reverse p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:bg-accent/50",
+                        isSelected
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-gray-200"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded-md border flex items-center justify-center transition-colors",
+                          isSelected
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-gray-300 bg-white"
+                        )}
+                      >
+                        {isSelected && <Package className="w-3 h-3" />}
+                      </div>
+                      <span
+                        className={cn(
+                          "text-sm font-medium",
+                          isSelected ? "text-primary" : "text-gray-700"
+                        )}
+                      >
+                        {option}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 px-1">
+                اختر أكثر من اختيار إذا كان الجهاز مناسب لأكثر من استخدام.
+              </p>
             </div>
           </div>
 
@@ -2682,6 +2752,6 @@ export function EditProductModal({
           </div>
         </form>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 }
