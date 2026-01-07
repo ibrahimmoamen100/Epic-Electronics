@@ -1,6 +1,6 @@
 import { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { Eye, ShoppingCart, Timer, Package, AlertTriangle, Monitor, Cpu } from "lucide-react";
+import { Eye, ShoppingCart, Timer, Package, AlertTriangle, Monitor, Cpu, CircuitBoard } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
@@ -276,6 +276,22 @@ export const ProductCard = ({
                 {product.processor.processorGeneration.replace(/(\d+)(?:st|nd|rd|th)?\s*Gen(?:eration)?/i, "الجيل $1")}
               </Badge>
             )}
+
+            {product.processor?.integratedGpu && (
+              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
+                <CircuitBoard className="w-3 h-3 text-teal-500" />
+                <span>{product.processor.integratedGpu}</span>
+              </Badge>
+            )}
+
+            {product.dedicatedGraphics && (product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name) && (
+              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
+                <CircuitBoard className="w-3 h-3 text-green-500" />
+                <span>
+                  {product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name} {product.dedicatedGraphics.vram ? `(${product.dedicatedGraphics.vram} GB)` : ''}
+                </span>
+              </Badge>
+            )}
           </div>
 
           {/* Price Section */}
@@ -349,10 +365,10 @@ export const ProductCard = ({
           <Button
             size="default"
             className={`flex-1 text-sm sm:text-sm transition-all duration-200 h-10 sm:h-9 group/btn ${isOutOfStock
-                ? 'bg-gray-400 hover:bg-gray-500 cursor-not-allowed text-white'
-                : product.specialOffer
-                  ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg'
-                  : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg'
+              ? 'bg-gray-400 hover:bg-gray-500 cursor-not-allowed text-white'
+              : product.specialOffer
+                ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg'
+                : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg'
               }`}
             onClick={handleAddToCart}
             disabled={isOutOfStock || isInCart}

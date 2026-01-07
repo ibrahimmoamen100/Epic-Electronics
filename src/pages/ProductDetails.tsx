@@ -31,6 +31,7 @@ import {
   CheckCircle,
   Monitor,
   Cpu,
+  CircuitBoard,
 } from "lucide-react";
 import {
   Dialog,
@@ -782,6 +783,20 @@ const ProductDetails = () => {
                     {product.processor?.processorGeneration && (
                       <Badge variant="outline" className="text-xs py-1 px-2.5 bg-blue-50/50 text-blue-700 border-blue-100 hover:bg-blue-50 transition-colors">
                         {product.processor.processorGeneration.replace(/(\d+)(?:st|nd|rd|th)?\s*Gen(?:eration)?/i, "الجيل $1")}
+                      </Badge>
+                    )}
+
+                    {product.processor?.integratedGpu && (
+                      <Badge variant="outline" className="text-xs gap-1.5 py-1 px-2.5 bg-white/50 backdrop-blur-sm border-gray-200 hover:border-teal-200 transition-colors">
+                        <CircuitBoard className="w-3.5 h-3.5 text-teal-500" />
+                        {product.processor.integratedGpu}
+                      </Badge>
+                    )}
+
+                    {product.dedicatedGraphics && (product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name) && (
+                      <Badge variant="outline" className="text-xs gap-1.5 py-1 px-2.5 bg-white/50 backdrop-blur-sm border-gray-200 hover:border-green-200 transition-colors">
+                        <CircuitBoard className="w-3.5 h-3.5 text-green-500" />
+                        {product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name} {product.dedicatedGraphics.vram ? `(${product.dedicatedGraphics.vram} GB)` : ''}
                       </Badge>
                     )}
                   </div>

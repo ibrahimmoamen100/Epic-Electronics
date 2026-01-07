@@ -196,7 +196,7 @@ export function ProductOptions({
               <Ruler className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">اختر الحجم</h3>
+              <h3 className="text-lg font-semibold text-gray-900"> حجم الرامات</h3>
               <p className="text-sm text-gray-500">اختر الحجم المناسب لك</p>
             </div>
           </div>
