@@ -37,6 +37,7 @@ export const ProductSchema = z.object({
     .optional()
     .default(() => new Date().toISOString()),
   expirationDate: z.string().optional(),
+  videoUrls: z.array(z.string()).optional(), // New field for video links
   // New fields for sizes and addons
   sizes: z.array(ProductSizeSchema).optional().default([]),
   addons: z.array(ProductAddonSchema).optional().default([]),

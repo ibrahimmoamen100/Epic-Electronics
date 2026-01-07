@@ -159,6 +159,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
     expirationDate: undefined as string | undefined,
     sizes: [] as Array<{ id: string; label: string; price: string; extraPrice: string }>,
     addons: [] as Array<{ id: string; label: string; price_delta: string }>,
+    videoUrls: [] as string[],
     baseCost: "",
     processor: {
       name: "",
@@ -242,6 +243,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
   const [colors, setColors] = useState<string[]>([]);
   const [sizes, setSizes] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const [offerEndDate, setOfferEndDate] = useState<Date | undefined>(undefined);
   const [customBrand, setCustomBrand] = useState("");
   const [customSubcategory, setCustomSubcategory] = useState("");
@@ -401,6 +403,20 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
     setFormData({
       ...formData,
       images: formData.images.filter((url) => url !== urlToRemove),
+    });
+  };
+
+  const addVideoUrl = () => {
+    if (videoUrl && !formData.videoUrls?.includes(videoUrl)) {
+      setFormData({ ...formData, videoUrls: [...(formData.videoUrls || []), videoUrl] });
+      setVideoUrl("");
+    }
+  };
+
+  const removeVideo = (urlToRemove: string) => {
+    setFormData({
+      ...formData,
+      videoUrls: (formData.videoUrls || []).filter((url) => url !== urlToRemove),
     });
   };
 
@@ -611,6 +627,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
           };
         })() : null,
         suitableFor: formData.suitableFor || [],
+        videoUrls: formData.videoUrls || [],
       };
 
       // Remove id from product data since Firebase will generate it
@@ -624,6 +641,7 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
       setColors([]);
       setSizes([]);
       setImageUrl("");
+      setVideoUrl("");
       setOfferEndDate(undefined);
       setCustomBrand("");
       setCustomSubcategory("");
@@ -1158,6 +1176,44 @@ export function ProductForm({ onSubmit }: ProductFormProps) {
           </div>
         </div>
       </div> */}
+
+        <div>
+          <label className="text-sm font-medium">فيديوهات المنتج</label>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="أدخل رابط الفيديو (YouTube, Facebook, etc)"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                onClick={addVideoUrl}
+                variant="outline"
+                className="flex gap-1 items-center"
+              >
+                <PlusCircle className="h-4 w-4" />
+                إضافة
+              </Button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {(formData.videoUrls || []).map((url, index) => (
+                <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border">
+                  <span className="text-sm truncate flex-1 ml-2" dir="ltr">{url}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeVideo(url)}
+                    className="p-1 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         <div>
           <label className="text-sm font-medium">الصور</label>

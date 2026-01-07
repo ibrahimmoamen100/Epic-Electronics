@@ -32,6 +32,8 @@ import {
   Monitor,
   Cpu,
   CircuitBoard,
+  Play,
+  Film,
 } from "lucide-react";
 import {
   Dialog,
@@ -165,13 +167,23 @@ const ProductDetails = () => {
     return mapping;
   }, [availableColors, product?.images]);
 
-  // Get current image based on selected color or selected image index
-  const currentImage = useMemo(() => {
+  // Combine videos and images into a single media array
+  const mediaItems = useMemo(() => {
+    const videos = (product?.videoUrls || []).map(url => ({ type: 'video' as const, url }));
+    const images = (product?.images || []).map(url => ({ type: 'image' as const, url }));
+    return [...videos, ...images];
+  }, [product?.videoUrls, product?.images]);
+
+  // Get current image/video based on selected color or selected image index
+  const currentMedia = useMemo(() => {
     if (availableColors.length > 1 && selectedColor && colorImageMapping[selectedColor]) {
-      return colorImageMapping[selectedColor];
+      return { type: 'image' as const, url: colorImageMapping[selectedColor] };
     }
-    return product?.images[selectedImage] || product?.images[0];
-  }, [selectedColor, colorImageMapping, selectedImage, product?.images, availableColors.length]);
+    return mediaItems[selectedImage] || mediaItems[0];
+  }, [selectedColor, colorImageMapping, selectedImage, mediaItems, availableColors.length]);
+
+  const currentImage = currentMedia?.url;
+  const isCurrentVideo = currentMedia?.type === 'video';
 
   // Helper to check if addons match
   const areAddonsMatching = useCallback((itemAddons: ProductAddon[], targetAddons: ProductAddon[]) => {
@@ -605,16 +617,36 @@ const ProductDetails = () => {
             {/* Main Image */}
             <div className="aspect-[4/5] w-full rounded-2xl overflow-hidden relative group bg-white ">
               <AnimatePresence mode="wait">
-                <motion.img
+                <motion.div
                   key={currentImage}
-                  src={currentImage}
-                  alt={product.name}
-                  className="h-full w-full object-contain"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.05 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   transition={{ duration: 0.3 }}
-                />
+                  className="h-full w-full flex items-center justify-center bg-black/5"
+                >
+                  {isCurrentVideo ? (
+                    <div className="w-full h-full relative group">
+                      <iframe
+                        src={currentImage.includes("youtube") || currentImage.includes("youtu.be")
+                          ? currentImage.replace("watch?v=", "embed/").replace("youtu.be/", "www.youtube.com/embed/")
+                          : currentImage.includes("facebook")
+                            ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(currentImage)}&show_text=0`
+                            : currentImage}
+                        title="Product Video"
+                        className="w-full h-full rounded-2xl"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={currentImage}
+                      alt={product.name}
+                      className="h-full w-full object-contain mix-blend-multiply"
+                    />
+                  )}
+                </motion.div>
               </AnimatePresence>
 
               {/* Wishlist Button */}
@@ -670,20 +702,20 @@ const ProductDetails = () => {
               )}
             </div>
 
-            {/* Thumbnails - Show all images */}
-            {product.images && product.images.length > 1 && (
+            {/* Thumbnails - Show all media */}
+            {mediaItems.length > 1 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-gray-700">معرض الصور</h4>
+                  <h4 className="text-sm font-medium text-gray-700">معرض الصور والفيديو</h4>
                   <span className="text-xs text-gray-500">
-                    {product.images.length} صورة
+                    {mediaItems.length} عنصر
                   </span>
                 </div>
 
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                  {product.images.map((image, index) => {
+                  {mediaItems.map((item, index) => {
                     const isSelected = availableColors.length > 1
-                      ? (selectedColor && colorImageMapping[selectedColor] === image) ||
+                      ? (item.type === 'image' && selectedColor && colorImageMapping[selectedColor] === item.url) ||
                       (!selectedColor && index === selectedImage)
                       : index === selectedImage;
 
@@ -691,16 +723,20 @@ const ProductDetails = () => {
                       <motion.button
                         key={index}
                         onClick={() => {
-                          if (availableColors.length > 1) {
+                          if (item.type === 'image' && availableColors.length > 1) {
                             // Find the color that corresponds to this image
                             const correspondingColor = availableColors.find(color =>
-                              colorImageMapping[color] === image
+                              colorImageMapping[color] === item.url
                             );
                             if (correspondingColor) {
                               setSelectedColor(correspondingColor);
+                            } else {
+                              setSelectedImage(index);
+                              setSelectedColor(""); // Reset color if clicking unrelated image
                             }
                           } else {
                             setSelectedImage(index);
+                            if (availableColors.length > 1) setSelectedColor(""); // Reset color if clicking video
                           }
                         }}
                         className={`group relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-200 ${isSelected
@@ -710,16 +746,25 @@ const ProductDetails = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <img
-                          src={image}
-                          alt={`${product.name} - صورة ${index + 1}`}
-                          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                        />
+                        {item.type === 'video' ? (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 relative">
+                            <Film className="w-6 h-6 text-gray-500" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                              <Play className="w-6 h-6 text-white fill-white opacity-80" />
+                            </div>
+                          </div>
+                        ) : (
+                          <img
+                            src={item.url}
+                            alt={`${product.name} - ${index + 1}`}
+                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          />
+                        )}
 
                         {/* Selection indicator */}
                         {isSelected && (
                           <motion.div
-                            className="absolute inset-0 bg-primary/20 flex items-center justify-center"
+                            className="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.15 }}
@@ -730,19 +775,19 @@ const ProductDetails = () => {
                           </motion.div>
                         )}
 
-                        {/* Color indicator overlay - only show if multiple colors */}
-                        {availableColors.length > 1 && (
+                        {/* Color indicator overlay - only for images linked to colors */}
+                        {item.type === 'image' && availableColors.length > 1 && availableColors.some(c => colorImageMapping[c] === item.url) && (
                           <div className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-white shadow-sm"
-                            style={{ backgroundColor: availableColors[index] || '#ccc' }} />
+                            style={{
+                              backgroundColor: availableColors.find(c => colorImageMapping[c] === item.url) || '#ccc'
+                            }}
+                          />
                         )}
 
-                        {/* Image number badge - smaller and more subtle */}
-                        <div className="absolute top-1 left-1 w-4 h-4 bg-black/60 text-white text-xs rounded-full flex items-center justify-center font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        {/* Image number badge */}
+                        <div className="absolute top-1 left-1 w-4 h-4 bg-black/60 text-white text-xs rounded-full flex items-center justify-center font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                           {index + 1}
                         </div>
-
-                        {/* Hover overlay */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all duration-200" />
                       </motion.button>
                     );
                   })}

@@ -136,6 +136,7 @@ export function EditProductModal({
   const [colors, setColors] = useState<string[]>([]);
   const [sizes, setSizes] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const [offerEndDate, setOfferEndDate] = useState<Date | undefined>(undefined);
   const [customBrand, setCustomBrand] = useState("");
   const [customCategory, setCustomCategory] = useState("");
@@ -377,6 +378,7 @@ export function EditProductModal({
           }
           : undefined,
         suitableFor: product.suitableFor || [],
+        videoUrls: product.videoUrls || [],
       });
       setOfferEndDate(
         product.offerEndsAt ? new Date(product.offerEndsAt) : undefined
@@ -409,6 +411,7 @@ export function EditProductModal({
       setFormData(null);
       setColors([]);
       setSizes([]);
+      setVideoUrl("");
       setOfferEndDate(undefined);
       setCustomBrand("");
       setCustomCategory("");
@@ -453,7 +456,23 @@ export function EditProductModal({
     if (formData) {
       setFormData({
         ...formData,
-        images: formData.images.filter((url) => url !== urlToRemove),
+        images: formData.images.filter((url: string) => url !== urlToRemove),
+      });
+    }
+  };
+
+  const addVideoUrl = () => {
+    if (videoUrl && formData && !formData.videoUrls?.includes(videoUrl)) {
+      setFormData({ ...formData, videoUrls: [...(formData.videoUrls || []), videoUrl] });
+      setVideoUrl("");
+    }
+  };
+
+  const removeVideo = (urlToRemove: string) => {
+    if (formData) {
+      setFormData({
+        ...formData,
+        videoUrls: (formData.videoUrls || []).filter((url: string) => url !== urlToRemove),
       });
     }
   };
@@ -621,6 +640,7 @@ export function EditProductModal({
             : null,
         createdAt: product?.createdAt || new Date().toISOString(),
         suitableFor: formData.suitableFor || [],
+        videoUrls: formData.videoUrls || [],
       };
 
       await onSave(updatedProduct);
@@ -1149,6 +1169,44 @@ export function EditProductModal({
               </div>
             </div>
           </div> */}
+
+          <div>
+            <label className="text-sm font-medium">Product Videos</label>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="Enter video URL (YouTube, Facebook, etc)"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={addVideoUrl}
+                  variant="outline"
+                  className="flex gap-1 items-center"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Add
+                </Button>
+              </div>
+              <div className="mt-2 space-y-2">
+                {(formData.videoUrls || []).map((url: string, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border">
+                    <span className="text-sm truncate flex-1 ml-2" dir="ltr">{url}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeVideo(url)}
+                      className="p-1 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <div>
             <label className="text-sm font-medium">Images</label>
