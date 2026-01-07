@@ -282,7 +282,7 @@ export function ProductOptions({
       )}
 
       {/* Final Price and Purchase Container */}
-      <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-6 border border-primary/20">
+      <div id="checkout-form-section" className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-6 border border-primary/20 scroll-mt-36">
         <div className="flex flex-col gap-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -291,12 +291,12 @@ export function ProductOptions({
                 <ShoppingBag className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">السعر النهائي</h3>
-                <p className="text-sm text-gray-500">شامل جميع الخيارات المختارة</p>
+                <h3 className="text-base font-semibold text-gray-900">السعر النهائي</h3>
+                <p className="text-xs text-gray-500">شامل جميع الخيارات المختارة</p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold text-primary">
+              <div className="text-2xl font-bold text-primary">
                 {formatCurrency(currentPrice * quantity, 'جنيه')}
               </div>
               {/* Show original price if discounted */}
@@ -372,10 +372,9 @@ export function ProductOptions({
           )}
 
 
-          <Separator />
 
           {/* Checkout Form */}
-          <div className="space-y-4 pt-4 border-t border-primary/10">
+          <div id="checkout-input-fields" className="space-y-4 scroll-mt-32">
             {/* Order Type Selection - First Field */}
             <div className="space-y-2">
               <Label className="text-xs font-semibold text-gray-700">نوع الطلب</Label>
@@ -428,14 +427,14 @@ export function ProductOptions({
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-gray-700">المحافظة <span className="text-red-500">*</span></Label>
                   <Input
-                    placeholder="اسم المحافظة"
+                    placeholder="اسم المحافظة كامل..."
                     value={formData.governorate}
                     onChange={(e) => setFormData(prev => ({ ...prev, governorate: e.target.value }))}
                     className={`h-9 bg-white ${formErrors.governorate ? 'border-red-500' : ''}`}
                   />
                   {formErrors.governorate && <p className="text-[10px] text-red-500">مطلوب</p>}
 
-                  {formData.governorate && (
+                  {formData.governorate ? (
                     <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-md flex justify-between items-center text-xs text-blue-800 animate-in fade-in slide-in-from-top-1 duration-200">
                       <span>
                         مصاريف الشحن: <span className="font-bold">{['القاهرة', 'القاهره', 'cairo'].includes(formData.governorate.trim().toLowerCase()) ? '100' : '170'} جنيه</span>
@@ -444,6 +443,9 @@ export function ProductOptions({
                         يوصل في خلال: <span className="font-bold">{['القاهرة', 'القاهره', 'cairo'].includes(formData.governorate.trim().toLowerCase()) ? '24 ساعة' : '48 ساعة'}</span>
                       </span>
                     </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      اكتب اسم محافظتك كامل و هيظهرلك جميع تفاصيل الشحن والتوصيل                   </p>
                   )}
                 </div>
 

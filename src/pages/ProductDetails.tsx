@@ -58,6 +58,7 @@ import { formatCurrency } from "@/utils/format";
 import { commonColors, getColorByName } from "@/constants/colors";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { createPortal } from "react-dom";
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -75,6 +76,8 @@ const ProductDetails = () => {
   const [finalPrice, setFinalPrice] = useState(0);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPurchaseVisible, setIsPurchaseVisible] = useState(false);
+  const [isSpecsVisible, setIsSpecsVisible] = useState(false);
 
   const products = useStore((state) => state.products);
   const loading = useStore((state) => state.loading);
@@ -90,6 +93,13 @@ const ProductDetails = () => {
 
   // Find current product
   const product = products.find((p) => p.id === id);
+
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   // Parse available colors and create color-image mapping
   const availableColors = useMemo(() =>
@@ -155,6 +165,31 @@ const ProductDetails = () => {
       }
     }
   }, [products, product, navigate, id]);
+
+  // Track visibility of sections to hide sticky buttons
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.target.id === 'checkout-input-fields') {
+            setIsPurchaseVisible(entry.isIntersecting);
+          }
+          if (entry.target.id === 'specs-section') {
+            setIsSpecsVisible(entry.isIntersecting);
+          }
+        });
+      },
+      { threshold: 0.2, rootMargin: "-100px 0px 0px 0px" }
+    );
+
+    const purchaseSection = document.getElementById('checkout-input-fields');
+    const specsSection = document.getElementById('specs-section');
+
+    if (purchaseSection) observer.observe(purchaseSection);
+    if (specsSection) observer.observe(specsSection);
+
+    return () => observer.disconnect();
+  }, [product, modalOpen]); // Re-run when product loads or modals might change layout
 
   // Create mapping between colors and images
   const colorImageMapping = useMemo(() => {
@@ -1120,7 +1155,7 @@ const ProductDetails = () => {
 
         {/* Processor Specifications */}
         {product.processor && (
-          <div className="mb-16">
+          <div id="specs-section" className="mb-16 scroll-mt-24">
             <Separator className="mb-8" />
             <div className="max-w-4xl mx-auto">
               <h2 className="text-2xl font-bold mb-6 text-gray-900">مواصفات المعالج</h2>
@@ -1389,7 +1424,44 @@ const ProductDetails = () => {
         </div>
       </main>
 
-      <Footer />
+      <ProductModal
+        product={selectedProduct}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
+
+      {/* Sticky Bottom Navigation - Rendered in Portal to avoid parent stacking contexts */}
+      {createPortal(
+        <div className="fixed bottom-4 left-4 right-4 z-[100] md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-sm animate-in slide-in-from-bottom-4 duration-500 pointer-events-none">
+          <div className={`rounded-full bg-white/90 backdrop-blur-xl border border-gray-200/50 shadow-2xl p-1.5 flex items-center justify-between gap-2 pointer-events-auto transition-all duration-300 ${isPurchaseVisible && isSpecsVisible ? 'opacity-0 translate-y-10' : 'opacity-100'}`}>
+            <div className={`flex-1 transition-all duration-300 ${isPurchaseVisible ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
+              <Button
+                onClick={() => scrollToSection('checkout-input-fields')}
+                className="w-full rounded-full h-9 text-xs font-bold shadow-md bg-primary hover:bg-primary/90 transition-all active:scale-95"
+              >
+                <ShoppingCart className="ml-1.5 h-3.5 w-3.5" />
+                شراء / حجز
+              </Button>
+            </div>
+            <div className={`flex-1 transition-all duration-300 ${isSpecsVisible ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
+              <Button
+                variant="ghost"
+                onClick={() => scrollToSection('specs-section')}
+                className="w-full rounded-full h-9 text-xs font-bold hover:bg-gray-100/80 text-gray-700 transition-all active:scale-95"
+              >
+                <CheckCircle className="ml-1.5 h-3.5 w-3.5" />
+                المواصفات
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Footer is below */}
+      <div className="pb-24">
+        <Footer />
+      </div>
 
       <ProductModal
         product={selectedProduct}
