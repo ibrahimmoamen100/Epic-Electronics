@@ -8,11 +8,19 @@ interface Order {
   items: any[];
   total: number;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  type?: 'online' | 'reservation'; // Added type
   deliveryInfo: {
     fullName: string;
     phoneNumber: string;
     address: string;
     city: string;
+    notes?: string;
+  };
+  reservationInfo?: {
+    fullName: string;
+    phoneNumber: string;
+    appointmentDate: string;
+    appointmentTime: string;
     notes?: string;
   };
   createdAt: Date;
@@ -39,10 +47,10 @@ export const useRevenue = () => {
       setError(null);
       const ordersRef = collection(db, 'orders');
       const q = query(ordersRef, orderBy('createdAt', 'desc'));
-      
+
       const querySnapshot = await getDocs(q);
       const ordersData: Order[] = [];
-      
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         ordersData.push({
@@ -52,7 +60,7 @@ export const useRevenue = () => {
           updatedAt: data.updatedAt?.toDate?.() || data.updatedAt || new Date(),
         } as Order);
       });
-      
+
       setOrders(ordersData);
     } catch (error) {
       console.error('Error fetching orders:', error);

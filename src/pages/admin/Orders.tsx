@@ -74,11 +74,19 @@ interface Order {
   items: OrderItem[];
   total: number;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  type?: 'online' | 'reservation'; // Added type
   deliveryInfo: {
     fullName: string;
     phoneNumber: string;
     address: string;
     city: string;
+    notes?: string;
+  };
+  reservationInfo?: { // Added reservationInfo
+    fullName: string;
+    phoneNumber: string;
+    appointmentDate: string;
+    appointmentTime: string;
     notes?: string;
   };
   createdAt: Date;
@@ -492,20 +500,56 @@ const AdminOrders = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">الهاتف:</span>
-                        <span className="font-medium">{selectedOrder.deliveryInfo.phoneNumber}</span>
+                        <span className="font-medium text-right font-mono" dir="ltr">{selectedOrder.deliveryInfo.phoneNumber}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">الموقع:</span>
-                        <span className="font-medium text-right">{selectedOrder.deliveryInfo.city}</span>
-                      </div>
-                      <div className="pt-2 border-t">
-                        <p className="text-muted-foreground mb-1">العنوان بالتفصيل:</p>
-                        <p className="font-medium leading-relaxed">{selectedOrder.deliveryInfo.address}</p>
-                      </div>
-                      {selectedOrder.deliveryInfo.notes && (
+
+                      {selectedOrder.type === 'reservation' && selectedOrder.reservationInfo ? (
+                        <>
+                          <div className="pt-2 border-t mt-2">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                حجز موعد
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-white p-2.5 rounded border">
+                                <p className="text-xs text-muted-foreground mb-1">تاريخ الحجز</p>
+                                <div className="font-medium flex items-center gap-1.5">
+                                  <Calendar className="h-3.5 w-3.5 text-blue-500" />
+                                  {selectedOrder.reservationInfo.appointmentDate}
+                                </div>
+                              </div>
+                              <div className="bg-white p-2.5 rounded border">
+                                <p className="text-xs text-muted-foreground mb-1">وقت الحجز</p>
+                                <div className="font-medium flex items-center gap-1.5">
+                                  <Clock className="h-3.5 w-3.5 text-blue-500" />
+                                  {selectedOrder.reservationInfo.appointmentTime}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">الموقع:</span>
+                            <span className="font-medium text-right">{selectedOrder.deliveryInfo.city}</span>
+                          </div>
+                          <div className="pt-2 border-t">
+                            <p className="text-muted-foreground mb-1">العنوان بالتفصيل:</p>
+                            <p className="font-medium leading-relaxed">{selectedOrder.deliveryInfo.address}</p>
+                          </div>
+                        </>
+                      )}
+
+                      {(selectedOrder.deliveryInfo.notes || selectedOrder.reservationInfo?.notes) && (
                         <div className="pt-2 border-t">
                           <p className="text-muted-foreground mb-1">ملاحظات:</p>
-                          <p className="font-medium text-amber-600">{selectedOrder.deliveryInfo.notes}</p>
+                          <p className="font-medium text-amber-600">
+                            {selectedOrder.type === 'reservation' && selectedOrder.reservationInfo?.notes
+                              ? selectedOrder.reservationInfo.notes
+                              : selectedOrder.deliveryInfo.notes}
+                          </p>
                         </div>
                       )}
                     </div>
