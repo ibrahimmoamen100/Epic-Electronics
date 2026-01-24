@@ -19,7 +19,6 @@ import {
   Minus,
   ChevronLeft,
   ChevronRight,
-  Heart,
   Star,
   Truck,
   Shield,
@@ -34,6 +33,8 @@ import {
   CircuitBoard,
   Play,
   Film,
+  Settings2,
+  ClipboardCopy,
 } from "lucide-react";
 import {
   Dialog,
@@ -74,7 +75,6 @@ const ProductDetails = () => {
   const [selectedAddons, setSelectedAddons] = useState<ProductAddon[]>([]);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [finalPrice, setFinalPrice] = useState(0);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isPurchaseVisible, setIsPurchaseVisible] = useState(false);
   const [isSpecsVisible, setIsSpecsVisible] = useState(false);
@@ -590,9 +590,91 @@ const ProductDetails = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`);
   };
 
-  const toggleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
-    toast.success(isWishlisted ? "تم إزالة المنتج من المفضلة" : "تم إضافة المنتج إلى المفضلة");
+  const handleCopySpecs = async () => {
+    if (!product) return;
+
+    // 1. Prepare Data
+    const brand = product.brand;
+    const category = product.subcategory || product.category; // Preference to subcategory/series
+    const processor = `${product.processor?.name || ''} ${product.processor?.processorGeneration ? `– ${product.processor.processorGeneration}` : ''}`.trim();
+
+    // Graphics
+    const internalGpu = product.processor?.integratedGpu || 'غير محدد';
+    const externalGpu = product.dedicatedGraphics?.hasDedicatedGraphics
+      ? `${product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name || ''} – ${product.dedicatedGraphics.vram ? `${product.dedicatedGraphics.vram}GB VRAM` : ''}`
+      : 'غير متوفر';
+
+    // Storage (Extract from name as fallback if not explicit, currently assume part of standard descriptions or name)
+    let storage = 'SSD M.2 – 256GB'; // Default fallback
+
+    // Attempt to extract storage from name with better precision
+    // 1. Look for patterns like "SSD 256", "SSD 512GB", "HDD 1TB" (Type keyword followed by size)
+    const storageTypeFirst = product.name.match(/(?:SSD|HDD|NVMe)\s*[-:]?\s*(\d+\s*(?:GB|TB)?)/i);
+
+    // 2. Look for patterns like "256GB SSD", "512 GB NVMe" (Size with unit followed by type)
+    const storageSizeFirst = product.name.match(/(\d+\s*(?:GB|TB))\s*(?:SSD|HDD|NVMe)/i);
+
+    if (storageTypeFirst) {
+      let cap = storageTypeFirst[1];
+      // If found text is just a number (e.g. "256"), append "GB"
+      if (!/g|t/i.test(cap)) {
+        cap += 'GB';
+      }
+      storage = `SSD M.2 – ${cap}`;
+    } else if (storageSizeFirst) {
+      storage = `SSD M.2 – ${storageSizeFirst[1]}`;
+    }
+
+    // Display
+    const display = product.display?.sizeInches ? `${product.display.sizeInches} بوصة` : '';
+
+    // Special Features (Static check or dynamic if available)
+    const features = product.description?.includes('360') || product.name.includes('360') || product.name.includes('x360')
+      ? 'يدعم اللمس واللف 360 درجة'
+      : (product.display?.resolution ? `دقة الشاشة ${product.display.resolution}` : '');
+
+    // 2. Format RAM & Prices
+    // Sort sizes by price
+    const sortedSizes = [...(product.sizes || [])].sort((a, b) => a.price - b.price);
+
+    const ramSection = sortedSizes.length > 0
+      ? `\n💾 الرامات والأسعار:\n${sortedSizes.map(size => `• برام ${size.label} بسعر: ${formatCurrency(size.price, 'جنيه')}`).join('\n')}`
+      : `\n💰 السعر: ${formatCurrency(finalPrice, 'جنيه')}`;
+
+    // 3. Construct Final Text
+    const textLines = [
+      `🔹 الماركة: ${brand}`,
+      `🔹 الفئة: ${category}`,
+      processor ? `🔹 المعالج: ${processor}` : null,
+      `🔹 كرت الشاشة الداخلي: ${internalGpu}`,
+      externalGpu !== 'غير متوفر' ? `🔹 كرت الشاشة الخارجي: ${externalGpu}` : null,
+      `🔹 التخزين: ${storage}`,
+      display ? `🔹 الشاشة: ${display}` : null,
+      features ? `🔹 ${features}` : null,
+      ramSection,
+      '',
+      '📸 يمكنك مشاهدة صور وفيديو اللابتوب والمواصفات كاملة',
+      '🛒 مع إمكانية الشراء من خلال اللينك الرسمي على متجر شركة الحمد',
+      `🔗 ${window.location.href}`,
+      '',
+      'أو يمكن الشراء من هنا 👇',
+      'فقط اترك اسمك، عنوانك، ورقم تليفونك',
+      '',
+      '🚚 مصاريف الشحن:',
+      '• داخل القاهرة: 100 جنيه – التوصيل خلال 24 ساعة',
+      '• باقي المحافظات: 180 جنيه – التوصيل خلال 48 ساعة'
+    ].filter(Boolean); // Remove null/empty lines
+
+    const finalString = textLines.join('\n');
+
+    // 4. Copy to Clipboard
+    try {
+      await navigator.clipboard.writeText(finalString);
+      toast.success("تم نسخ المواصفات بنجاح");
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast.error("حدث خطأ أثناء النسخ");
+    }
   };
 
 
@@ -707,15 +789,7 @@ const ProductDetails = () => {
                 </motion.div>
               </AnimatePresence>
 
-              {/* Wishlist Button */}
-              <button
-                onClick={toggleWishlist}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-white transition-all duration-200"
-              >
-                <Heart
-                  className={`h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
-                />
-              </button>
+
 
               {/* Navigation arrows */}
               {product.images.length > 1 && (
@@ -1049,14 +1123,15 @@ const ProductDetails = () => {
                 <Share2 className="mr-2 h-5 w-5" />
                 مشاركة
               </Button>
+
               <Button
                 size="lg"
                 variant="outline"
-                className="flex-1"
-                onClick={toggleWishlist}
+                className="flex-1 gap-2"
+                onClick={handleCopySpecs}
               >
-                <Heart className={`mr-2 h-5 w-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
-                المفضلة
+                <ClipboardCopy className="h-5 w-5" />
+                نسخ المواصفات
               </Button>
             </div>
 
@@ -1176,247 +1251,271 @@ const ProductDetails = () => {
           </div>
         )}
 
-        <div id="specs-section">
-          {/* Processor Specifications */}
-          {product.processor && (
-            <div className="mb-16 scroll-mt-24">
-              <Separator className="mb-8" />
-              <div className="max-w-4xl mx-auto">
-                <h2 className="text-2xl font-bold mb-6 text-gray-900">مواصفات المعالج</h2>
-                <div className="bg-white rounded-lg border shadow-sm p-6">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div id="specs-section" className="mb-16 scroll-mt-24">
+          <Separator className="mb-8" />
+          <div className="max-w-5xl mx-auto">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-primary/10 rounded-xl">
+                <Settings2 className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold text-gray-900">المواصفات التقنية</h2>
+                <p className="text-gray-500 mt-1">المواصفات الفنية الكاملة للجهاز</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100  overflow-hidden divide-y divide-gray-100">
+
+              {/* Processor Section */}
+              {product.processor && (
+                <div className="p-6 md:p-8 hover:bg-gray-50/50 transition-colors duration-300">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-100/50 rounded-lg">
+                      <Cpu className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900">المعالج (Processor)</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
                     {product.processor.name && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">اسم المعالج</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.name}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">اسم المعالج</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.name}</p>
                       </div>
                     )}
 
                     {product.processor.processorBrand && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">  نوع المعالج</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.processorBrand}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">نوع المعالج</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.processorBrand}</p>
                       </div>
                     )}
+
                     {product.processor.processorGeneration && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">  جيل المعالج</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.processorGeneration}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">جيل المعالج</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.processorGeneration}</p>
                       </div>
                     )}
 
                     {product.processor.processorSeries && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">  فئات المعالج</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.processorSeries}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">فئة المعالج</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.processorSeries}</p>
                       </div>
                     )}
 
                     {product.processor.cacheMemory && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">ذاكرة التخزين المؤقت</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.cacheMemory}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">ذاكرة الكاش</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.cacheMemory}</p>
                       </div>
                     )}
 
                     {product.processor.baseClockSpeed && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">السرعة الأساسية</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.baseClockSpeed} GHz</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">السرعة الأساسية</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.baseClockSpeed} GHz</p>
                       </div>
                     )}
 
                     {product.processor.maxTurboSpeed && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">أقصى سرعة تيربو</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.maxTurboSpeed} GHz</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">أقصى سرعة</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.maxTurboSpeed} GHz</p>
                       </div>
                     )}
 
                     {product.processor.cores && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">عدد النوى</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.cores}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">عدد النوى</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.cores} Cores</p>
                       </div>
                     )}
 
                     {product.processor.threads && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">عدد الخيوط</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.threads}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">عدد المسارات</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.processor.threads} Threads</p>
                       </div>
                     )}
 
                     {product.processor.integratedGpu && (
-                      <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                        <h3 className="text-sm font-medium text-gray-500">كرت الشاشة الداخلي</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.processor.integratedGpu}</p>
+                      <div className="group sm:col-span-2 lg:col-span-3">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">كرت الشاشة المدمج</h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200">
+                            {product.processor.integratedGpu}
+                          </Badge>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* Dedicated Graphics Card Specifications */}
-          {product.dedicatedGraphics && product.dedicatedGraphics.hasDedicatedGraphics && (
-            <div className="mb-16">
-              <Separator className="mb-8" />
-              <div className="max-w-4xl mx-auto">
-                <h2 className="text-2xl font-bold mb-6 text-gray-900">كرت الشاشة الخارجي</h2>
-                <div className="bg-white rounded-lg border shadow-sm p-6">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Dedicated Graphics Section */}
+              {product.dedicatedGraphics && product.dedicatedGraphics.hasDedicatedGraphics && (
+                <div className="p-6 md:p-8 hover:bg-gray-50/50 transition-colors duration-300">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-green-100/50 rounded-lg">
+                      <CircuitBoard className="w-6 h-6 text-green-600" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900">كرت الشاشة الخارجي (Graphics Card)</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
                     {product.dedicatedGraphics.name && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">اسم كرت الشاشة</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.name}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">الموديل</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.name}</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.manufacturer && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">الشركة المصنعة</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.manufacturer}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">الشركة المصنعة</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.manufacturer}</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.vram && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">ذاكرة كرت الشاشة</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.vram} GB</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">حجم الذاكرة (VRAM)</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.vram} GB</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.memoryType && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">نوع الذاكرة</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.memoryType}</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">نوع الذاكرة</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.memoryType}</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.memorySpeed && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">سرعة الذاكرة</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.memorySpeed} MHz</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">سرعة الذاكرة</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.memorySpeed} MHz</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.memoryBusWidth && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">عرض ناقل الذاكرة</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.memoryBusWidth} bit</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">عرض الناقل</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.memoryBusWidth} bit</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.baseClock && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">التردد الأساسي</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.baseClock} MHz</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">التردد الأساسي</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.baseClock} MHz</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.boostClock && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">تردد التعزيز</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.boostClock} MHz</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">تردد التعزيز</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.boostClock} MHz</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.powerConsumption && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">استهلاك الطاقة</h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.dedicatedGraphics.powerConsumption} W</p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">استهلاك الطاقة</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.dedicatedGraphics.powerConsumption} W</p>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.powerConnectors && product.dedicatedGraphics.powerConnectors.length > 0 && (
-                      <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                        <h3 className="text-sm font-medium text-gray-500">موصلات الطاقة المطلوبة</h3>
+                      <div className="group sm:col-span-2 lg:col-span-3">
+                        <h4 className="text-xs font-medium text-gray-500 mb-2 group-hover:text-primary transition-colors">وصلات الطاقة</h4>
                         <div className="flex flex-wrap gap-2">
-                          {product.dedicatedGraphics.powerConnectors.map((connector, index) => (
-                            <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                          {product.dedicatedGraphics.powerConnectors.map((connector, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
                               {connector}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.availablePorts && product.dedicatedGraphics.availablePorts.length > 0 && (
-                      <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                        <h3 className="text-sm font-medium text-gray-500">المنافذ المتوفرة</h3>
+                      <div className="group sm:col-span-2 lg:col-span-3">
+                        <h4 className="text-xs font-medium text-gray-500 mb-2 group-hover:text-primary transition-colors">المنافذ</h4>
                         <div className="flex flex-wrap gap-2">
-                          {product.dedicatedGraphics.availablePorts.map((port, index) => (
-                            <span key={index} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                          {product.dedicatedGraphics.availablePorts.map((port, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
                               {port}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                       </div>
                     )}
 
                     {product.dedicatedGraphics.gamingTechnologies && product.dedicatedGraphics.gamingTechnologies.length > 0 && (
-                      <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                        <h3 className="text-sm font-medium text-gray-500">تقنيات الألعاب المدعومة</h3>
+                      <div className="group sm:col-span-2 lg:col-span-3">
+                        <h4 className="text-xs font-medium text-gray-500 mb-2 group-hover:text-primary transition-colors">تقنيات الألعاب</h4>
                         <div className="flex flex-wrap gap-2">
-                          {product.dedicatedGraphics.gamingTechnologies.map((tech, index) => (
-                            <span key={index} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                          {product.dedicatedGraphics.gamingTechnologies.map((tech, idx) => (
+                            <Badge key={idx} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                               {tech}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
+              {/* Display Section */}
+              {product.display && (
+                <div className="p-6 md:p-8 hover:bg-gray-50/50 transition-colors duration-300">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-purple-100/50 rounded-lg">
+                      <Monitor className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900">الشاشة (Display)</h3>
+                  </div>
 
-          {/* Processor Specifications */}
-          {product.display && (
-            <div className="mb-16">
-              <Separator className="mb-8" />
-              <div className="max-w-4xl mx-auto">
-                <h2 className="text-2xl font-bold mb-6 text-gray-900">مواصفات الشاشه</h2>
-                <div className="bg-white rounded-lg border shadow-sm p-6">
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
                     {product.display.sizeInches && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">حجم الشاشه </h3>
-                        <p className="text-lg font-semibold text-gray-900">  {product.display.sizeInches} Inch </p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">حجم الشاشة</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.display.sizeInches} بوصة</p>
                       </div>
                     )}
 
                     {product.display.resolution && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500"> الدقه  </h3>
-                        <p className="text-lg font-semibold text-gray-900">{product.display.resolution} </p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">الدقة</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.display.resolution}</p>
                       </div>
                     )}
 
                     {product.display.panelType && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500">نوع الشاشه</h3>
-                        <p className="text-lg font-semibold text-gray-900"> Panel: {product.display.panelType} </p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">نوع الشاشة (Panel)</h4>
+                        <p className="text-base font-semibold text-gray-900">{product.display.panelType}</p>
                       </div>
                     )}
 
                     {product.display.refreshRate && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-500"> التردد المتردد   </h3>
-                        <p className="text-lg font-semibold text-gray-900">   {product.display.refreshRate}Hz </p>
+                      <div className="group">
+                        <h4 className="text-xs font-medium text-gray-500 mb-1 group-hover:text-primary transition-colors">معدل التحديث</h4>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-base font-semibold px-3">
+                          {product.display.refreshRate}Hz
+                        </Badge>
                       </div>
                     )}
-
-
                   </div>
                 </div>
-              </div>
+              )}
+
             </div>
-          )}
+          </div>
         </div>
 
         {/* Suggested Products */}
