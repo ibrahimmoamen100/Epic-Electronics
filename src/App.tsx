@@ -46,6 +46,7 @@ const AdminSetup = lazy(() => import("./pages/AdminSetup").catch(() => ({ defaul
 const Cashier = lazy(() => import("./pages/Cashier").catch(() => ({ default: () => <div>Error loading Cashier</div> })));
 const Cart = lazy(() => import("./pages/Cart").catch(() => ({ default: () => <div>Error loading Cart</div> })));
 const Products = lazy(() => import("./pages/Products").catch(() => ({ default: () => <div>Error loading Products</div> })));
+const Works = lazy(() => import("./pages/Works").catch(() => ({ default: () => <div>Error loading Works</div> })));
 const Locations = lazy(() => import("./pages/Locations").catch(() => ({ default: () => <div>Error loading Locations</div> })));
 const About = lazy(() => import("./pages/About").catch(() => ({ default: () => <div>Error loading About</div> })));
 const Careers = lazy(() => import("./pages/Careers").catch(() => ({ default: () => <div>Error loading Careers</div> })));
@@ -114,6 +115,7 @@ const AppRoutes = () => {
               <Route path="/cart" element={<Cart />} />
               <Route path="/products" element={<Products />} />
               <Route path="/products/category/:category" element={<Products />} />
+              <Route path="/works" element={<Works />} />
               {/* New SEO-friendly singular route */}
               <Route path="/product/:id" element={<ProductDetails />} />
               {/* Backward compatibility */}

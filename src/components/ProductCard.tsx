@@ -15,12 +15,14 @@ interface ProductCardProps {
   product: Product;
   onView: () => void;
   onAddToCart?: () => void;
+  showCopySpecsOnly?: boolean;
 }
 
 export const ProductCard = ({
   product,
   onView,
   onAddToCart,
+  showCopySpecsOnly,
 }: ProductCardProps) => {
   // Early return if product is not defined
   if (!product) {
@@ -132,6 +134,94 @@ export const ProductCard = ({
       toast.error("خطأ في إضافة المنتج", {
         description: error instanceof Error ? error.message : "حدث خطأ غير متوقع",
       });
+    }
+  };
+
+  const handleCopySpecs = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (!product) return;
+
+    // 1. Prepare Data
+    const brand = product.brand;
+    const category = product.subcategory || product.category; // Preference to subcategory/series
+    const processor = `${product.processor?.name || ''} ${product.processor?.processorGeneration ? `– ${product.processor.processorGeneration}` : ''}`.trim();
+
+    // Graphics
+    const internalGpu = product.processor?.integratedGpu || 'غير محدد';
+    const externalGpu = product.dedicatedGraphics?.hasDedicatedGraphics
+      ? `${product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name || ''} – ${product.dedicatedGraphics.vram ? `${product.dedicatedGraphics.vram}GB VRAM` : ''}`
+      : 'غير متوفر';
+
+    // Storage 
+    let storage = 'SSD M.2 – 256GB'; // Default fallback
+    const storageTypeFirst = product.name.match(/(?:SSD|HDD|NVMe)\s*[-:]?\s*(\d+\s*(?:GB|TB)?)/i);
+    const storageSizeFirst = product.name.match(/(\d+\s*(?:GB|TB))\s*(?:SSD|HDD|NVMe)/i);
+
+    if (storageTypeFirst) {
+      let cap = storageTypeFirst[1];
+      if (!/g|t/i.test(cap)) {
+        cap += 'GB';
+      }
+      storage = `SSD M.2 – ${cap}`;
+    } else if (storageSizeFirst) {
+      storage = `SSD M.2 – ${storageSizeFirst[1]}`;
+    }
+
+    // Display
+    const display = product.display?.sizeInches ? `${product.display.sizeInches} بوصة` : '';
+
+    // Special Features
+    const features = product.description?.includes('360') || product.name.includes('360') || product.name.includes('x360')
+      ? 'يدعم اللمس واللف 360 درجة'
+      : (product.display?.resolution ? `دقة الشاشة ${product.display.resolution}` : '');
+
+    // 2. Format RAM & Prices
+    const sortedSizes = [...(product.sizes || [])].sort((a, b) => a.price - b.price);
+    const priceToDisplay = product.specialOffer && product.discountPrice
+      ? product.discountPrice
+      : (product.specialOffer && product.discountPercentage
+        ? product.price * (1 - product.discountPercentage / 100)
+        : product.price);
+
+    const ramSection = sortedSizes.length > 0
+      ? `\n💾 الرامات والأسعار:\n${sortedSizes.map(size => `• برام ${size.label} بسعر: ${formatCurrency(size.price, 'جنيه')}`).join('\n')}`
+      : `\n💰 السعر: ${formatCurrency(priceToDisplay, 'جنيه')}`;
+
+    // 3. Construct Final Text
+    const textLines = [
+      `🔹 الماركة: ${brand}`,
+      `🔹 الفئة: ${category}`,
+      processor ? `🔹 المعالج: ${processor}` : null,
+      `🔹 كرت الشاشة الداخلي: ${internalGpu}`,
+      externalGpu !== 'غير متوفر' ? `🔹 كرت الشاشة الخارجي: ${externalGpu}` : null,
+      `🔹 التخزين: ${storage}`,
+      display ? `🔹 الشاشة: ${display}` : null,
+      features ? `🔹 ${features}` : null,
+      ramSection,
+      '',
+      '📸 يمكنك مشاهدة صور وفيديو اللابتوب والمواصفات كاملة',
+      '🛒 مع إمكانية الشراء من خلال اللينك الرسمي على متجر شركة الحمد',
+      `🔗 ${window.location.origin}/product/${product.id}`,
+      '',
+      'أو يمكن الشراء من هنا 👇',
+      'فقط اترك اسمك، عنوانك، ورقم تليفونك',
+      '',
+      '🚚 مصاريف الشحن:',
+      '• داخل القاهرة: 100 جنيه – التوصيل خلال 24 ساعة',
+      '• باقي المحافظات: 180 جنيه – التوصيل خلال 48 ساعة'
+    ].filter(Boolean);
+
+    const finalString = textLines.join('\n');
+
+    // 4. Copy to Clipboard
+    try {
+      await navigator.clipboard.writeText(finalString);
+      toast.success("تم نسخ المواصفات بنجاح");
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast.error("حدث خطأ أثناء النسخ");
     }
   };
 
@@ -340,44 +430,49 @@ export const ProductCard = ({
             </div>
           )}
 
-          {/* Options indicator */}
-          {/* {hasOptions && (
-            <div className="text-xs text-blue-600 font-medium flex items-center bg-blue-50 px-2 py-1 rounded-md">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse"></div>
-              <span className="hidden sm:inline">{getOptionsDescription()}</span>
-              <span className="sm:hidden">خيارات متعددة</span>
-            </div>
-          )} */}
         </div>
 
         {/* Action Buttons - Fixed at bottom */}
         <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
-          <Button
-            size="default"
-            variant="outline"
-            className="flex-1 text-sm sm:text-sm transition-all hover:text-primary duration-200 h-10 sm:h-9 group/btn hover:bg-gray-50 border-gray-300 hover:border-primary"
-            onClick={handleViewDetails}
-          >
-            <Eye className="h-4 w-4 mr-1.5 transition-transform duration-200 group-hover/btn:scale-110" />
-            <span className="font-medium">تفاصيل</span>
-          </Button>
+          {showCopySpecsOnly ? (
+            <Button
+              size="default"
+              className="w-full text-sm sm:text-sm transition-all duration-200 h-10 sm:h-9 group/btn bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg"
+              onClick={handleCopySpecs}
+            >
+              <span className="mr-1.5">📄</span>
+              <span className="font-medium">نسخ المواصفات</span>
+            </Button>
+          ) : (
+            <>
+              <Button
+                size="default"
+                variant="outline"
+                className="flex-1 text-sm sm:text-sm transition-all hover:text-primary duration-200 h-10 sm:h-9 group/btn hover:bg-gray-50 border-gray-300 hover:border-primary"
+                onClick={handleViewDetails}
+              >
+                <Eye className="h-4 w-4 mr-1.5 transition-transform duration-200 group-hover/btn:scale-110" />
+                <span className="font-medium">تفاصيل</span>
+              </Button>
 
-          <Button
-            size="default"
-            className={`flex-1 text-sm sm:text-sm transition-all duration-200 h-10 sm:h-9 group/btn ${isOutOfStock
-              ? 'bg-gray-400 hover:bg-gray-500 cursor-not-allowed text-white'
-              : product.specialOffer
-                ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg'
-                : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg'
-              }`}
-            onClick={handleAddToCart}
-            disabled={isOutOfStock || isInCart}
-          >
-            <ShoppingCart className="h-4 w-4 mr-1.5 transition-transform duration-200 group-hover/btn:scale-110" />
-            <span className="font-medium">
-              {isOutOfStock ? 'غير متوفر' : (hasOptions ? 'اختيار' : 'إضافة')}
-            </span>
-          </Button>
+              <Button
+                size="default"
+                className={`flex-1 text-sm sm:text-sm transition-all duration-200 h-10 sm:h-9 group/btn ${isOutOfStock
+                  ? 'bg-gray-400 hover:bg-gray-500 cursor-not-allowed text-white'
+                  : product.specialOffer
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-md hover:shadow-lg'
+                    : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg'
+                  }`}
+                onClick={handleAddToCart}
+                disabled={isOutOfStock || isInCart}
+              >
+                <ShoppingCart className="h-4 w-4 mr-1.5 transition-transform duration-200 group-hover/btn:scale-110" />
+                <span className="font-medium">
+                  {isOutOfStock ? 'غير متوفر' : (hasOptions ? 'اختيار' : 'إضافة')}
+                </span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </motion.div>

@@ -33,6 +33,14 @@ const tools = [
         color: 'text-orange-600',
         bgColor: 'bg-orange-100',
     },
+    {
+        title: 'عرض المواصفات',
+        description: 'نسخ مواصفات الأجهزة (للبائعين)',
+        icon: ShoppingCart, // Reusing icon, or could import Clipboard
+        href: '/works',
+        color: 'text-green-600',
+        bgColor: 'bg-green-100',
+    },
 
 ];
 
