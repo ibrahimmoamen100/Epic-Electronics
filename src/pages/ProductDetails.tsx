@@ -35,6 +35,7 @@ import {
   Film,
   Settings2,
   ClipboardCopy,
+  MessageCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -80,6 +81,18 @@ const ProductDetails = () => {
   const [isSpecsVisible, setIsSpecsVisible] = useState(false);
   const [isBuyButtonManuallyHidden, setIsBuyButtonManuallyHidden] = useState(false);
   const [isSpecsButtonManuallyHidden, setIsSpecsButtonManuallyHidden] = useState(false);
+
+  // Order Success Modal State
+  const [orderSuccess, setOrderSuccess] = useState<{
+    isOpen: boolean;
+    type: 'online' | 'reservation';
+    governorate?: string;
+    whatsappUrl: string;
+  }>({
+    isOpen: false,
+    type: 'online',
+    whatsappUrl: ''
+  });
 
   const products = useStore((state) => state.products);
   const loading = useStore((state) => state.loading);
@@ -502,17 +515,16 @@ const ProductDetails = () => {
       ].join('\n');
 
       // Show Success UI
-      toast.success("سيتم التواصل معك قريبًا لتأكيد الطلب");
-      setShowShippingPolicy(true);
+      // toast.success("سيتم التواصل معك قريبًا لتأكيد الطلب");
 
-      // Redirect to WhatsApp
       const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 
-      // Small delay to allow toast to be seen
-      setTimeout(() => {
-        window.open(whatsappUrl, '_blank');
-        navigate('/products'); // Redirect to home/products page
-      }, 1500);
+      setOrderSuccess({
+        isOpen: true,
+        type: formData.orderType === 'reservation' ? 'reservation' : 'online',
+        governorate: formData.governorate,
+        whatsappUrl
+      });
 
     } catch (error) {
       console.error('Order Error:', error);
@@ -1704,7 +1716,7 @@ const ProductDetails = () => {
                   جميع المحافظات
                 </p>
                 <div className="text-right">
-                  <p className="font-bold text-yellow-800">170 ج.م</p>
+                  <p className="font-bold text-yellow-800">150 ج.م</p>
                   <p className="text-xs text-yellow-600">(48 ساعة)</p>
                 </div>
               </div>
@@ -1720,6 +1732,59 @@ const ProductDetails = () => {
               حسناً، فهمت
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Success Modal */}
+      <Dialog open={orderSuccess.isOpen} onOpenChange={(open) => {
+        if (!open) {
+          setOrderSuccess(prev => ({ ...prev, isOpen: false }));
+          navigate('/products');
+        }
+      }}>
+        <DialogContent className="max-w-md text-center sm:text-right">
+          <DialogHeader>
+            <div className="mx-auto sm:mx-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-center sm:text-right">
+              {orderSuccess.type === 'reservation' ? 'تم حجز المنتج بنجاح! وجاري تجهيزه الان' : ' تم حفظ طلبك بنجاح! وجاري تجهيزه الان'}
+            </DialogTitle>
+            <DialogDescription className="text-base text-gray-600 pt-2 text-center sm:text-right leading-relaxed">
+              {orderSuccess.type === 'reservation' ? (
+                <>
+                  يرجى زيارة المحل خلال الفترة المحددة، وفي حال عدم الحضور سيتم اعتبار الحجز ملغيًا تلقائيًا.
+                </>
+              ) : (
+                <>
+                  {orderSuccess.governorate === 'القاهرة'
+                    ? 'سيتم التواصل معك خلال 24 ساعة'
+                    : 'سيتم التواصل معك خلال 48 ساعة'
+                  }
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 mt-6">
+            <Button
+              onClick={() => window.open(orderSuccess.whatsappUrl, '_blank')}
+              className="w-full gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white"
+            >
+              <MessageCircle className="h-5 w-5" />
+              {orderSuccess.type === 'reservation' ? 'إرسال  الحجز عبر واتساب' : 'إرسال الطلب عبر واتساب'}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOrderSuccess(prev => ({ ...prev, isOpen: false }));
+                navigate('/products');
+              }}
+              className="w-full"
+            >
+              العودة للمنتجات
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div >
