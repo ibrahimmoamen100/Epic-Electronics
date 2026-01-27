@@ -1741,7 +1741,7 @@ const ProductDetails = () => {
           navigate('/products');
         }
       }}>
-        <DialogContent className="max-w-md text-center sm:text-right">
+        <DialogContent className="md:max-w-md max-w-[90%] rounded-lg p-4 text-center sm:text-right">
           <DialogHeader>
             <div className="mx-auto sm:mx-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
               <CheckCircle className="h-6 w-6 text-green-600" />
@@ -1752,7 +1752,7 @@ const ProductDetails = () => {
             <DialogDescription className="text-base text-gray-600 pt-2 text-center sm:text-right leading-relaxed">
               {orderSuccess.type === 'reservation' ? (
                 <>
-                  يرجى زيارة المحل خلال الفترة المحددة، وفي حال عدم الحضور سيتم اعتبار الحجز ملغيًا تلقائيًا.
+                  سيتم التواصل معك قريبا
                 </>
               ) : (
                 <>

@@ -499,6 +499,15 @@ export function ProductOptions({
                     {formErrors.appointmentTime && <p className="text-[10px] text-red-500">مطلوب</p>}
                   </div>
                 </div>
+                {formData.appointmentDate && formData.appointmentTime ? (
+                  <p className="text-[10px] text-red-500 mt-1 leading-tight">
+                    يرجى زيارة المحل خلال الفترة المحددة، وفي حال عدم الحضور سيتم اعتبار الحجز ملغيًا تلقائيًا.
+                  </p>
+                ) : (
+                  <p className="text-xs text-blue-600 mt-1">
+                    الحجز في المحل في فتره لا تتجاوز اليومين
+                  </p>
+                )}
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-gray-700">ملاحظات <span className="text-gray-400 font-normal">(اختياري)</span></Label>
                   <Textarea
