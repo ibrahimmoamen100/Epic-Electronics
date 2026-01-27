@@ -1,6 +1,6 @@
 import { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { Eye, ShoppingCart, Timer, Package, AlertTriangle, Monitor, Cpu, CircuitBoard } from "lucide-react";
+import { Eye, ShoppingCart, Timer, Package, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { toast } from "sonner";
@@ -270,7 +270,7 @@ export const ProductCard = ({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:-translate-y-2 hover:scale-[1.02] ${isOutOfStock ? 'opacity-60' : ''} h-[450px] flex flex-col`}
+      className={`group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:-translate-y-2 hover:scale-[1.02] ${isOutOfStock ? 'opacity-60' : ''} h-auto min-h-[500px] flex flex-col`}
       onMouseEnter={() => {
         // Show second image on hover if available
         if (product.images && product.images.length > 1) {
@@ -344,41 +344,48 @@ export const ProductCard = ({
           )}
 
           {/* Product Specs Badges */}
-          <div className="flex flex-wrap gap-1 mt-1">
-            {product.display?.sizeInches && (
-              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
-                <Monitor className="w-3 h-3 text-blue-500" />
-                <span>{product.display.sizeInches} بوصه</span>
-              </Badge>
-            )}
-
+          {/* Detailed Product Specs List */}
+          <div className="mt-2 space-y-1.5 ">
             {product.processor?.processorSeries && (
-              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
-                <Cpu className="w-3 h-3 text-purple-500" />
-                {product.processor.processorSeries}
-              </Badge>
+              <div className="flex items-center text-[11px] gap-1.5">
+                <span className="text-gray-400 font-medium shrink-0">معالج:</span>
+                <span className="text-gray-700 font-semibold truncate" dir="ltr">{product.processor.processorSeries}</span>
+              </div>
             )}
 
             {product.processor?.processorGeneration && (
-              <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-5 bg-blue-50/50 text-blue-700 border-blue-100">
-                {product.processor.processorGeneration.replace(/(\d+)(?:st|nd|rd|th)?\s*Gen(?:eration)?/i, "الجيل $1")}
-              </Badge>
-            )}
-
-            {product.processor?.integratedGpu && (
-              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
-                <CircuitBoard className="w-3 h-3 text-teal-500" />
-                <span>{product.processor.integratedGpu}</span>
-              </Badge>
-            )}
-
-            {product.dedicatedGraphics && (product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name) && (
-              <Badge variant="outline" className="text-[10px] gap-1 py-0 px-1.5 h-5 bg-white/50 backdrop-blur-sm border-gray-200">
-                <CircuitBoard className="w-3 h-3 text-green-500" />
-                <span>
-                  {product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name} {product.dedicatedGraphics.vram ? `(${product.dedicatedGraphics.vram} GB)` : ''}
+              <div className="flex items-center text-[11px] gap-1.5">
+                <span className="text-gray-400 font-medium shrink-0">الجيل:</span>
+                <span className="text-gray-700 font-semibold truncate" dir="ltr">
+                  {product.processor.processorGeneration.replace(/(\d+)(?:st|nd|rd|th)?\s*Gen(?:eration)?/i, "$1")}
                 </span>
-              </Badge>
+              </div>
+            )}
+
+            {/* Graphics - Show Internal if available */}
+            {product.processor?.integratedGpu && (
+              <div className="flex items-center text-[11px] gap-1.5">
+                <span className="text-gray-400 font-medium shrink-0">ك.شاشة:</span>
+                <span className="text-gray-700 font-semibold truncate" dir="ltr">{product.processor.integratedGpu}</span>
+              </div>
+            )}
+
+            {/* Graphics - Show External if available */}
+            {product.dedicatedGraphics?.hasDedicatedGraphics && (
+              <div className="flex items-center text-[11px] gap-1.5">
+                <span className="text-gray-400 font-medium shrink-0">خارجي:</span>
+                <span className="text-gray-700 font-semibold truncate" dir="ltr">
+                  {product.dedicatedGraphics.dedicatedGpuModel || product.dedicatedGraphics.name}
+                  {product.dedicatedGraphics.vram && <span className="text-gray-500 ml-1">- {product.dedicatedGraphics.vram}GB</span>}
+                </span>
+              </div>
+            )}
+
+            {product.display?.sizeInches && (
+              <div className="flex items-center text-[11px] gap-1.5">
+                <span className="text-gray-400 font-medium shrink-0">شاشة:</span>
+                <span className="text-gray-700 font-semibold">{product.display.sizeInches} بوصة</span>
+              </div>
             )}
           </div>
 
