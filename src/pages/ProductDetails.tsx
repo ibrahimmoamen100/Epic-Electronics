@@ -7,7 +7,7 @@ import { ProductModal } from "@/components/ProductModal";
 import { ProductOptions, CheckoutFormData } from "@/components/ProductOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { createOrderAndUpdateProductQuantitiesAtomically } from "@/lib/firebase";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { analytics } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
@@ -108,110 +108,80 @@ const ProductDetails = () => {
     product?.color ? product.color.split(',').map(c => c.trim()) : [],
     [product?.color]);
 
+  // Ref for the observer to persist across renders
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
   // Reset manual hide state when product changes
   useEffect(() => {
     setIsBuyButtonManuallyHidden(false);
     setIsSpecsButtonManuallyHidden(false);
-  }, [id]); // Reset when product ID changes
+  }, [id]);
 
-  // Handle loading state for product details and track page view with product name
+  // Handle loading state and analytics
   useEffect(() => {
     if (products.length > 0) {
-      // Products are loaded, check if current product exists
       if (product) {
         setIsLoading(false);
-
-        // Store product info in sessionStorage for analytics to access
-        // This helps extractProductNameFromUrl find the product name
         try {
           sessionStorage.setItem('current_product', JSON.stringify({
             id: product.id,
             name: product.name,
-            slug: product.id // slug is the same as id
+            slug: product.id
           }));
         } catch (e) {
           console.warn('Failed to store product in sessionStorage:', e);
         }
 
-        // Track page view with actual product name
-        // This ensures we track with the correct product name, not just from URL slug
         const currentPath = window.location.pathname;
         if (currentPath.startsWith('/product/')) {
-          console.log('[ProductDetails] 🎯 Starting page view tracking', {
-            path: currentPath,
-            productName: product.name,
-            productId: product.id,
-            productFound: !!product
-          });
-
-          // Longer delay to ensure analytics system is ready and locationchange event has fired
+          // Debounce analytics to avoid multiple calls
           const trackTimeout = setTimeout(() => {
-            console.log('[ProductDetails] 📊 Calling trackPageView with product name...');
-            analytics.trackPageView(currentPath, product.name).then(() => {
-              console.log('[ProductDetails] ✅ Successfully tracked page view for product:', {
-                path: currentPath,
-                productName: product.name,
-                productId: product.id
-              });
-            }).catch(err => {
-              console.error('[ProductDetails] ❌ Failed to track page view:', err);
-              console.error('Error details:', {
-                error: err,
-                message: err?.message,
-                stack: err?.stack
-              });
-            });
-          }, 500); // Increased delay to ensure locationchange event has processed
-
+            analytics.trackPageView(currentPath, product.name).catch(console.error);
+          }, 1000);
           return () => clearTimeout(trackTimeout);
         }
       } else {
-        // Product not found, redirect after a short delay
-        setTimeout(() => {
-          navigate("/products");
-        }, 100);
+        const redirectTimeout = setTimeout(() => navigate("/products"), 100);
+        return () => clearTimeout(redirectTimeout);
       }
     }
-  }, [products, product, navigate, id]);
+  }, [products, product, navigate, id, location]);
 
-  // Track visibility of sections to hide sticky buttons
+  // Optimized IntersectionObserver
   useEffect(() => {
-    // Delay observer initialization to ensure DOM is fully rendered
-    const timer = setTimeout(() => {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.target.id === 'checkout-input-fields') {
-              setIsPurchaseVisible(entry.isIntersecting);
-            }
-            if (entry.target.id === 'specs-section') {
-              setIsSpecsVisible(entry.isIntersecting);
-            }
-          });
-        },
-        {
-          threshold: 0.1, // Trigger when 10% of element is visible
-          rootMargin: "-50px 0px 0px 0px" // Reduce top margin for earlier trigger
+    // Cleanup previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    const handleIntersection = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.target.id === 'checkout-input-fields') {
+          setIsPurchaseVisible(entry.isIntersecting);
         }
-      );
+        if (entry.target.id === 'specs-section') {
+          setIsSpecsVisible(entry.isIntersecting);
+        }
+      });
+    };
 
-      const purchaseSection = document.getElementById('checkout-input-fields');
-      const specsSection = document.getElementById('specs-section');
+    observerRef.current = new IntersectionObserver(handleIntersection, {
+      threshold: 0.1,
+      rootMargin: "-50px 0px 0px 0px"
+    });
 
-      if (purchaseSection) {
-        observer.observe(purchaseSection);
+    const purchaseSection = document.getElementById('checkout-input-fields');
+    const specsSection = document.getElementById('specs-section');
+
+    if (purchaseSection) observerRef.current.observe(purchaseSection);
+    if (specsSection) observerRef.current.observe(specsSection);
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
       }
-      if (specsSection) {
-        observer.observe(specsSection);
-      }
-
-      return () => {
-        observer.disconnect();
-      };
-    }, 500); // Wait 500ms for DOM to be ready
-
-    return () => clearTimeout(timer);
-  }, [product, modalOpen]); // Re-run when product loads or modals might change layout
+    };
+  }, [isLoading, product]); // Re-run only when loading finishes or product changes
 
   // Create mapping between colors and images
   const colorImageMapping = useMemo(() => {
@@ -1563,6 +1533,7 @@ const ProductDetails = () => {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
               transition={{ duration: 0.4, ease: "circOut" }}
+              style={{ willChange: "transform, opacity" }}
             >
               <div className="flex items-center justify-center gap-3">
                 <AnimatePresence mode="popLayout">

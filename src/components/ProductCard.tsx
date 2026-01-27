@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+
 import { formatCurrency } from "@/utils/format";
 import { Badge } from "@/components/ui/badge";
 
@@ -269,8 +269,8 @@ export const ProductCard = ({
   };
 
   return (
-    <motion.div
-      className={`group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-lg ${isOutOfStock ? 'opacity-60' : ''} h-[450px] flex flex-col`}
+    <div
+      className={`group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:-translate-y-2 hover:scale-[1.02] ${isOutOfStock ? 'opacity-60' : ''} h-[450px] flex flex-col`}
       onMouseEnter={() => {
         // Show second image on hover if available
         if (product.images && product.images.length > 1) {
@@ -281,8 +281,6 @@ export const ProductCard = ({
         // Return to first image when not hovering
         setCurrentImageIndex(0);
       }}
-      whileHover={{ y: -8, scale: 1.02 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
     >
       <div className="aspect-[1/1] sm:aspect-[4/5] lg:aspect-[3/4] overflow-hidden relative bg-gray-50">
         <img
@@ -475,6 +473,6 @@ export const ProductCard = ({
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
