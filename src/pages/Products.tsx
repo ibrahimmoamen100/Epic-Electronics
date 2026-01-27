@@ -294,57 +294,14 @@ export default function Products() {
           {/* Mobile Filter Button - Opens from bottom */}
           {/* Mobile Filter Button - Opens from bottom */}
           <div className="md:hidden mb-4">
-            <style>
-              {`
-                @keyframes spin-gradient {
-                  0% { transform: translate(-50%, -50%) rotate(0deg); }
-                  100% { transform: translate(-50%, -50%) rotate(360deg); }
-                }
-                .magic-border-btn {
-                  position: relative;
-                  overflow: hidden;
-                  border: 1px solid #008cffff;
-                  z-index: 1;
-                  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
-                }
-                .magic-border-btn::before {
-                  content: '';
-                  position: absolute;
-                  top: 50%;
-                  left: 50%;
-                  width: 400%;
-                  height: 400%;
-                  background: conic-gradient(
-                    transparent 0deg, 
-                    transparent 60deg, 
-                    #008cffff 90deg, 
-                    #55a4ffff 135deg,
-                    #b5def1ff 180deg, 
-                    transparent 240deg
-                  );
-                  animation: spin-gradient 3s linear infinite;
-                  z-index: -2;
-                }
-                .magic-border-btn::after {
-                  content: '';
-                  position: absolute;
-                  inset: 2px;
-                  background: hsl(var(--background)); 
-                  border-radius: calc(var(--radius) - 1px);
-                  z-index: -1;
-                }
-              `}
-            </style>
             <Drawer open={openDrawer} onOpenChange={setOpenDrawer}>
               <DrawerTrigger asChild>
                 <Button
                   variant="outline"
-                  className={`w-full font-bold text-primary focus:bg-primary hover:bg-primary hover:text-primary focus:text-primary transition-all duration-300 ${!openDrawer ? 'magic-border-btn' : 'border-primary/50'}`}
+                  className="w-full font-bold text-primary border-primary hover:bg-primary hover:text-white transition-all duration-300 shadow-sm"
                 >
-                  <span className="relative z-10 flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    التصفية حسب
-                  </span>
+                  <Filter className="h-4 w-4 ml-2" />
+                  التصفية حسب
                 </Button>
               </DrawerTrigger>
               <DrawerContent>
