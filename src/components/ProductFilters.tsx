@@ -24,7 +24,7 @@ export function ProductFilters() {
   const navigate = useNavigate();
 
   // State to control accordion sections
-  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "sort", "category", "subcategory"]);
+  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "sort", "subcategory", "brand"]);
 
   const optionRow =
     "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 hover:border-border/60 hover:bg-muted/60 transition-colors cursor-pointer text-sm";
@@ -373,6 +373,22 @@ export function ProductFilters() {
           </AccordionContent>
         </AccordionItem>
 
+
+        {/* 5. Brand Filter */}
+        <AccordionItem value="brand">
+          <AccordionTrigger>{t("filters.brand")}</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {brands.map((brand) => {
+                const isSelected = filters.brand?.includes(brand) || false;
+                const count = brandCounts[brand] || 0;
+                return renderCheckboxOption(`brand-${brand}`, brand, isSelected, count, () => toggleFilter('brand', brand));
+              })}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+
         {/* 4. Subcategory Filter */}
         <AccordionItem value="subcategory">
           <AccordionTrigger>
@@ -395,19 +411,7 @@ export function ProductFilters() {
           </AccordionContent>
         </AccordionItem>
 
-        {/* 5. Brand Filter */}
-        <AccordionItem value="brand">
-          <AccordionTrigger>{t("filters.brand")}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-1 pt-2">
-              {brands.map((brand) => {
-                const isSelected = filters.brand?.includes(brand) || false;
-                const count = brandCounts[brand] || 0;
-                return renderCheckboxOption(`brand-${brand}`, brand, isSelected, count, () => toggleFilter('brand', brand));
-              })}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+
 
         {/* 6. Screen Size */}
         <AccordionItem value="screen-size">
