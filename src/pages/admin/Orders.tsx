@@ -523,7 +523,24 @@ const AdminOrders = () => {
                                 <p className="text-xs text-muted-foreground mb-1">وقت الحجز</p>
                                 <div className="font-medium flex items-center gap-1.5">
                                   <Clock className="h-3.5 w-3.5 text-blue-500" />
-                                  {selectedOrder.reservationInfo.appointmentTime}
+                                  {(() => {
+                                    const time = selectedOrder.reservationInfo.appointmentTime;
+                                    if (!time) return '';
+                                    const [hoursStr, minutes] = time.split(':');
+                                    let hours = parseInt(hoursStr, 10);
+                                    let suffix = 'صباحاً';
+
+                                    if (hours >= 12) {
+                                      if (hours >= 12 && hours < 15) suffix = 'ظهراً';
+                                      else if (hours >= 15 && hours < 18) suffix = 'عصراً';
+                                      else suffix = 'مساءً';
+
+                                      if (hours > 12) hours -= 12;
+                                    } else if (hours === 0) {
+                                      hours = 12;
+                                    }
+                                    return `${hours}:${minutes} ${suffix}`;
+                                  })()}
                                 </div>
                               </div>
                             </div>

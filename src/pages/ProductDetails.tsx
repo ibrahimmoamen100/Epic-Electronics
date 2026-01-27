@@ -6,7 +6,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { ProductModal } from "@/components/ProductModal";
 import { ProductOptions, CheckoutFormData } from "@/components/ProductOptions";
 import { useAuth } from "@/contexts/AuthContext";
-import { createOrderAndUpdateProductQuantitiesAtomically } from "@/lib/firebase";
+import { createOrderAndUpdateProductQuantitiesAtomically } from '@/lib/firebase';
+import { checkOrderSpam } from '@/lib/spamProtection';
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { analytics } from "@/lib/analytics";
@@ -466,6 +467,21 @@ const ProductDetails = () => {
         productId: product.id,
         quantityToDeduct: quantity
       }];
+
+      // Check for spam/duplicate orders
+      const spamResult = await checkOrderSpam({
+        orderType: formData.orderType === 'reservation' ? 'reservation' : 'online_purchase',
+        fullName: formData.fullName,
+        phoneNumber: formData.phoneNumber,
+        address: formData.address,
+        appointmentDate: formData.appointmentDate,
+        appointmentTime: formData.appointmentTime
+      });
+
+      if (spamResult.isSpam) {
+        toast.error(spamResult.message);
+        return;
+      }
 
       // Save to Firebase
       await createOrderAndUpdateProductQuantitiesAtomically(orderData, deductions);

@@ -145,7 +145,7 @@ const Orders = () => {
     if (type === 'reservation') {
       return (
         <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-          حجز موعد
+          حجز موعد في المحل
         </Badge>
       );
     }
