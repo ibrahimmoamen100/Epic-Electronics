@@ -31,7 +31,8 @@ import {
   CheckSquare,
   ShoppingCart,
   ArrowUpDown,
-  MoreHorizontal
+  MoreHorizontal,
+  Copy
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -48,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createPortal } from 'react-dom';
+import { getColorByName } from '@/constants/colors';
 
 interface OrderItem {
   productId: string;
@@ -56,6 +58,7 @@ interface OrderItem {
   price: number;
   totalPrice?: number;
   image: string;
+  selectedColor?: string;
   selectedSize?: {
     id: string;
     label: string;
@@ -167,6 +170,73 @@ const AdminOrders = () => {
       key,
       direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
     }));
+  };
+
+  const copyOrderDetails = (order: Order) => {
+    // 1. Format Items
+    const itemsText = order.items.map((item, index) => {
+      const lines: string[] = [];
+      lines.push(`${index + 1}. ${item.productName}`);
+      lines.push(`   الكمية: ${item.quantity}`);
+      if (item.selectedSize) lines.push(`   الحجم: ${item.selectedSize.label}`);
+
+      if (item.selectedColor) {
+        const colorName = getColorByName(item.selectedColor).name || item.selectedColor;
+        lines.push(`   اللون: ${colorName}`);
+      }
+
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        lines.push(`   الإضافات: ${item.selectedAddons.map(a => a.label).join(', ')}`);
+      }
+      lines.push(`   السعر: ${formatCurrency(item.price * item.quantity, 'جنيه')}`);
+      return lines.join('\n');
+    }).join('\n\n');
+
+    // 2. Format Details based on type
+    let detailsText = '';
+    let title = '';
+
+    if (order.type === 'reservation' && order.reservationInfo) {
+      title = '📅 طلب حجز منتج';
+      detailsText = [
+        `👤 الاسم: ${order.reservationInfo.fullName}`,
+        `📱 الهاتف: ${order.reservationInfo.phoneNumber}`,
+        `📅 التاريخ: ${order.reservationInfo.appointmentDate}`,
+        `⏰ الوقت: ${order.reservationInfo.appointmentTime}`,
+        order.reservationInfo.notes ? `📝 ملاحظات: ${order.reservationInfo.notes}` : null,
+      ].filter(Boolean).join('\n');
+    } else {
+      title = '🚀 طلب جديد (شراء أونلاين)';
+      detailsText = [
+        `👤 الاسم: ${order.deliveryInfo.fullName}`,
+        `🏙 المحافظة: ${order.deliveryInfo.city}`,
+        `📍 العنوان: ${order.deliveryInfo.address}`,
+        `📱 الهاتف: ${order.deliveryInfo.phoneNumber}`,
+        order.deliveryInfo.notes ? `📝 ملاحظات: ${order.deliveryInfo.notes}` : null,
+      ].filter(Boolean).join('\n');
+    }
+
+    // 3. Construct Message
+    const message = [
+      title,
+      '========================',
+      itemsText,
+      '========================',
+      order.type === 'reservation' ? '*تفاصيل الحجز:*' : '*بيانات الشحن:*',
+      detailsText,
+      '========================',
+      `💰 إجمالي المبلغ: ${formatCurrency(order.total, 'جنيه')}`,
+      `📅 التاريخ: ${new Date(order.createdAt).toLocaleDateString('ar-EG')}`,
+      '========================'
+    ].join('\n');
+
+    // 4. Copy to clipboard
+    navigator.clipboard.writeText(message).then(() => {
+      toast.success("تم نسخ تفاصيل الطلب بنجاح");
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+      toast.error("فشل نسخ تفاصيل الطلب");
+    });
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
@@ -403,6 +473,10 @@ const AdminOrders = () => {
                               <Eye className="mr-2 h-4 w-4" />
                               عرض التفاصيل
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => copyOrderDetails(order)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              نسخ التفاصيل
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuLabel>تحديث الحالة</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'confirmed')}>
@@ -476,12 +550,24 @@ const AdminOrders = () => {
               {/* Header - Fixed at top */}
               <div className="flex-none bg-white border-b px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-bold">تفاصيل الطلب #{selectedOrder.id.slice(-8)}</h2>
+                  <h2 className="text-base font-bold text-gray-900">تفاصيل الطلب #{selectedOrder.id.slice(-8)}</h2>
                   {getStatusBadge(selectedOrder.status)}
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setShowOrderDetails(false)} className="hover:bg-gray-100 rounded-full">
-                  <XCircle className="h-5 w-5" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyOrderDetails(selectedOrder)}
+                    className="gap-2 text-primary border-primary/20 hover:bg-primary/5 hover:text-primary"
+                    title="نسخ جميع تفاصيل الطلب"
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span>نسخ </span>
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setShowOrderDetails(false)} className="hover:bg-gray-100 rounded-full text-gray-500">
+                    <XCircle className="h-5 w-5" />
+                  </Button>
+                </div>
               </div>
 
               {/* Scrollable Content */}
