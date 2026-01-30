@@ -550,11 +550,11 @@ const AdminOrders = () => {
               {/* Header - Fixed at top */}
               <div className="flex-none bg-white border-b px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-base font-bold text-gray-900">تفاصيل الطلب #{selectedOrder.id.slice(-8)}</h2>
+                  <h2 className="text-sm font-bold text-gray-900">تفاصيل الطلب #{selectedOrder.id.slice(-8)}</h2>
                   {getStatusBadge(selectedOrder.status)}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
+                  {/* <Button
                     variant="outline"
                     size="sm"
                     onClick={() => copyOrderDetails(selectedOrder)}
@@ -563,7 +563,7 @@ const AdminOrders = () => {
                   >
                     <Copy className="h-4 w-4" />
                     <span>نسخ </span>
-                  </Button>
+                  </Button> */}
                   <Button variant="ghost" size="icon" onClick={() => setShowOrderDetails(false)} className="hover:bg-gray-100 rounded-full text-gray-500">
                     <XCircle className="h-5 w-5" />
                   </Button>
