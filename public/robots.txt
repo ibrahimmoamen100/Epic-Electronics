@@ -1,6 +1,40 @@
+# Robots.txt for شركة الحمد للابتوبات - Elhamd Laptops Store
+# Allow all search engines to crawl the site
+
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /api/
+Allow: /products
+Allow: /product/*
+Allow: /works
+Allow: /locations
+Allow: /about
+Allow: /careers
+Allow: /faq
+Allow: /delivery
 
-Sitemap: https://your-domain.com/sitemap.xml 
+# Disallow admin and private pages
+Disallow: /admin*
+Disallow: /dashboard*
+Disallow: /cashier*
+Disallow: /settings*
+Disallow: /attendance*
+Disallow: /api/*
+Disallow: /my-orders
+Disallow: /orders
+Disallow: /analytics
+Disallow: /profit-analysis
+
+# Allow crawling of static assets
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.png$
+Allow: /*.webp$
+Allow: /*.svg$
+Allow: /*.css$
+Allow: /*.js$
+
+# Sitemap location
+Sitemap: https://elhamds.vercel.app/sitemap.xml
+
+# Crawl delay (optional - removes if causing issues)
+Crawl-delay: 1

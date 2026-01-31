@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ProductSearch } from "@/components/ProductSearch";
 import { ActiveFilters } from "@/components/ActiveFilters";
+import { SEOHelmet } from "@/components/SEOHelmet";
 import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 
 export default function Products() {
@@ -278,6 +279,12 @@ export default function Products() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEOHelmet
+        title="جميع المنتجات - لابتوبات وكمبيوترات"
+        description="تصفح جميع اللابتوبات والكمبيوترات المتوفرة في شركة الحمد للابتوبات. HP، Dell، Lenovo، Asus، MSI، Apple MacBook وجميع الماركات العالمية بأفضل الأسعار."
+        keywords="لابتوبات, كمبيوترات, HP, Dell, Lenovo, Asus, MSI, Apple MacBook, Gaming Laptops, لاب توب جيمنج, لاب توب للبرمجة, شركة الحمد للابتوبات"
+        url="/products"
+      />
       <div className="container py-8">
 
 

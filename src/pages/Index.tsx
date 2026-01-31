@@ -3,6 +3,7 @@ import { ProductModal } from "@/components/ProductModal";
 import { useStore } from "@/store/useStore";
 import { Product } from "@/types/product";
 import { useTranslation } from "react-i18next";
+import { SEOHelmet } from "@/components/SEOHelmet";
 import {
   Carousel,
   CarouselContent,
@@ -79,6 +80,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen">
+      <SEOHelmet
+        keywords="شركة الحمد للابتوبات, شركة الحمد للابات, Elhamd Store, Elhamd Laptops, لاب توب, لابتوب, كمبيوتر, لاب توب HP, لاب توب Dell, لاب توب Lenovo, لاب توب Asus, لاب توب Acer, لاب توب MSI, لاب توب Apple, MacBook, Gaming Laptop, لاب توب جيمنج, لاب توب للبرمجة, لاب توب للتصميم, بيع لابتوبات, شراء لاب توب, محل لابتوبات, متجر لابتوبات, أسعار اللابتوبات, عروض لابتوبات, توصيل لابتوبات, لابتوبات مصر"
+      />
       <main className="container py-4 px-4 md:px-8">
         {/* Hero Carousel Section */}
         <section className="mb-8 md:mb-12">

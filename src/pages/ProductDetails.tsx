@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
+import { SEOHelmet } from "@/components/SEOHelmet";
 import { useStore } from "@/store/useStore";
 import { Product, ProductSize, ProductAddon } from "@/types/product";
 import { ProductCard } from "@/components/ProductCard";
@@ -680,19 +680,23 @@ const ProductDetails = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Helmet>
-        <title>{`${product.name} | ${product.brand}`}</title>
-        <meta name="description" content={metaDescription} />
-        <link rel="canonical" href={canonicalUrl} />
-        <meta property="og:title" content={`${product.name} | ${product.brand}`} />
-        <meta property="og:description" content={metaDescription} />
-        {product.images?.[0] && (
-          <meta property="og:image" content={product.images[0]} />
-        )}
-        <meta property="og:url" content={canonicalUrl} />
-        <meta property="og:type" content="product" />
-        <meta name="twitter:card" content="summary_large_image" />
-      </Helmet>
+      <SEOHelmet
+        title={`${product.name} - ${product.brand}`}
+        description={metaDescription}
+        keywords={`${product.brand}, ${product.name}, ${product.category}, ${product.subcategory || ''}, لاب توب, لابتوب, شركة الحمد للابتوبات, ${product.processor?.name || ''}, ${product.dedicatedGraphics?.name || ''}`}
+        image={product.images?.[0]}
+        url={`/product/${product.id}`}
+        type="product"
+        productData={{
+          name: product.name,
+          brand: product.brand,
+          price: finalPrice,
+          currency: "EGP",
+          availability: (product.wholesaleInfo?.quantity || 0) > 0 ? "InStock" : "OutOfStock",
+          condition: "NewCondition",
+          sku: product.id
+        }}
+      />
       <main className="container mx-auto py-8 px-4 md:px-8">
         {/* Breadcrumb */}
         <motion.div
