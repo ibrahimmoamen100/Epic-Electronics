@@ -89,6 +89,7 @@ const ProductDetails = () => {
     type: 'online' | 'reservation';
     governorate?: string;
     whatsappUrl: string;
+    totalAmount?: number;
   }>({
     isOpen: false,
     type: 'online',
@@ -539,7 +540,8 @@ const ProductDetails = () => {
         isOpen: true,
         type: formData.orderType === 'reservation' ? 'reservation' : 'online',
         governorate: formData.governorate,
-        whatsappUrl
+        whatsappUrl,
+        totalAmount
       });
 
     } catch (error) {
@@ -1757,49 +1759,114 @@ const ProductDetails = () => {
           navigate('/products');
         }
       }}>
-        <DialogContent className="md:max-w-md max-w-[90%] rounded-lg p-4 text-center sm:text-right">
-          <DialogHeader>
-            <div className="mx-auto sm:mx-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+        <DialogContent className="md:max-w-sm max-w-[90%] rounded-xl p-0 overflow-hidden text-center sm:text-right bg-white border-0 ring-0 outline-none [&>button]:w-12 [&>button]:h-12 [&>button]:top-4 [&>button]:right-4 [&>button]:bg-gray-100 [&>button]:rounded-full [&>button]:text-gray-600 [&>button:hover]:bg-gray-200 [&>button:hover]:text-gray-900 [&>button>svg]:w-6 [&>button>svg]:h-6">
+          <div className="p-5">
+            <DialogHeader className="mb-4 space-y-3">
+              <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center shadow-sm animate-in zoom-in duration-300">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <DialogTitle className="text-xl font-bold text-center text-gray-900 leading-tight">
+                {orderSuccess.type === 'reservation' ? 'تم حجز المنتج بنجاح!' : 'تم حفظ طلبك بنجاح!'}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-600 text-center leading-relaxed font-medium">
+                {orderSuccess.type === 'reservation' ? (
+                  'سيتم التواصل معك قريباً لتأكيد الحجز'
+                ) : (
+                  <>
+                    {/^(cairo|القاهرة|القاهره|القاهرا)$/i.test(orderSuccess.governorate?.trim() || '')
+                      ? 'سيتم التواصل معك خلال 24 ساعة'
+                      : 'سيتم التواصل معك خلال 48 ساعة'
+                    }
+                  </>
+                )}
+
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Payment Section - Elegant Design */}
+            <div className="bg-gradient-to-br from-gray-50 to-white rounded-lg p-4 border border-gray-100 mb-4 relative overflow-hidden shadow-sm">
+              <div className="relative z-10 space-y-3">
+                <div>
+                  <p className="text-xs font-bold text-gray-700 mb-2 text-center">
+                    بعد دفع مصاريف الشحن على رقم:
+                  </p>
+
+                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-1.5 pl-2 hover:border-primary/30 transition-all duration-300 shadow-sm group">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText('01025423389');
+                        toast.success('تم نسخ الرقم بنجاح');
+                      }}
+                      className=" text-gray-400 hover:text-primary hover:bg-primary/5 rounded-md"
+                      title="نسخ الرقم"
+                    >
+                      انسخ الرقم
+                      <ClipboardCopy className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-base font-bold text-gray-900 tracking-wider font-mono">
+                      01025423389
+                    </span>
+                  </div>
+                </div>
+
+                {/* Shipping Cost Display */}
+                {orderSuccess.type !== 'reservation' && (
+                  <div className="bg-blue-50/50 rounded-md p-2.5 border border-blue-100/50">
+                    <p className="text-xs text-blue-800 font-medium text-center">
+                      قيمة الشحن المطلوبة:{' '}
+                      <span className="font-bold text-blue-900 text-base">
+                        {(() => {
+                          const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(orderSuccess.governorate?.trim() || '');
+                          const total = orderSuccess.totalAmount || 0;
+
+                          if (isCairo) {
+                            return total > 11000 ? '120 ج.م' : '100 ج.م';
+                          } else {
+                            return total > 11000 ? '170 ج.م' : '150 ج.م';
+                          }
+                        })()}
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-[10px] text-center text-gray-500 mb-2">يقبل التحويل عبر</p>
+                  <div className="flex items-center justify-center gap-2">
+                    {/* Instapay Badge */}
+                    <div className="flex items-center gap-1.5 bg-[#4c2a74] text-white px-3 py-1.5 rounded-md shadow-sm hover:bg-[#3b205a] transition-colors cursor-default">
+                      <span className="font-bold text-xs">InstaPay</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-medium">أو</span>
+                    {/* Vodafone Cash Badge */}
+                    <div className="flex items-center gap-1.5 bg-[#E60000] text-white px-3 py-1.5 rounded-md shadow-sm hover:bg-[#cc0000] transition-colors cursor-default">
+                      <span className="font-bold text-xs">Vodafone Cash</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Decorative Background Elements */}
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+              <div className="absolute bottom-0 left-0 w-12 h-12 bg-purple-500/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
             </div>
-            <DialogTitle className="text-xl font-bold text-center sm:text-right">
-              {orderSuccess.type === 'reservation' ? 'تم حجز المنتج بنجاح! وجاري تجهيزه الان' : ' تم حفظ طلبك بنجاح! وجاري تجهيزه الان'}
-            </DialogTitle>
-            <DialogDescription className="text-base text-gray-600 pt-2 text-center sm:text-right leading-relaxed">
-              {orderSuccess.type === 'reservation' ? (
-                <>
-                  سيتم التواصل معك قريبا
-                </>
-              ) : (
-                <>
-                  {orderSuccess.governorate === 'القاهرة'
-                    ? 'سيتم التواصل معك خلال 24 ساعة'
-                    : 'سيتم التواصل معك خلال 48 ساعة'
-                  }
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
 
-          <div className="flex flex-col gap-3 mt-6">
-            <Button
-              onClick={() => window.open(orderSuccess.whatsappUrl, '_blank')}
-              className="w-full gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white"
-            >
-              <MessageCircle className="h-5 w-5" />
-              {orderSuccess.type === 'reservation' ? 'إرسال  الحجز عبر واتساب' : 'إرسال الطلب عبر واتساب'}
-            </Button>
+            <div className="space-y-2.5">
+              <div>
+                <Button
+                  onClick={() => window.open(orderSuccess.whatsappUrl, '_blank')}
+                  className="w-full gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold h-10 text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 rounded-lg"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  إرسال صورة عملية الدفع واتساب
+                </Button>
+                <p className="text-[10px] text-gray-400 text-center mt-1">على نفس الرقم 01025423389</p>
+              </div>
 
-            <Button
-              variant="outline"
-              onClick={() => {
-                setOrderSuccess(prev => ({ ...prev, isOpen: false }));
-                navigate('/products');
-              }}
-              className="w-full"
-            >
-              العودة للمنتجات
-            </Button>
+
+            </div>
           </div>
         </DialogContent>
       </Dialog>

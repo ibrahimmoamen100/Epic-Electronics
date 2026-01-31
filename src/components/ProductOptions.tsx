@@ -435,12 +435,26 @@ export function ProductOptions({
                   {formErrors.governorate && <p className="text-[10px] text-red-500">مطلوب</p>}
 
                   {formData.governorate ? (
-                    <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-md flex justify-between items-center text-xs text-blue-800 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <span>
-                        مصاريف الشحن: <span className="font-bold">{['القاهرة', 'القاهره', 'cairo'].includes(formData.governorate.trim().toLowerCase()) ? '100' : '170'} جنيه</span>
+                    <div className="bg-blue-50/50 rounded-md p-2 border border-blue-100/50 mt-2 animate-in fade-in slide-in-from-top-1 duration-200 flex justify-between items-center px-3">
+                      <span className="text-xs text-blue-800 font-medium">
+                        الشحن: <span className="font-bold text-blue-900 text-sm">
+                          {(() => {
+                            const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(formData.governorate?.trim() || '');
+                            const total = currentPrice * quantity;
+
+                            if (isCairo) {
+                              return total > 11000 ? '120 ج.م' : '100 ج.م';
+                            } else {
+                              return total > 11000 ? '170 ج.م' : '150 ج.م';
+                            }
+                          })()}
+                        </span>
                       </span>
-                      <span>
-                        يوصل في خلال: <span className="font-bold">{['القاهرة', 'القاهره', 'cairo'].includes(formData.governorate.trim().toLowerCase()) ? '24 ساعة' : '48 ساعة'}</span>
+                      <span className="text-[10px] text-blue-700 bg-blue-100/50 px-2 py-0.5 rounded-full">
+                        {/^(cairo|القاهرة|القاهره|القاهرا)$/i.test(formData.governorate?.trim() || '')
+                          ? 'خلال 24 ساعة'
+                          : 'خلال 48 ساعة'
+                        }
                       </span>
                     </div>
                   ) : (
