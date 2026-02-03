@@ -36,6 +36,7 @@ export const ProductSchema = z.object({
     .string()
     .optional()
     .default(() => new Date().toISOString()),
+  displayPriority: z.number().optional(), // Priority for display ordering (lower number = higher priority)
   expirationDate: z.string().optional(),
   videoUrls: z.array(z.string()).optional(), // New field for video links
   // New fields for sizes and addons

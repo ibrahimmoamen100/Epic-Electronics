@@ -240,6 +240,7 @@ export default function Products() {
 
   // Apply sorting if needed
   const sortedProducts = [...(filteredProducts || [])].sort((a, b) => {
+    // If user has selected a sort option, use it
     if (filters.sortBy === "price-asc") {
       return a.price - b.price;
     } else if (filters.sortBy === "price-desc") {
@@ -249,7 +250,20 @@ export default function Products() {
     } else if (filters.sortBy === "name-desc") {
       return b.name.localeCompare(a.name);
     }
-    return 0;
+
+    // Default sorting: by displayPriority (lower number = higher priority)
+    // Products without displayPriority or with 0 will be shown after products with priority
+    const aPriority = (a.displayPriority && a.displayPriority > 0) ? a.displayPriority : Number.MAX_SAFE_INTEGER;
+    const bPriority = (b.displayPriority && b.displayPriority > 0) ? b.displayPriority : Number.MAX_SAFE_INTEGER;
+
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    // If both have same priority (or both don't have priority), sort by creation date (newest first)
+    const aDate = new Date(a.createdAt || 0).getTime();
+    const bDate = new Date(b.createdAt || 0).getTime();
+    return bDate - aDate;
   });
 
   // Pagination logic

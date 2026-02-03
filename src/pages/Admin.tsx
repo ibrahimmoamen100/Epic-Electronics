@@ -272,6 +272,23 @@ const Admin = () => {
 
   const filteredProducts = filterProductsByDate(products);
 
+  // Sort products by displayPriority (lower number = higher priority)
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    // Sort by displayPriority (lower number = higher priority)
+    // Products without displayPriority or with 0 will be shown after products with priority
+    const aPriority = (a.displayPriority && a.displayPriority > 0) ? a.displayPriority : Number.MAX_SAFE_INTEGER;
+    const bPriority = (b.displayPriority && b.displayPriority > 0) ? b.displayPriority : Number.MAX_SAFE_INTEGER;
+
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    // If both have same priority (or both don't have priority), sort by creation date (newest first)
+    const aDate = new Date(a.createdAt || 0).getTime();
+    const bDate = new Date(b.createdAt || 0).getTime();
+    return bDate - aDate;
+  });
+
   // Handle login using the hook's login function
   const handleLogin = useCallback(async (password: string) => {
     console.log('🔐 Admin: handleLogin called');
@@ -334,6 +351,20 @@ const Admin = () => {
       }
     },
     [updateProductQuantity]
+  );
+
+  const handleUpdatePriority = useCallback(
+    async (productId: string, newPriority: number | null) => {
+      try {
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          await updateProduct({ ...product, displayPriority: newPriority });
+        }
+      } catch (error) {
+        toast.error("فشل في تحديث أولوية الظهور");
+      }
+    },
+    [products, updateProduct]
   );
 
   // Reset all pages data
@@ -870,11 +901,12 @@ const Admin = () => {
 
 
           <ProductTable
-            products={filteredProducts}
+            products={sortedProducts}
             searchQuery={searchQuery}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onUpdateQuantity={handleUpdateQuantity}
+            onUpdatePriority={handleUpdatePriority}
           />
         </div>
       </main>

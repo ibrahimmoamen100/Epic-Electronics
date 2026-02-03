@@ -47,6 +47,7 @@ interface ProductTableProps {
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
   onUpdateQuantity?: (productId: string, newQuantity: number) => void;
+  onUpdatePriority?: (productId: string, newPriority: number | null) => void;
 }
 
 export function ProductTable({
@@ -55,10 +56,13 @@ export function ProductTable({
   onEdit,
   onDelete,
   onUpdateQuantity,
+  onUpdatePriority,
 }: ProductTableProps) {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editingQuantity, setEditingQuantity] = useState<string | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editingPriority, setEditingPriority] = useState<string | null>(null);
+  const [editingPriorityProductId, setEditingPriorityProductId] = useState<string | null>(null);
 
   const filteredProducts = (products || []).filter(
     (product) =>
@@ -107,6 +111,33 @@ export function ProductTable({
     setEditingQuantity(null);
   };
 
+  const handlePriorityEdit = (productId: string, currentPriority: number | undefined) => {
+    setEditingPriorityProductId(productId);
+    setEditingPriority(currentPriority?.toString() || "");
+  };
+
+  const handlePrioritySave = () => {
+    if (editingPriorityProductId && onUpdatePriority) {
+      // Treat empty string or 0 as null (no priority)
+      const parsedValue = editingPriority === "" ? null : parseInt(editingPriority);
+      const newPriority = (parsedValue === null || parsedValue === 0) ? null : parsedValue;
+
+      if (newPriority === null || (!isNaN(newPriority) && newPriority > 0)) {
+        onUpdatePriority(editingPriorityProductId, newPriority);
+        toast.success("تم تحديث أولوية الظهور بنجاح");
+      } else {
+        toast.error("يرجى إدخال رقم صحيح (1 أو أكثر)");
+      }
+    }
+    setEditingPriorityProductId(null);
+    setEditingPriority(null);
+  };
+
+  const handlePriorityCancel = () => {
+    setEditingPriorityProductId(null);
+    setEditingPriority(null);
+  };
+
   return (
     <>
       <div className="rounded-lg border">
@@ -123,6 +154,9 @@ export function ProductTable({
               {/* <TableHead className="w-[120px] text-center">الألوان</TableHead> */}
               <TableHead className="w-[120px] text-center">المورد</TableHead>
               <TableHead className="w-[120px] text-center">الكمية</TableHead>
+              <TableHead className="w-[100px] text-center">
+                أولوية الظهور
+              </TableHead>
               <TableHead className="w-[150px] text-center">
                 العرض الخاص
               </TableHead>
@@ -279,12 +313,12 @@ export function ProductTable({
                         </Button>
                       </div>
                     ) : (
-                      <div 
+                      <div
                         className="cursor-pointer hover:bg-gray-100 p-1 rounded"
                         onClick={() => handleQuantityEdit(product.id, product.wholesaleInfo?.quantity || 0)}
                         title="انقر لتعديل الكمية"
                       >
-                        <Badge 
+                        <Badge
                           variant={product.wholesaleInfo?.quantity && product.wholesaleInfo.quantity > 0 ? "default" : "destructive"}
                           className="font-normal"
                         >
@@ -298,6 +332,56 @@ export function ProductTable({
                       </span>
                     )}
                   </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  {editingPriorityProductId === product.id ? (
+                    <div className="flex items-center justify-center gap-1">
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="بدون"
+                        value={editingPriority || ""}
+                        onChange={(e) => setEditingPriority(e.target.value)}
+                        className="w-16 h-8 text-center"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handlePrioritySave();
+                          } else if (e.key === "Escape") {
+                            handlePriorityCancel();
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handlePrioritySave}
+                        className="h-8 w-8 p-0"
+                      >
+                        ✓
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handlePriorityCancel}
+                        className="h-8 w-8 p-0"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ) : (
+                    <div
+                      className="cursor-pointer hover:bg-gray-100 p-1 rounded"
+                      onClick={() => handlePriorityEdit(product.id, product.displayPriority)}
+                      title="انقر لتعديل الأولوية"
+                    >
+                      <Badge
+                        variant={product.displayPriority !== undefined ? "default" : "secondary"}
+                        className="font-normal"
+                      >
+                        {product.displayPriority !== undefined ? product.displayPriority : "بدون"}
+                      </Badge>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   {product.specialOffer ? (
