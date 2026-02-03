@@ -8,6 +8,10 @@ export interface SpamCheckParams {
     address?: string;
     appointmentDate?: string;
     appointmentTime?: string;
+    productId: string;
+    selectedSize?: { id?: string; label?: string; price?: number } | null;
+    selectedAddons?: { id?: string; label?: string; price_delta?: number }[];
+    selectedColor?: string | null;
 }
 
 export interface SpamCheckResult {
@@ -17,9 +21,9 @@ export interface SpamCheckResult {
 
 export const checkOrderSpam = async (params: SpamCheckParams): Promise<SpamCheckResult> => {
     try {
-        const { orderType, fullName, phoneNumber, address, appointmentDate, appointmentTime } = params;
+        const { orderType, fullName, phoneNumber, address, appointmentDate, appointmentTime, productId, selectedSize, selectedAddons, selectedColor } = params;
 
-        console.log('🔍 بدء فحص التكرار للطلب:', { orderType, fullName, phoneNumber });
+        console.log('🔍 بدء فحص التكرار للطلب:', { orderType, fullName, phoneNumber, productId, selectedSize, selectedAddons, selectedColor });
 
         // 1. حساب الفترة الزمنية (30 دقيقة ماضية)
         const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
@@ -51,7 +55,7 @@ export const checkOrderSpam = async (params: SpamCheckParams): Promise<SpamCheck
 
         // 4. التحقق من التكرار بناءً على نوع الطلب
         if (orderType === 'online_purchase') {
-            // قاعدة الشراء أونلاين: نفس الاسم + نفس العنوان + نفس رقم الهاتف
+            // قاعدة الشراء أونلاين: نفس الاسم + نفس العنوان + نفس رقم الهاتف + نفس المنتج + نفس المواصفات
             for (const order of recentOrders) {
                 const orderData = order.data;
 
@@ -69,17 +73,47 @@ export const checkOrderSpam = async (params: SpamCheckParams): Promise<SpamCheck
 
                 // التحقق من تطابق العنوان
                 const orderAddress = deliveryInfo.address;
-                if (orderAddress === address) {
-                    console.log('🚫 تم اكتشاف طلب مكرر (شراء أونلاين):', order.id);
-                    return {
-                        isSpam: true,
-                        message: 'لديك طلب مسجل بالفعل بنفس البيانات. يرجى الانتظار قبل إنشاء طلب جديد أو التواصل مع الدعم.'
-                    };
+                if (orderAddress !== address) continue;
+
+                // إذا وصلنا هنا، فهذا يعني أن البيانات الشخصية متطابقة
+                // الآن نتحقق من معلومات المنتج
+                const items = orderData.items || [];
+
+                // التحقق من وجود نفس المنتج في الطلب القديم
+                const matchingItem = items.find((item: any) => item.productId === productId);
+
+                if (matchingItem) {
+                    // التحقق من تطابق الحجم
+                    const isSameSize = (!selectedSize && !matchingItem.selectedSize) ||
+                        (selectedSize && matchingItem.selectedSize && selectedSize.id === matchingItem.selectedSize.id);
+
+                    // التحقق من تطابق اللون
+                    const isSameColor = (!selectedColor && !matchingItem.selectedColor) ||
+                        (selectedColor === matchingItem.selectedColor);
+
+                    // التحقق من تطابق الإضافات
+                    const orderAddons = matchingItem.selectedAddons || [];
+                    const newAddons = selectedAddons || [];
+                    const isSameAddons = orderAddons.length === newAddons.length &&
+                        orderAddons.every((addon: any) =>
+                            newAddons.some(newAddon => newAddon.id === addon.id)
+                        );
+
+                    // إذا كانت جميع المواصفات متطابقة، نعتبره طلب مكرر
+                    if (isSameSize && isSameColor && isSameAddons) {
+                        console.log('🚫 تم اكتشاف طلب مكرر (شراء أونلاين) بنفس المواصفات:', order.id);
+                        return {
+                            isSpam: true,
+                            message: 'لديك طلب مسجل بالفعل بنفس البيانات والمواصفات. يرجى الانتظار قبل إنشاء طلب جديد أو التواصل مع الدعم.'
+                        };
+                    } else {
+                        console.log('✅ نفس المستخدم لكن مواصفات مختلفة - السماح بالطلب');
+                    }
                 }
             }
 
         } else if (orderType === 'reservation') {
-            // قاعدة الحجز: نفس الاسم + نفس رقم الهاتف + نفس التاريخ + نفس الوقت
+            // قاعدة الحجز: نفس الاسم + نفس رقم الهاتف + نفس التاريخ + نفس الوقت + نفس المنتج + نفس المواصفات
             for (const order of recentOrders) {
                 const orderData = order.data;
 
@@ -102,12 +136,42 @@ export const checkOrderSpam = async (params: SpamCheckParams): Promise<SpamCheck
                 if (!orderName || orderName !== fullName) continue;
 
                 // التحقق من تطابق التاريخ والوقت
-                if (orderDate === appointmentDate && orderTime === appointmentTime) {
-                    console.log('🚫 تم اكتشاف حجز مكرر:', order.id);
-                    return {
-                        isSpam: true,
-                        message: 'لديك حجز مسجل بالفعل في نفس التوقيت. لا يمكن تكرار الحجز خلال نفس الفترة الزمنية.'
-                    };
+                if (orderDate !== appointmentDate || orderTime !== appointmentTime) continue;
+
+                // إذا وصلنا هنا، فهذا يعني أن البيانات الشخصية والتوقيت متطابقة
+                // الآن نتحقق من معلومات المنتج
+                const items = orderData.items || [];
+
+                // التحقق من وجود نفس المنتج في الطلب القديم
+                const matchingItem = items.find((item: any) => item.productId === productId);
+
+                if (matchingItem) {
+                    // التحقق من تطابق الحجم
+                    const isSameSize = (!selectedSize && !matchingItem.selectedSize) ||
+                        (selectedSize && matchingItem.selectedSize && selectedSize.id === matchingItem.selectedSize.id);
+
+                    // التحقق من تطابق اللون
+                    const isSameColor = (!selectedColor && !matchingItem.selectedColor) ||
+                        (selectedColor === matchingItem.selectedColor);
+
+                    // التحقق من تطابق الإضافات
+                    const orderAddons = matchingItem.selectedAddons || [];
+                    const newAddons = selectedAddons || [];
+                    const isSameAddons = orderAddons.length === newAddons.length &&
+                        orderAddons.every((addon: any) =>
+                            newAddons.some(newAddon => newAddon.id === addon.id)
+                        );
+
+                    // إذا كانت جميع المواصفات متطابقة، نعتبره حجز مكرر
+                    if (isSameSize && isSameColor && isSameAddons) {
+                        console.log('🚫 تم اكتشاف حجز مكرر بنفس المواصفات:', order.id);
+                        return {
+                            isSpam: true,
+                            message: 'لديك حجز مسجل بالفعل في نفس التوقيت بنفس المواصفات. لا يمكن تكرار الحجز خلال نفس الفترة الزمنية.'
+                        };
+                    } else {
+                        console.log('✅ نفس المستخدم لكن مواصفات مختلفة - السماح بالحجز');
+                    }
                 }
             }
         }

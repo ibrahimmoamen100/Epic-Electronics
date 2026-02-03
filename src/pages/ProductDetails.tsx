@@ -476,7 +476,11 @@ const ProductDetails = () => {
         phoneNumber: formData.phoneNumber,
         address: formData.address,
         appointmentDate: formData.appointmentDate,
-        appointmentTime: formData.appointmentTime
+        appointmentTime: formData.appointmentTime,
+        productId: product.id,
+        selectedSize: selectedSize,
+        selectedAddons: selectedAddons,
+        selectedColor: selectedColor
       });
 
       if (spamResult.isSpam) {
