@@ -354,14 +354,29 @@ const Admin = () => {
   );
 
   const handleUpdatePriority = useCallback(
-    async (productId: string, newPriority: number | null) => {
+    async (productId: string, newPriority: number | null): Promise<boolean> => {
       try {
+        // Check for duplicate priority
+        if (newPriority !== null) {
+          const existingProduct = products.find(
+            (p) => p.displayPriority === newPriority && p.id !== productId
+          );
+
+          if (existingProduct) {
+            toast.error(`رقم الأولوية ${newPriority} مستخدم بالفعل للمنتج: ${existingProduct.name}`);
+            return false;
+          }
+        }
+
         const product = products.find(p => p.id === productId);
         if (product) {
           await updateProduct({ ...product, displayPriority: newPriority });
+          return true;
         }
+        return false;
       } catch (error) {
         toast.error("فشل في تحديث أولوية الظهور");
+        return false;
       }
     },
     [products, updateProduct]

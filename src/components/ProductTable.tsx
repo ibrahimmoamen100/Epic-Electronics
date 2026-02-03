@@ -47,7 +47,7 @@ interface ProductTableProps {
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
   onUpdateQuantity?: (productId: string, newQuantity: number) => void;
-  onUpdatePriority?: (productId: string, newPriority: number | null) => void;
+  onUpdatePriority?: (productId: string, newPriority: number | null) => Promise<boolean>;
 }
 
 export function ProductTable({
@@ -116,15 +116,17 @@ export function ProductTable({
     setEditingPriority(currentPriority?.toString() || "");
   };
 
-  const handlePrioritySave = () => {
+  const handlePrioritySave = async () => {
     if (editingPriorityProductId && onUpdatePriority) {
       // Treat empty string or 0 as null (no priority)
       const parsedValue = editingPriority === "" ? null : parseInt(editingPriority);
       const newPriority = (parsedValue === null || parsedValue === 0) ? null : parsedValue;
 
       if (newPriority === null || (!isNaN(newPriority) && newPriority > 0)) {
-        onUpdatePriority(editingPriorityProductId, newPriority);
-        toast.success("تم تحديث أولوية الظهور بنجاح");
+        const success = await onUpdatePriority(editingPriorityProductId, newPriority);
+        if (success) {
+          toast.success("تم تحديث أولوية الظهور بنجاح");
+        }
       } else {
         toast.error("يرجى إدخال رقم صحيح (1 أو أكثر)");
       }
@@ -375,10 +377,10 @@ export function ProductTable({
                       title="انقر لتعديل الأولوية"
                     >
                       <Badge
-                        variant={product.displayPriority !== undefined ? "default" : "secondary"}
+                        variant={product.displayPriority && product.displayPriority > 0 ? "default" : "secondary"}
                         className="font-normal"
                       >
-                        {product.displayPriority !== undefined ? product.displayPriority : "بدون"}
+                        {product.displayPriority && product.displayPriority > 0 ? product.displayPriority : "بدون"}
                       </Badge>
                     </div>
                   )}
