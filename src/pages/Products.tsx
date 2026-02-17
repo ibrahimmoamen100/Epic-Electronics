@@ -167,6 +167,35 @@ export default function Products() {
           : false;
     }
 
+    // Features filter
+    if (filters.features && filters.features.length > 0) {
+      const productFeatures = [];
+      const termTouch = "touch";
+      const termX360 = "x360";
+
+      if (product.name.toLowerCase().includes(termTouch) ||
+        product.description.toLowerCase().includes(termTouch) ||
+        product.display?.resolution?.toLowerCase().includes(termTouch) ||
+        product.display?.panelType?.toLowerCase().includes(termTouch)) {
+        productFeatures.push('touch');
+      }
+
+      if (product.name.toLowerCase().includes(termX360) ||
+        product.description.toLowerCase().includes(termX360)) {
+        productFeatures.push('x360');
+      }
+
+      if (product.name.toLowerCase().includes('detachable') ||
+        product.description.toLowerCase().includes('detachable')) {
+        productFeatures.push('detachable');
+      }
+
+      // Check if product has any of the selected features
+      if (!filters.features.some(f => productFeatures.includes(f))) {
+        return false;
+      }
+    }
+
     // Processor brand filter (multiple selection)
     if (filters.processorBrand && filters.processorBrand.length > 0) {
       const processorBrand = product.processor?.processorBrand;

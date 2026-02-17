@@ -66,6 +66,7 @@ export const useStore = create<StoreState>()(
         dedicatedGraphicsName: undefined,
         hasDedicatedGraphics: undefined,
         screenSize: undefined,
+        features: undefined,
         sortBy: undefined,
       },
       loading: false,

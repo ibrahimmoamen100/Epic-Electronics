@@ -24,7 +24,7 @@ export function ProductFilters() {
   const navigate = useNavigate();
 
   // State to control accordion sections
-  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "sort", "subcategory", "brand"]);
+  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "sort", "subcategory", "brand", "features"]);
 
   const optionRow =
     "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 hover:border-border/60 hover:bg-muted/60 transition-colors cursor-pointer text-sm";
@@ -107,6 +107,33 @@ export function ProductFilters() {
       if (excludeKey !== 'screenSize' && filters.screenSize && filters.screenSize.length > 0) {
         const pSize = product.display?.sizeInches;
         if (pSize === undefined || !filters.screenSize.includes(String(pSize))) return false;
+      }
+
+      // Features (Touch / x360)
+      if (excludeKey !== 'features' && filters.features && filters.features.length > 0) {
+        const productFeatures = [];
+        const termTouch = "touch";
+        const termX360 = "x360";
+
+        if (product.name.toLowerCase().includes(termTouch) ||
+          product.description.toLowerCase().includes(termTouch) ||
+          product.display?.resolution?.toLowerCase().includes(termTouch) ||
+          product.display?.panelType?.toLowerCase().includes(termTouch)) {
+          productFeatures.push('touch');
+        }
+
+        if (product.name.toLowerCase().includes(termX360) ||
+          product.description.toLowerCase().includes(termX360)) {
+          productFeatures.push('x360');
+        }
+
+        if (product.name.toLowerCase().includes('detachable') ||
+          product.description.toLowerCase().includes('detachable')) {
+          productFeatures.push('detachable');
+        }
+
+        // OR Logic: If product has ANY of the selected features
+        if (!filters.features.some(f => productFeatures.includes(f))) return false;
       }
 
       // Has Dedicated GPU
@@ -212,6 +239,33 @@ export function ProductFilters() {
     p.forEach(prod => {
       const v = prod.dedicatedGraphics?.name;
       if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    return counts;
+  }, [products, filters]);
+
+  const featureCounts = useMemo(() => {
+    const p = getFilteredProducts('features');
+    const counts: Record<string, number> = { touch: 0, x360: 0, detachable: 0 };
+    p.forEach(prod => {
+      const termTouch = "touch";
+      const termX360 = "x360";
+
+      if (prod.name.toLowerCase().includes(termTouch) ||
+        prod.description.toLowerCase().includes(termTouch) ||
+        prod.display?.resolution?.toLowerCase().includes(termTouch) ||
+        prod.display?.panelType?.toLowerCase().includes(termTouch)) {
+        counts['touch'] = (counts['touch'] || 0) + 1;
+      }
+
+      if (prod.name.toLowerCase().includes(termX360) ||
+        prod.description.toLowerCase().includes(termX360)) {
+        counts['x360'] = (counts['x360'] || 0) + 1;
+      }
+
+      if (prod.name.toLowerCase().includes('detachable') ||
+        prod.description.toLowerCase().includes('detachable')) {
+        counts['detachable'] = (counts['detachable'] || 0) + 1;
+      }
     });
     return counts;
   }, [products, filters]);
@@ -411,6 +465,35 @@ export function ProductFilters() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* New: Special Features Filter */}
+        <AccordionItem value="features">
+          <AccordionTrigger>مميزات خاصة</AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 pt-2">
+              {renderCheckboxOption(
+                'feat-touch',
+                'لاب تاتش',
+                filters.features?.includes('touch') || false,
+                featureCounts['touch'] || 0,
+                () => toggleFilter('features', 'touch')
+              )}
+              {renderCheckboxOption(
+                'feat-x360',
+                'لاب x360',
+                filters.features?.includes('x360') || false,
+                featureCounts['x360'] || 0,
+                () => toggleFilter('features', 'x360')
+              )}
+              {renderCheckboxOption(
+                'feat-detachable',
+                'لاب قابل للفصل',
+                filters.features?.includes('detachable') || false,
+                featureCounts['detachable'] || 0,
+                () => toggleFilter('features', 'detachable')
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
 
 
         {/* 6. Screen Size */}
@@ -535,6 +618,7 @@ export function ProductFilters() {
             dedicatedGpuModel: undefined,
             hasDedicatedGraphics: undefined,
             screenSize: undefined,
+            features: undefined,
           });
           navigate('/products');
         }}

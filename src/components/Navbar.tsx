@@ -32,6 +32,7 @@ export function Navbar() {
   // const { userProfile, signInWithGoogle, signInWithGoogleRedirect, signOutUser, loading } = useAuth();
   // const [isSigningIn, setIsSigningIn] = useState(false);
   // const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <nav className="sticky top-0 z-50 border-b bg-background shadow-sm">
@@ -70,7 +71,7 @@ export function Navbar() {
               </Button>
             </Link>
 
-            <Sheet>
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="md:hidden">
                   <Menu className="h-4 w-4" />
@@ -87,6 +88,7 @@ export function Navbar() {
                       <Link
                         key={item.href}
                         to={item.href}
+                        onClick={() => setIsOpen(false)}
                         className="block text-sm font-medium px-4 py-2 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-300"
                       >
                         {t(item.name)}
@@ -94,6 +96,7 @@ export function Navbar() {
                     ))}
                     <Link
                       to="/cart"
+                      onClick={() => setIsOpen(false)}
                       className="block text-sm font-medium px-4 py-2 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-300"
                     >
                       {t("navigation.cart")}

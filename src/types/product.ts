@@ -122,6 +122,7 @@ export const FilterSchema = z.object({
   dedicatedGpuModel: z.array(z.string()).optional(), // Multiple selection
   hasDedicatedGraphics: z.boolean().optional(),
   screenSize: z.array(z.string()).optional(),
+  features: z.array(z.string()).optional(),
   sortBy: z
     .enum(["price-asc", "price-desc", "name-asc", "name-desc"])
     .optional(),
