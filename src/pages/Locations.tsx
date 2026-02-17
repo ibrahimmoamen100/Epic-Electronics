@@ -16,7 +16,7 @@ export default function Locations() {
     <div className="min-h-screen flex flex-col">
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
-        <motion.div 
+        <motion.div
           className="text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -29,7 +29,7 @@ export default function Locations() {
             </h1>
           </div>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-تعرف علي اماكن وجودنا          </p>
+            تعرف علي اماكن وجودنا          </p>
         </motion.div>
 
 
@@ -37,30 +37,28 @@ export default function Locations() {
         {/* Locations Grid */}
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Locations List */}
-          <motion.div 
+          <motion.div
             className="space-y-6"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
             {STORE_LOCATIONS.map((location, index) => (
-              <Card 
-                key={location.id} 
-                className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                  selectedLocation.id === location.id 
-                    ? 'ring-2 ring-primary shadow-lg' 
+              <Card
+                key={location.id}
+                className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${selectedLocation.id === location.id
+                    ? 'ring-2 ring-primary shadow-lg'
                     : 'hover:shadow-md'
-                }`}
+                  }`}
                 onClick={() => setSelectedLocation(location)}
               >
                 <CardContent className="p-6">
                   <div className="space-y-4">
                     <div className="flex items-start gap-4">
-                      <div className={`p-3 rounded-full ${
-                        selectedLocation.id === location.id 
-                          ? 'bg-primary text-white' 
+                      <div className={`p-3 rounded-full ${selectedLocation.id === location.id
+                          ? 'bg-primary text-white'
                           : 'bg-primary/10 text-primary'
-                      }`}>
+                        }`}>
                         <Building className="h-6 w-6" />
                       </div>
                       <div className="flex-1">
@@ -87,11 +85,20 @@ export default function Locations() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <Clock className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">ساعات العمل</p>
-                          <p className="text-blue-600 font-semibold">{location.hours}</p>
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-5 w-5 text-blue-600 mt-1" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-500 mb-2">ساعات العمل</p>
+                          <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-gray-700">جميع الأيام</span>
+                              <span className="text-sm font-bold text-blue-700" dir="ltr">11:00 AM - 9:00 PM</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 border-t border-blue-100 pt-2">
+                              <span className="text-sm text-gray-700">الجمعة</span>
+                              <span className="text-sm font-bold text-red-500">إجازة</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -129,7 +136,7 @@ export default function Locations() {
           </motion.div>
 
           {/* Map Section */}
-          <motion.div 
+          <motion.div
             className="h-[500px] lg:h-[600px]"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
