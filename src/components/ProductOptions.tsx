@@ -439,11 +439,15 @@ export function ProductOptions({
                       <span className="text-xs text-blue-800 font-medium">
                         الشحن: <span className="font-bold text-blue-900 text-sm">
                           {(() => {
-                            const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(formData.governorate?.trim() || '');
+                            const gov = formData.governorate?.trim() || '';
+                            const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(gov);
+                            const isRemote = /^(قنا|الاقصر|الأقصر|اسوان|أسوان|شرم الشيخ|الغردقة|الغردقه|مرسى)$/i.test(gov);
                             const total = currentPrice * quantity;
 
                             if (isCairo) {
                               return total > 11000 ? '120 ج.م' : '100 ج.م';
+                            } else if (isRemote) {
+                              return '200 ج.م';
                             } else {
                               return total > 11000 ? '170 ج.م' : '150 ج.م';
                             }
@@ -451,10 +455,14 @@ export function ProductOptions({
                         </span>
                       </span>
                       <span className="text-[10px] text-blue-700 bg-blue-100/50 px-2 py-0.5 rounded-full">
-                        {/^(cairo|القاهرة|القاهره|القاهرا)$/i.test(formData.governorate?.trim() || '')
-                          ? 'خلال 24 ساعة'
-                          : 'خلال 48 ساعة'
-                        }
+                        {(() => {
+                          const gov = formData.governorate?.trim() || '';
+                          const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(gov);
+                          const isRemote = /^(قنا|الاقصر|الأقصر|اسوان|أسوان|شرم الشيخ|الغردقة|الغردقه|مرسى)$/i.test(gov);
+                          if (isCairo) return 'خلال 24 ساعة';
+                          if (isRemote) return 'خلال 48 ساعة';
+                          return 'خلال 48 ساعة';
+                        })()}
                       </span>
                     </div>
                   ) : (

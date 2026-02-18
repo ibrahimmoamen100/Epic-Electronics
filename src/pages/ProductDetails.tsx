@@ -666,7 +666,7 @@ const ProductDetails = () => {
       '',
       '🚚 مصاريف الشحن:',
       '• داخل القاهرة: 100 جنيه – التوصيل خلال 24 ساعة',
-      '• باقي المحافظات: 180 جنيه – التوصيل خلال 48 ساعة'
+      '• باقي المحافظات: 150 جنيه – التوصيل خلال 48 ساعة'
     ].filter(Boolean); // Remove null/empty lines
 
     const finalString = textLines.join('\n');
@@ -1742,7 +1742,7 @@ const ProductDetails = () => {
                   جميع المحافظات
                 </p>
                 <div className="text-right">
-                  <p className="font-bold text-yellow-800">150 ج.م</p>
+                  <p className="font-bold text-yellow-800">200 ج.م</p>
                   <p className="text-xs text-yellow-600">(48 ساعة)</p>
                 </div>
               </div>
@@ -1781,10 +1781,14 @@ const ProductDetails = () => {
                   'سيتم التواصل معك قريباً لتأكيد الحجز'
                 ) : (
                   <>
-                    {/^(cairo|القاهرة|القاهره|القاهرا)$/i.test(orderSuccess.governorate?.trim() || '')
-                      ? 'سيتم التواصل معك خلال 24 ساعة'
-                      : 'سيتم التواصل معك خلال 48 ساعة'
-                    }
+                    {(() => {
+                      const gov = orderSuccess.governorate?.trim() || '';
+                      const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(gov);
+                      const isRemote = /^(قنا|الاقصر|الأقصر|اسوان|أسوان|شرم الشيخ|الغردقة|الغردقه|مرسى علم | مرسى مطروح)$/i.test(gov);
+                      if (isCairo) return 'سيتم التواصل معك خلال 24 ساعة';
+                      if (isRemote) return 'سيتم التواصل معك خلال 48 ساعة';
+                      return 'سيتم التواصل معك خلال 48 ساعة';
+                    })()}
                   </>
                 )}
 
@@ -1826,11 +1830,15 @@ const ProductDetails = () => {
                       قيمة الشحن المطلوبة:{' '}
                       <span className="font-bold text-blue-900 text-base">
                         {(() => {
-                          const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(orderSuccess.governorate?.trim() || '');
+                          const gov = orderSuccess.governorate?.trim() || '';
+                          const isCairo = /^(cairo|القاهرة|القاهره|القاهرا)$/i.test(gov);
+                          const isRemote = /^(قنا|الاقصر|الأقصر|اسوان|أسوان|شرم الشيخ|الغردقة|الغردقه|مرسى علم | مرسى مطروح)$/i.test(gov);
                           const total = orderSuccess.totalAmount || 0;
 
                           if (isCairo) {
                             return total > 11000 ? '120 ج.م' : '100 ج.م';
+                          } else if (isRemote) {
+                            return '200 ج.م';
                           } else {
                             return total > 11000 ? '170 ج.م' : '150 ج.م';
                           }
