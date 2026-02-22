@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductFilters } from "@/components/ProductFilters";
@@ -33,10 +33,80 @@ import { ActiveFilters } from "@/components/ActiveFilters";
 import { SEOHelmet } from "@/components/SEOHelmet";
 import { DEFAULT_SUPPLIER } from "@/constants/supplier";
 
+// ─── Helper: convert Filter → URLSearchParams (ordered per spec) ───────────
+function filtersToSearchParams(filters: import("@/types/product").Filter): URLSearchParams {
+  const params = new URLSearchParams();
+
+  // 1. نطاق السعر
+  if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+  // 2. الفئة
+  filters.category?.forEach((v) => params.append("category", v));
+  // 3. الماركة
+  filters.brand?.forEach((v) => params.append("brand", v));
+  // 4. الفئة الفرعية
+  filters.subcategory?.forEach((v) => params.append("subcategory", v));
+  // 5. مميزات خاصة
+  filters.features?.forEach((v) => params.append("features", v));
+  // 6. حجم الشاشة
+  filters.screenSize?.forEach((v) => params.append("screenSize", v));
+  // 7. نوع المعالج (processorBrand)
+  filters.processorBrand?.forEach((v) => params.append("processorBrand", v));
+  // 8. فئة المعالج (processorSeries)
+  filters.processorSeries?.forEach((v) => params.append("processorSeries", v));
+  // 9. جيل المعالج
+  filters.processorGeneration?.forEach((v) => params.append("processorGeneration", v));
+  // 10. كرت شاشة خارجي (dedicatedGpuBrand)
+  filters.dedicatedGpuBrand?.forEach((v) => params.append("dedicatedGpuBrand", v));
+  // كرت شاشة خارجي - موديل
+  filters.dedicatedGpuModel?.forEach((v) => params.append("dedicatedGpuModel", v));
+  // 11. كرت الشاشة المدمج
+  filters.integratedGpu?.forEach((v) => params.append("integratedGpu", v));
+  // 12. اسم المعالج
+  filters.processorName?.forEach((v) => params.append("processorName", v));
+
+  // إضافية: hasDedicatedGraphics
+  if (filters.hasDedicatedGraphics !== undefined)
+    params.set("hasDedicatedGraphics", filters.hasDedicatedGraphics ? "true" : "false");
+
+  return params;
+}
+
+// ─── Helper: parse URLSearchParams → Filter ─────────────────────────────────
+function searchParamsToFilters(params: URLSearchParams): Partial<import("@/types/product").Filter> {
+  const getArr = (key: string) => {
+    const vals = params.getAll(key);
+    return vals.length > 0 ? vals : undefined;
+  };
+
+  const minPriceStr = params.get("minPrice");
+  const maxPriceStr = params.get("maxPrice");
+  const hasDedStr = params.get("hasDedicatedGraphics");
+
+  return {
+    minPrice: minPriceStr ? Number(minPriceStr) : undefined,
+    maxPrice: maxPriceStr ? Number(maxPriceStr) : undefined,
+    category: getArr("category"),
+    brand: getArr("brand"),
+    subcategory: getArr("subcategory"),
+    features: getArr("features"),
+    screenSize: getArr("screenSize"),
+    processorBrand: getArr("processorBrand") as any,
+    processorSeries: getArr("processorSeries"),
+    processorGeneration: getArr("processorGeneration"),
+    dedicatedGpuBrand: getArr("dedicatedGpuBrand") as any,
+    dedicatedGpuModel: getArr("dedicatedGpuModel"),
+    integratedGpu: getArr("integratedGpu"),
+    processorName: getArr("processorName"),
+    hasDedicatedGraphics: hasDedStr !== null ? hasDedStr === "true" : undefined,
+  };
+}
+
 export default function Products() {
   const { t } = useTranslation();
   const { category: categoryParam } = useParams();
-  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const products = useStore((state) => state.products);
   const filters = useStore((state) => state.filters);
   const setFilters = useStore((state) => state.setFilters);
@@ -50,12 +120,60 @@ export default function Products() {
   const [openDrawer, setOpenDrawer] = useState(false);
   const productsPerPage = 12;
 
+  // ─── refs for URL sync logic ─────────────────────────────────────────────
+  // Tracks whether we've already processed the initial URL on mount
+  const didReadFromUrl = useRef(false);
+  // Prevents URL sync from running on the very first render (before the URL
+  // read effect has had a chance to set the filters). Without this guard,
+  // the sync effect fires with the empty initial store state and immediately
+  // wipes the query-params out of the address bar on refresh.
+  const isFirstRender = useRef(true);
+
   // Load products from Firebase on component mount
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  // Read category from URL and update filters
+  // On first mount: read filters from URL query params
+  useEffect(() => {
+    if (didReadFromUrl.current) return;
+    didReadFromUrl.current = true;
+
+    // Only apply if there are actual query params
+    if (location.search && location.search.length > 1) {
+      const fromUrl = searchParamsToFilters(searchParams);
+      // Merge with category from URL path param if present
+      const merged = { ...filters, ...fromUrl };
+      if (categoryParam && !merged.category) {
+        merged.category = [decodeURIComponent(categoryParam)];
+      }
+      setFilters(merged as any);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Whenever filters change → sync URL (only on /products route)
+  useEffect(() => {
+    // Skip the very first execution: at that point the URL-read effect above
+    // has not yet applied the params from the address bar, so syncing here
+    // would overwrite the URL with an empty query string.
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    if (categoryParam) return; // /products/:category path – skip URL sync
+
+    const newParams = filtersToSearchParams(filters);
+    const newStr = newParams.toString();
+    const currentStr = searchParams.toString();
+    if (newStr !== currentStr) {
+      setSearchParams(newParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  // Read category from URL path param and update filters
   useEffect(() => {
     if (categoryParam) {
       // Decode the category parameter (handle Arabic text)
@@ -73,8 +191,8 @@ export default function Products() {
           size: undefined, // Reset size when category changes
         });
       }
-    } else if (filters.category && filters.category.length > 0) {
-      // If no category in URL but filters has category, clear it
+    } else if (!location.search && filters.category && filters.category.length > 0) {
+      // If no category in URL path and no query params either, clear category filter
       setFilters({
         ...filters,
         category: undefined,
@@ -84,7 +202,7 @@ export default function Products() {
         size: undefined,
       });
     }
-  }, [categoryParam, setFilters]);
+  }, [categoryParam]);
 
   // Apply filters to products
   const filteredProducts = products?.filter((product) => {

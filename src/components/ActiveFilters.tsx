@@ -1,8 +1,8 @@
 import { useStore } from "@/store/useStore";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { X } from "lucide-react";
-import { useMemo } from "react";
+import { X, Share2, Check } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Filter } from "@/types/product";
 import { Button } from "@/components/ui/button";
 
@@ -367,6 +367,15 @@ export function ActiveFilters() {
   };
 
   const activeFilters = getActiveFilters();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   if (activeFilters.length === 0) {
     return null;
@@ -374,14 +383,30 @@ export function ActiveFilters() {
 
   return (
     <div className="mb-6 space-y-3">
-      {/* Products Count */}
+      {/* Products Count + Share Button */}
       <div className="flex items-center justify-between pb-2 border-b">
         <span className="text-base font-semibold text-foreground">
           {t("products.title") || "المنتجات"}
         </span>
-        <span className="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
-          {filteredProductsCount} {t("products.product") || "منتج"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
+            {filteredProductsCount} {t("products.product") || "منتج"}
+          </span>
+          <button
+            onClick={handleCopyLink}
+            title={copied ? "تم النسخ!" : "مشاركة الرابط"}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200 ${copied
+                ? "bg-green-50 text-green-600 border-green-200"
+                : "bg-muted/50 text-muted-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/20"
+              }`}
+          >
+            {copied ? (
+              <><Check className="h-3.5 w-3.5" /> تم النسخ!</>
+            ) : (
+              <><Share2 className="h-3.5 w-3.5" /> مشاركة</>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Active Filters */}
