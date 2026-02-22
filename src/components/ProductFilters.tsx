@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatCurrency } from "@/utils/format";
 import { Filter, Product } from "@/types/product";
 
@@ -23,8 +23,60 @@ export function ProductFilters() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  // State to control accordion sections
-  const [accordionValue, setAccordionValue] = useState<string[]>(["price", "sort", "subcategory", "brand", "features"]);
+  // Map each filter key to the accordion section that controls it
+  const filterToAccordion: Record<string, string> = {
+    minPrice: "price",
+    maxPrice: "price",
+    category: "category",
+    brand: "brand",
+    subcategory: "subcategory",
+    features: "features",
+    screenSize: "screen-size",
+    processorBrand: "processor-brand",
+    processorSeries: "processor-series",
+    processorGeneration: "processor-gen",
+    dedicatedGraphicsName: "gpu",
+    dedicatedGpuBrand: "gpu",
+    dedicatedGpuModel: "gpu",
+    hasDedicatedGraphics: "gpu",
+    integratedGpu: "integrated-gpu",
+    processorName: "processor-name",
+  };
+
+  // Determine which sections should start open:
+  // always open price & sort, plus any section that already has an active filter.
+  const computeInitialOpenSections = (): string[] => {
+    const always = ["price", "sort", "subcategory", "brand", "features"];
+    const fromFilters = Object.entries(filterToAccordion)
+      .filter(([key]) => {
+        const val = (filters as any)[key];
+        if (val === undefined || val === null) return false;
+        if (Array.isArray(val)) return val.length > 0;
+        return true; // boolean / number
+      })
+      .map(([, section]) => section);
+    return Array.from(new Set([...always, ...fromFilters]));
+  };
+
+  const [accordionValue, setAccordionValue] = useState<string[]>(() => computeInitialOpenSections());
+
+  // When filters change (e.g. when URL params are applied on mount/refresh),
+  // auto-open any accordion section that now has an active filter.
+  useEffect(() => {
+    const sectionsToOpen = Object.entries(filterToAccordion)
+      .filter(([key]) => {
+        const val = (filters as any)[key];
+        if (val === undefined || val === null) return false;
+        if (Array.isArray(val)) return val.length > 0;
+        return true;
+      })
+      .map(([, section]) => section);
+
+    if (sectionsToOpen.length > 0) {
+      setAccordionValue((prev) => Array.from(new Set([...prev, ...sectionsToOpen])));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const optionRow =
     "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 hover:border-border/60 hover:bg-muted/60 transition-colors cursor-pointer text-sm";

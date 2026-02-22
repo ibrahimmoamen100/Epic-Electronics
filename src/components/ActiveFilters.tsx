@@ -344,6 +344,23 @@ export function ActiveFilters() {
       });
     }
 
+    // Features filter (مميزات خاصة)
+    if (filters.features && filters.features.length > 0) {
+      const featureLabels: Record<string, string> = {
+        touch: 'لاب تاتش',
+        x360: 'لاب x360',
+        detachable: 'لاب قابل للفصل',
+      };
+      filters.features.forEach(feat => {
+        activeFilters.push({
+          key: `feature-${feat}`,
+          label: 'مميزات خاصة',
+          value: featureLabels[feat] || feat,
+          removeHandler: () => removeFromArray('features', feat),
+        });
+      });
+    }
+
     // Price range filters
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
       const priceLabel =
@@ -396,8 +413,8 @@ export function ActiveFilters() {
             onClick={handleCopyLink}
             title={copied ? "تم النسخ!" : "مشاركة الرابط"}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200 ${copied
-                ? "bg-green-50 text-green-600 border-green-200"
-                : "bg-muted/50 text-muted-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/20"
+              ? "bg-green-50 text-green-600 border-green-200"
+              : "bg-muted/50 text-muted-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/20"
               }`}
           >
             {copied ? (
@@ -454,6 +471,7 @@ export function ActiveFilters() {
               dedicatedGpuModel: undefined,
               hasDedicatedGraphics: undefined,
               screenSize: undefined,
+              features: undefined,
             });
             if (window.location.pathname.includes('/products/')) {
               navigate('/products');

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useLocation, useSearchParams } from "react-router-dom";
 import { useStore } from "@/store/useStore";
@@ -120,49 +120,37 @@ export default function Products() {
   const [openDrawer, setOpenDrawer] = useState(false);
   const productsPerPage = 12;
 
-  // ─── refs for URL sync logic ─────────────────────────────────────────────
-  // Tracks whether we've already processed the initial URL on mount
-  const didReadFromUrl = useRef(false);
-  // Prevents URL sync from running on the very first render (before the URL
-  // read effect has had a chance to set the filters). Without this guard,
-  // the sync effect fires with the empty initial store state and immediately
-  // wipes the query-params out of the address bar on refresh.
-  const isFirstRender = useRef(true);
+  // ─── URL ↔ Filters sync ──────────────────────────────────────────────────
+  // urlInitialized is a STATE (not a ref) so it survives React Strict Mode's
+  // double-invocation of effects and correctly gates the URL-sync effect.
+  const [urlInitialized, setUrlInitialized] = useState(false);
 
   // Load products from Firebase on component mount
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  // On first mount: read filters from URL query params
+  // ① On mount: read filter params from the URL and apply them to the store.
+  //    Then mark urlInitialized = true so the sync effect below can activate.
   useEffect(() => {
-    if (didReadFromUrl.current) return;
-    didReadFromUrl.current = true;
-
-    // Only apply if there are actual query params
     if (location.search && location.search.length > 1) {
       const fromUrl = searchParamsToFilters(searchParams);
-      // Merge with category from URL path param if present
-      const merged = { ...filters, ...fromUrl };
+      const merged: any = { ...filters, ...fromUrl };
       if (categoryParam && !merged.category) {
         merged.category = [decodeURIComponent(categoryParam)];
       }
-      setFilters(merged as any);
+      setFilters(merged);
     }
+    setUrlInitialized(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Whenever filters change → sync URL (only on /products route)
+  // ② Whenever filters change → write them back to the URL.
+  //    This effect is gated on urlInitialized so it never runs before ① has
+  //    finished reading the URL — which would wipe the query string.
   useEffect(() => {
-    // Skip the very first execution: at that point the URL-read effect above
-    // has not yet applied the params from the address bar, so syncing here
-    // would overwrite the URL with an empty query string.
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-
-    if (categoryParam) return; // /products/:category path – skip URL sync
+    if (!urlInitialized) return;          // ① hasn't finished yet — do nothing
+    if (categoryParam) return;            // /products/:category — skip URL sync
 
     const newParams = filtersToSearchParams(filters);
     const newStr = newParams.toString();
@@ -171,7 +159,7 @@ export default function Products() {
       setSearchParams(newParams, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, urlInitialized]);
 
   // Read category from URL path param and update filters
   useEffect(() => {
