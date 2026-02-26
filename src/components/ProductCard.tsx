@@ -46,6 +46,11 @@ export const ProductCard = ({
     (product.sizes && product.sizes.length > 0) ||
     (product.addons && product.addons.length > 0);
 
+  // Check if product is new (added within last 3 days)
+  const isNewProduct = product.createdAt
+    ? (new Date().getTime() - new Date(product.createdAt).getTime()) / (1000 * 60 * 60 * 24) <= 3
+    : false;
+
   // Calculate time remaining for special offers
   useEffect(() => {
     if (!product.specialOffer || !product.offerEndsAt) return;
@@ -298,16 +303,27 @@ export const ProductCard = ({
         )}
 
         {isLowStock && !isOutOfStock && (
-          <div className="absolute top-2 left-2 bg-orange-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
+          <div className="absolute top-2 left-2 bg-orange-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg z-10">
             كمية محدودة
           </div>
         )}
 
-        {product.specialOffer && timeRemaining && (
-          <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
-            -{product.discountPercentage}%
-          </div>
-        )}
+        <div className="absolute top-2 right-2 flex flex-col gap-2 items-end z-10">
+          {product.specialOffer && timeRemaining && (
+            <div className="bg-red-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg">
+              -{product.discountPercentage}%
+            </div>
+          )}
+          {isNewProduct && (
+            <div className="bg-blue-600 text-white px-2 py-1 rounded-md text-xs font-bold shadow-lg flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+              </span>
+              جديد
+            </div>
+          )}
+        </div>
 
         {/* Image indicator if multiple images */}
         {product.images && product.images.length > 1 && (

@@ -257,6 +257,7 @@ export class FirebaseProductsService {
 
       return {
         ...(cleanProduct as any),
+        createdAt: (cleanProduct as any).createdAt || new Date().toISOString(),
         id: uniqueSlug,
       } as Product;
     } catch (error: any) {
@@ -267,6 +268,7 @@ export class FirebaseProductsService {
         const uniqueSlug = baseSlug + '-' + Date.now();
         const productWithId = {
           ...(cleanProduct as any),
+          createdAt: (cleanProduct as any).createdAt || new Date().toISOString(),
           id: uniqueSlug,
         } as Product;
 
