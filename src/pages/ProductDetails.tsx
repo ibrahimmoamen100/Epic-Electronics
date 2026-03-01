@@ -600,7 +600,15 @@ const ProductDetails = () => {
     // 1. Prepare Data
     const brand = product.brand;
     const category = product.subcategory || product.category; // Preference to subcategory/series
-    const processor = `${product.processor?.name || ''} ${product.processor?.processorGeneration ? `– ${product.processor.processorGeneration}` : ''}`.trim();
+
+    // Convert generation like "9th Generation" / "12th Gen" → "الجيل 9"
+    const formatGeneration = (gen: string | undefined): string => {
+      if (!gen) return '';
+      const match = gen.match(/(\d+)/);
+      return match ? `الجيل ${match[1]}` : gen;
+    };
+
+    const processor = `${product.processor?.name || ''} ${product.processor?.processorGeneration ? `– ${formatGeneration(product.processor.processorGeneration)}` : ''}`.trim();
 
     // Graphics
     const internalGpu = product.processor?.integratedGpu || 'غير محدد';
@@ -645,25 +653,31 @@ const ProductDetails = () => {
       ? `\n💾 الرامات والأسعار:\n${sortedSizes.map(size => `• برام ${size.label} بسعر: ${formatCurrency(size.price, 'جنيه')}`).join('\n')}`
       : `\n💰 السعر: ${formatCurrency(finalPrice, 'جنيه')}`;
 
+    // Colors
+    const colorsText = availableColors.length > 0
+      ? availableColors.map(c => getColorByName(c).name).join(' – ')
+      : '';
+
     // 3. Construct Final Text
     const textLines = [
-      `🔹 الماركة: ${brand}`,
-      `🔹 الفئة: ${category}`,
+      `🔹 الاسم: ${brand} ${category} `,
       processor ? `🔹 المعالج: ${processor}` : null,
       `🔹 كرت الشاشة الداخلي: ${internalGpu}`,
       externalGpu !== 'غير متوفر' ? `🔹 كرت الشاشة الخارجي: ${externalGpu}` : null,
       `🔹 التخزين: ${storage}`,
       display ? `🔹 الشاشة: ${display}` : null,
       features ? `🔹 ${features}` : null,
+      colorsText ? `🎨 الألوان المتاحة: ${colorsText}` : null,
       ramSection,
-      '',
-      '📸 يمكنك مشاهدة صور وفيديو اللابتوب والمواصفات كاملة',
-      '🛒 مع إمكانية الشراء من خلال اللينك الرسمي على متجر شركة الحمد',
+      ' ',
+      ' ',
+      '🛒  للشــراء + المواصفات اضغط هنا 👇   ',
       `🔗 ${window.location.href}`,
       '',
-      'أو يمكن الشراء من هنا 👇',
-      'فقط اترك اسمك، عنوانك، ورقم تليفونك',
+      ' ',
+      'او اترك اسمك، عنوانك، ورقم تليفونك',
       '',
+      ' ',
       '🚚 مصاريف الشحن:',
       '• داخل القاهرة: 100 جنيه – التوصيل خلال 24 ساعة',
       '• باقي المحافظات من 170 الي 200 جنيه – التوصيل خلال 48 ساعة'

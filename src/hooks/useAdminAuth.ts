@@ -27,7 +27,7 @@ export const useAdminAuth = (): UseAdminAuthReturn => {
 
       const result = await adminAuthService.verifySession();
       console.log('🔍 Session verification result:', result);
-      
+
       if (result.success && result.session) {
         console.log('✅ Session valid, setting authenticated state');
         console.log('🔄 Setting isAuthenticated to true...');
@@ -37,7 +37,7 @@ export const useAdminAuth = (): UseAdminAuthReturn => {
         console.log('🔄 Clearing error...');
         setError(null);
         console.log('✅ State updated - isAuthenticated: true, session: exists');
-        
+
         // Force a re-render to ensure state is updated
         setTimeout(() => {
           console.log('🔄 Forcing re-render after session verification...');
@@ -78,12 +78,12 @@ export const useAdminAuth = (): UseAdminAuthReturn => {
 
       const result = await adminAuthService.login(password);
       console.log('🔐 Login result:', result);
-      
+
       if (result.success && result.session) {
         console.log('✅ Login successful, setting authenticated state');
         console.log('✅ Setting isAuthenticated to true');
         console.log('✅ Setting session:', result.session);
-        
+
         // Set state immediately
         console.log('🔄 Setting isAuthenticated to true...');
         setIsAuthenticated(true);
@@ -91,11 +91,11 @@ export const useAdminAuth = (): UseAdminAuthReturn => {
         setSession(result.session);
         console.log('🔄 Clearing error...');
         setError(null);
-        
+
         console.log('✅ State updated, isAuthenticated should be true now');
         console.log('✅ Current state after update - isAuthenticated:', true);
         console.log('✅ Session set:', result.session);
-        
+
         // Force a re-render by triggering a state update
         setTimeout(() => {
           console.log('🔄 Forcing re-render after login...');
@@ -105,7 +105,7 @@ export const useAdminAuth = (): UseAdminAuthReturn => {
             console.log('🔄 Setting isAuthenticated to:', newValue);
             return newValue;
           });
-          
+
           // Also force session update
           setSession(prev => {
             console.log('🔄 Previous session:', prev);
@@ -113,11 +113,11 @@ export const useAdminAuth = (): UseAdminAuthReturn => {
             return result.session;
           });
         }, 100);
-        
+
         // Verify session after login to ensure consistency
         console.log('🔍 Verifying session after login...');
         await verifySession();
-        
+
         return { success: true };
       } else {
         console.log('❌ Login failed:', result.error);
@@ -138,9 +138,9 @@ export const useAdminAuth = (): UseAdminAuthReturn => {
   const logout = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const result = await adminAuthService.logout();
-      
+
       if (result.success) {
         setIsAuthenticated(false);
         setSession(null);
